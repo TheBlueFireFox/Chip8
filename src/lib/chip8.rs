@@ -1,6 +1,4 @@
-use std::{
-    time::Duration
-};
+
 /// The size of the chipset ram
 const MEMORY_SIZE : usize = 4096;
 /// The size of the chipset registers
@@ -21,6 +19,8 @@ const OPCODE_MASK_BASE : u16 = 0xF000;
 const OPCODE_MASK_FOUR : u16 = 0x000F;
 /// the mask for the last four bytes
 const OPCODE_MASK_EIGHT : u16 = 0x00FF;
+/// The starting point for the program
+pub const PROGRAM_COUNTER_BASE : usize = 0x200;
 
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures 
@@ -38,13 +38,34 @@ pub struct ChipSet <'a>{
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction VF is set upon 
     /// pixel collision. 
     registers : &'a [u8; REGISTER_SIZE],
+    /// The index for the register, this is a special register entrie
+    /// called index I
     index_register : usize,
+    // The program counter => where in the program we are
     program_counter : usize,
+    /// The stack is only used to store return addresses when subroutines are called. The original 
+    /// RCA 1802 version allocated 48 bytes for up to 12 levels of nesting; modern 
+    /// implementations usually have more. 
+    /// (here we are using 16)
     stack : &'a [u8; STACK_NESTING],
+    // The stack counter => where in the stack we are
     stack_counter : usize,
+    /// Delay timer: This timer is intended to be used for timing the events of games. Its value
+    /// can be set and read.
+    /// Counts down at 60 hertz, until it reaches 0.
     pub delay_timer : u8,
+    /// Sound timer: This timer is used for sound effects. When its value is nonzero, a beeping 
+    /// sound is made.
+    /// Counts down at 60 hertz, until it reaches 0.
     pub sound_timer : u8,
+    /// The graphics of the Chip 8 are black and white and the screen has a total of 2048 pixels 
+    /// (64 x 32). This can easily be implemented using an array that hold the pixel state (1 or 0):
     pub display : &'a [u8; DISPLAY_RESOLUTION],
+    /// Input is done with a hex keyboard that has 16 keys ranging 0 to F. The '8', '4', '6', and 
+    /// '2' keys are typically used for directional input. Three opcodes are used to detect input.
+    ///  One skips an instruction if a specific key is pressed, while another does the same if a 
+    /// specific key is not pressed. The third waits for a key press, and then stores it in one of 
+    /// the data registers. 
     pub keyboard : &'a [u8; KEYBOARD_SIZE]
 }
 
@@ -56,7 +77,7 @@ impl ChipSet<'_> {
             memory : &[0; MEMORY_SIZE],
             registers : &[0; REGISTER_SIZE],
             index_register : 0,
-            program_counter : 0x200,
+            program_counter : PROGRAM_COUNTER_BASE,
             stack : &[0; STACK_NESTING],
             stack_counter : 0,
             delay_timer : TIMER_HERZ,
