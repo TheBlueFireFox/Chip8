@@ -11,3 +11,4 @@ name = "lib"
 path = "src/lib/mod.rs"
 
 [dependencies]
+zip = "0.5.5"

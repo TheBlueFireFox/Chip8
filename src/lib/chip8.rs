@@ -42,10 +42,10 @@ pub struct ChipSet <'a>{
     program_counter : usize,
     stack : &'a [u8; STACK_NESTING],
     stack_counter : usize,
-    delay_timer : u8,
-    sound_timer : u8,
-    display : &'a [u8; DISPLAY_RESOLUTION],
-    keyboard : &'a [u8; KEYBOARD_SIZE]
+    pub delay_timer : u8,
+    pub sound_timer : u8,
+    pub display : &'a [u8; DISPLAY_RESOLUTION],
+    pub keyboard : &'a [u8; KEYBOARD_SIZE]
 }
 
 impl ChipSet<'_> {
@@ -69,7 +69,7 @@ impl ChipSet<'_> {
     /// will advance the program by a single step
     pub fn step(&mut self) {
         // get next opcode
-        self.opcode = u16::from_le_bytes(
+        self.opcode = u16::from_be_bytes(
             [self.memory[self.program_counter], self.memory[self.program_counter + 1]]
         );
         
