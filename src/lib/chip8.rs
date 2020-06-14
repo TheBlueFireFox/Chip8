@@ -262,7 +262,7 @@ impl ChipSet<'_> {
 
             }
             _ => {
-                panic!(format!("An unsupported opcode was used {:#X?}", self.opcode));
+                panic!(format!("An unsupported opcode was used {:#06X?}", self.opcode));
             }
         }
     }
@@ -318,7 +318,7 @@ impl ChipSet<'_> {
 
             }
             _ => {
-                panic!(format!("An unsupported opcode was used {:#X?}", self.opcode));
+                panic!(format!("An unsupported opcode was used {:#06X?}", self.opcode));
             }
         }
     }

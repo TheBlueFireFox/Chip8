@@ -1,24 +1,27 @@
 use lib::{
-    resources::{Rom
+    resources::{
+        RomArchives
     },
     chip8::PROGRAM_COUNTER_BASE
 };
 
 fn main() {
-    let mut rom = Rom::new();
-    let files = rom.file_names();
+    let mut rom = RomArchives::new();
+    let mut files = rom.file_names();
     
-    for file in files {
-        let data = rom.get_file_data(&file).unwrap();
-        println!("name {} len {}", file, data.len());
+    files.sort();
 
-        for i in (0..data.len()).step_by(6) {
-            let n = (i+5).min(data.len()-1);
+    for file in files {
+        let rom = rom.get_file_data(&file).unwrap();
+        println!("name {} len {}", file, rom.data.len());
+
+        for i in (0..rom.data.len()).step_by(6) {
+            let n = (i+5).min(rom.data.len()-1);
             print!("{:#06X} - {:#06X} : ", i + PROGRAM_COUNTER_BASE, n + PROGRAM_COUNTER_BASE);
             
             for j in i..n {
                 let opcode = u16::from_be_bytes(
-                    [data[j], data[j+1]]
+                    [rom.data[j], rom.data[j+1]]
                 );
                 print!("{:#06X} ", opcode);
             }
