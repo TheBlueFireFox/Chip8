@@ -42,7 +42,7 @@ pub struct ChipSet {
     registers: Vec<u8>,
     /// The index for the register, this is a special register entrie
     /// called index I
-    index_register: usize,
+    index_register: u16,
     // The program counter => where in the program we are
     program_counter: usize,
     /// The stack is only used to store return addresses when subroutines are called. The original
@@ -372,7 +372,7 @@ impl ChipSet {
     fn a(&mut self) {
         // ANNN
         // Sets I to the address NNN.
-        self.index_register = (self.opcode & OPCODE_MASK_0FFF) as usize;
+        self.index_register = self.opcode & OPCODE_MASK_0FFF;
         self.program_counter_step(1);
     }
 
@@ -436,7 +436,7 @@ impl ChipSet {
                 // FX0A
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
-
+                
             }
             0x0015 => {
                 // FX15
@@ -452,12 +452,26 @@ impl ChipSet {
                 // FX1E
                 // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
                 // 0 when there isn't.
-                
+                let xi = self.registers[x] as u16;
+                let res = self.index_register.checked_add(xi);
+
+                self.index_register = match res {
+                    Some(res) => {
+                        // addition without issues
+                        self.registers[REGISTER_LAST] = 1;
+                        res
+                    }
+                    None => {
+                        self.registers[REGISTER_LAST] = 0;
+                        self.index_register.wrapping_add(xi)
+                    }
+                }
             }
             0x0029 => {
                 // FX29
                 // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
                 // hexadecimal) are represented by a 4x5 font.
+
             }
             0x0033 => {
                 // FX33
@@ -466,11 +480,14 @@ impl ChipSet {
                 // significant digit at I plus 2. (In other words, take the decimal representation
                 // of VX, place the hundreds digit in memory at location in I, the tens digit at
                 // location I+1, and the ones digit at location I+2.)
+
             }
             0x0055 => {
                 // FX55
                 // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
                 // is increased by 1 for each value written, but I itself is left unmodified.
+                
+                
             }
             0x0065 => {
                 // FX65
