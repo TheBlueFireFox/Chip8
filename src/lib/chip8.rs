@@ -1,3 +1,8 @@
+use crate::{
+    resources::Rom,
+    opcode::*
+};
+use rand;
 /// The size of the chipset ram
 const MEMORY_SIZE: usize = 4096;
 /// The starting point for the program
@@ -13,25 +18,11 @@ const STACK_NESTING: usize = 16;
 /// The amount of herz the clocks run at in millisec
 const TIMER_HERZ: u8 = 60;
 /// The amount of herz the clocks run at in millisec
-const TIMER_INTERVAL: u32 = 1000 / TIMER_HERZ as u32;
+pub const TIMER_INTERVAL: u32 = 1000 / TIMER_HERZ as u32;
 /// The amount of pixels the display has
 const DISPLAY_RESOLUTION: usize = 64 * 23;
 /// all the different keybords
 const KEYBOARD_SIZE: usize = 0xF;
-/// the base mask used for generatring all the other sub masks
-const OPCODE_MASK_FFFF: u16 = u16::MAX;
-/// the mask for the first twelve bytes
-const OPCODE_MASK_FFF0: u16 = OPCODE_MASK_FFFF << 4;
-/// the mask for the first eight bytes
-const OPCODE_MASK_FF00: u16 = OPCODE_MASK_FFFF << 8;
-/// the mask for the first four bytes
-const OPCODE_MASK_F000: u16 = OPCODE_MASK_FFFF << 12;
-/// the mask for the last four bytes
-const OPCODE_MASK_000F: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FFF0;
-/// the mask for the last eight bytes
-const OPCODE_MASK_00FF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
-/// the mask for the last four bytes
-const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
 
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
@@ -39,7 +30,7 @@ const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
 /// Chip8 cpu.
 pub struct ChipSet {
     /// all two bytes long and stored big-endian
-    opcode: u16,
+    opcode: Opcode,
     /// 0x000-0x1FF - Chip 8 interpreter (contains font set in emu)
     /// 0x050-0x0A0 - Used for the built in 4x5 pixel font set (0-F)
     /// 0x200-0xFFF - Program ROM and work RAM
@@ -82,10 +73,18 @@ pub struct ChipSet {
 
 impl ChipSet {
     /// will create a new chipset object
-    pub fn new() -> Self {
+    pub fn new(rom : Rom) -> Self {
+        // initialize all the memory with 0
+        let mut memory = vec![0;MEMORY_SIZE];
+
+        // write all the data from the rom to memory
+        for data in rom.data {
+            memory.push(data);
+        }
+
         ChipSet {
             opcode: 0,
-            memory: vec![0; MEMORY_SIZE],
+            memory: memory,
             registers: vec![0; REGISTER_SIZE],
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
@@ -156,31 +155,11 @@ impl ChipSet {
             }
             _ => {
                 panic!(format!(
-                    "An unsupported opcode was used {:#X?}",
+                    "An unsupported opcode was used {:#06X}",
                     self.opcode
                 ));
             }
         }
-    }
-
-    /// this is a opcode extractor for the opcode type TXNN
-    /// T is the opcode type
-    /// X is a register index
-    /// NN is a constant
-    fn xnn(&self) -> (usize, u8) {
-        let x = (self.opcode & OPCODE_MASK_0FFF & OPCODE_MASK_FF00) as usize;
-        let nn = (self.opcode & OPCODE_MASK_00FF) as u8;
-        (x, nn)
-    }
-
-    /// this is a opcode extractor for the opcode type TXYT
-    /// T is the opcode type
-    /// X is a register index
-    /// Y is a constant
-    fn xy(&self) -> (usize, usize) {
-        let x = (self.opcode & OPCODE_MASK_0FFF & OPCODE_MASK_FF00) as usize;
-        let y = (self.opcode & OPCODE_MASK_00FF & 0x00F0) as usize;
-        (x, y)
     }
 
     fn program_counter_step(&mut self, by: usize) {
@@ -223,7 +202,7 @@ impl ChipSet {
         // 3XNN
         // Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to
         // skip a code block)
-        let (x, nn) = self.xnn();
+        let (x, nn) = self.opcode.xnn();
         if self.registers[x] == nn {
             self.program_counter_step(2);
         } else {
@@ -235,7 +214,7 @@ impl ChipSet {
         // 4XNN
         // Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a
         // jump to skip a code block)
-        let (x, nn) = self.xnn();
+        let (x, nn) = self.opcode.xnn();
         if self.registers[x] != nn {
             self.program_counter_step(2);
         } else {
@@ -247,7 +226,7 @@ impl ChipSet {
         // 5XY0
         // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
         // skip a code block)
-        let (x, y) = self.xy();
+        let (x, y) = self.opcode.xy();
         if self.registers[x] == self.registers[y] {
             self.program_counter_step(2);
         } else {
@@ -258,7 +237,7 @@ impl ChipSet {
     fn six(&mut self) {
         // 6XNN
         // Sets VX to NN.
-        let (x, nn) = self.xnn();
+        let (x, nn) = self.opcode.xnn();
         self.registers[x] = nn;
         self.program_counter_step(1);
     }
@@ -266,14 +245,14 @@ impl ChipSet {
     fn seven(&mut self) {
         // 7XNN
         // Adds NN to VX. (Carry flag is not changed)
-        let (x, nn) = self.xnn();
+        let (x, nn) = self.opcode.xnn();
         self.registers[x] += nn;
         self.program_counter_step(1);
     }
 
     fn eight(&mut self) {
         // remove the middle 8 bits for calculations
-        let (x, y) = self.xy();
+        let (x, y) = self.opcode.xy();
         match self.opcode & OPCODE_MASK_000F {
             0x0000 => {
                 // 8XY0
@@ -382,7 +361,7 @@ impl ChipSet {
         // 9XY0
         // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is
         // a jump to skip a code block)
-        let (x,y) = self.xy();
+        let (x,y) = self.opcode.xy();
         if self.registers[x] != self.registers[y] {
             self.program_counter_step(2);
         } else {
@@ -394,6 +373,7 @@ impl ChipSet {
         // ANNN
         // Sets I to the address NNN.
         self.index_register = (self.opcode & OPCODE_MASK_0FFF) as usize;
+        self.program_counter_step(1);
     }
 
     fn b(&mut self) {
@@ -401,12 +381,17 @@ impl ChipSet {
         // Jumps to the address NNN plus V0.
         let v0 = self.registers[0] as usize;
         self.program_counter = v0 + (self.opcode & OPCODE_MASK_0FFF) as usize;
+        self.program_counter_step(1);
     }
 
     fn c(&mut self) {
         // CXNN
         // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
         // and NN.
+        let (x, nn) = self.opcode.xnn();
+        let rand = rand::random::<u8>();
+        self.registers[x] = nn & rand;
+        self.program_counter_step(1);
     }
 
     fn d(&mut self) {
@@ -440,28 +425,34 @@ impl ChipSet {
     }
 
     fn f(&mut self) {
+        let x = self.opcode.x();
         match self.opcode & OPCODE_MASK_FF00 {
             0x007 => {
                 // FX07
                 // Sets VX to the value of the delay timer.
+                self.registers[x] = self.delay_timer;
             }
             0x00A => {
                 // FX0A
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
+
             }
             0x0015 => {
                 // FX15
                 // Sets the delay timer to VX.
+                self.delay_timer = self.registers[x];
             }
             0x0018 => {
                 // FX18
                 // Sets the sound timer to VX.
+                self.sound_timer = self.registers[x];
             }
             0x001E => {
                 // FX1E
                 // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
                 // 0 when there isn't.
+                
             }
             0x0029 => {
                 // FX29
@@ -489,5 +480,6 @@ impl ChipSet {
             }
             _ => {}
         }
+        self.program_counter_step(1);
     }
 }

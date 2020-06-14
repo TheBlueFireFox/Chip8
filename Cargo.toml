@@ -12,3 +12,4 @@ path = "src/lib/mod.rs"
 
 [dependencies]
 zip = "0.5.5"
+rand = "0.7.3"
