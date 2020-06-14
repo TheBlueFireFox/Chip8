@@ -3,8 +3,12 @@
 const MEMORY_SIZE : usize = 4096;
 /// The starting point for the program
 pub const PROGRAM_COUNTER : usize = 0x200;
+/// The step used for calculating the program counter increments
+const PROGRAM_COUNTER_STEP : usize = 2;
 /// The size of the chipset registers
 const REGISTER_SIZE : usize = 0xF;
+/// The last entry of the registers
+const REGISTER_LAST : usize = REGISTER_SIZE - 1;
 /// The count of nesting entries
 const STACK_NESTING : usize = 16;
 /// The amount of herz the clocks run at in millisec
@@ -37,18 +41,18 @@ const OPCODE_MASK_0FFF : u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
 /// of the system, it contains all the structures 
 /// needed for emulating an instant on the
 /// Chip8 cpu.
-pub struct ChipSet <'a>{
+pub struct ChipSet {
     /// all two bytes long and stored big-endian
     opcode : u16,
     /// 0x000-0x1FF - Chip 8 interpreter (contains font set in emu)
     /// 0x050-0x0A0 - Used for the built in 4x5 pixel font set (0-F)
     /// 0x200-0xFFF - Program ROM and work RAM
-    memory : &'a [u8; MEMORY_SIZE],
+    memory : Vec<u8>,
     /// 8-bit data registers named V0 to VF. The VF register doubles as a flag for some 
     /// instructions; thus, it should be avoided. In an addition operation, VF is the carry flag, 
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction VF is set upon 
     /// pixel collision. 
-    registers : &'a [u8; REGISTER_SIZE],
+    registers : Vec<u8>,
     /// The index for the register, this is a special register entrie
     /// called index I
     index_register : usize,
@@ -58,7 +62,7 @@ pub struct ChipSet <'a>{
     /// RCA 1802 version allocated 48 bytes for up to 12 levels of nesting; modern 
     /// implementations usually have more. 
     /// (here we are using 16)
-    stack : &'a [u8; STACK_NESTING],
+    stack : Vec<usize>,
     // The stack counter => where in the stack we are
     stack_counter : usize,
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
@@ -71,30 +75,42 @@ pub struct ChipSet <'a>{
     pub sound_timer : u8,
     /// The graphics of the Chip 8 are black and white and the screen has a total of 2048 pixels 
     /// (64 x 32). This can easily be implemented using an array that hold the pixel state (1 or 0):
-    pub display : &'a [u8; DISPLAY_RESOLUTION],
+    pub display : Vec<u8>,
     /// Input is done with a hex keyboard that has 16 keys ranging 0 to F. The '8', '4', '6', and 
     /// '2' keys are typically used for directional input. Three opcodes are used to detect input.
     ///  One skips an instruction if a specific key is pressed, while another does the same if a 
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of 
     /// the data registers. 
-    pub keyboard : &'a [u8; KEYBOARD_SIZE]
+    pub keyboard : Vec<u8>
 }
 
-impl ChipSet<'_> {
+fn xnn(opcode : u16) -> (usize,u8){
+    let nn = (opcode & OPCODE_MASK_00FF) as u8;
+    let x = (opcode & OPCODE_MASK_0FFF & OPCODE_MASK_FF00) as usize;
+    (x,nn)
+}
+
+fn xy(opcode : u16) -> (usize, usize) {
+    let x = (opcode & OPCODE_MASK_0FFF & OPCODE_MASK_FF00) as usize;
+    let y = (opcode & OPCODE_MASK_00FF & 0x00F0) as usize;
+    (x,y)
+}
+
+impl ChipSet {
     /// will create a new chipset object
     pub fn new() -> Self {
         ChipSet {
             opcode : 0,
-            memory : &[0; MEMORY_SIZE],
-            registers : &[0; REGISTER_SIZE],
+            memory : vec![0; MEMORY_SIZE],
+            registers : vec![0; REGISTER_SIZE],
             index_register : 0,
             program_counter : PROGRAM_COUNTER,
-            stack : &[0; STACK_NESTING],
+            stack : vec![0; STACK_NESTING],
             stack_counter : 0,
             delay_timer : TIMER_HERZ,
             sound_timer : TIMER_HERZ,
-            display : &[0; DISPLAY_RESOLUTION],
-            keyboard : &[0; KEYBOARD_SIZE]
+            display : vec![0; DISPLAY_RESOLUTION],
+            keyboard : vec![0; KEYBOARD_SIZE]
         }
     }
 
@@ -161,6 +177,10 @@ impl ChipSet<'_> {
 
     }
 
+    fn program_counter_step(&mut self, by : usize) {
+        self.program_counter += by * PROGRAM_COUNTER_STEP;
+    }
+
     fn zero(&mut self) {
         match self.opcode {
             0x0E0 => {
@@ -171,7 +191,8 @@ impl ChipSet<'_> {
             0x0EE => {
                 // 00EE
                 // Return from sub routine => pop from stack
-
+                self.program_counter = self.stack[self.stack_counter];
+                self.stack_counter -= 1;
             },
             _ => {
                 // not needed so empty
@@ -182,100 +203,171 @@ impl ChipSet<'_> {
     fn one(&mut self) {
         // 1NNN
         // Jumps to address NNN. 
-
+        self.program_counter = (self.opcode & OPCODE_MASK_0FFF) as usize;
     }
 
     fn two(&mut self) {
         // 2NNN
         // Calls subroutine at NNN
-
+        self.stack[self.stack_counter] = self.program_counter;
+        self.stack_counter += 1;
+        self.program_counter = (self.opcode & OPCODE_MASK_0FFF) as usize;
     }
 
     fn three(&mut self) {
         // 3XNN
         // Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to 
         // skip a code block) 
-
+        let (x, nn) = xnn(self.opcode);
+        if self.registers[x] == nn {
+            self.program_counter_step(2);
+        } else {
+            self.program_counter_step(1);
+        }
     }
 
     fn four(&mut self) {
         // 4XNN
         // Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a 
         // jump to skip a code block) 
-        
+        let (x, nn) = xnn(self.opcode);
+        if self.registers[x] != nn {
+            self.program_counter_step(2);
+        } else {
+            self.program_counter_step(1);
+        }
     }
 
     fn five(&mut self) {
         // 5XY0
         // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
         // skip a code block) 
-
+        let (x,y) = xy(self.opcode);
+        if self.registers[x] == self.registers[y] {
+            self.program_counter_step(2);
+        } else {
+            self.program_counter_step(1);
+        }
     }
 
     fn six(&mut self) {
         // 6XNN
         // Sets VX to NN. 
-
+        let (x, nn) = xnn(self.opcode);
+        self.registers[x] = nn;
+        self.program_counter_step(1);
     }
 
     fn seven(&mut self) {
         // 7XNN
         // Adds NN to VX. (Carry flag is not changed) 
-
+        let (x, nn) = xnn(self.opcode);
+        self.registers[x] += nn;
+        self.program_counter_step(1);
     }
 
     fn eight(&mut self) {
+        // remove the middle 8 bits for calculations
+        let (x, y) = xy(self.opcode);
         match self.opcode & OPCODE_MASK_000F{
             0x0000 => {
                 // 8XY0
                 // Sets VX to the value of VY. 
-
+                self.registers[x] = self.registers[y];
             },
             0x0001 => {
                 // 8XY1
                 // Sets VX to VX or VY. (Bitwise OR operation) 
-
+                self.registers[x] = self.registers[x] | self.registers[y];
             },
             0x0002 => {
                 // 8XY2
                 // Sets VX to VX and VY. (Bitwise AND operation) 
-
+                self.registers[x] = self.registers[x] & self.registers[y];
             },
             0x0003 => {
                 // 8XY3
                 // Sets VX to VX xor VY.
-                
+                self.registers[x] = self.registers[x] ^ self.registers[y];
             },
             0x0004 => {
                 // 8XY4
                 // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't. 
+                 let res = self.registers[x].checked_add(self.registers[y]);
 
+                self.registers[x] = match res {
+                    Some(res) => { 
+                        // addition worked as intendet
+                        // no carry
+                        self.registers[REGISTER_LAST] = 0;
+                        res
+                    },
+                    None => {
+                        // addition needs carry
+                        self.registers[REGISTER_LAST] = 0;
+                        self.registers[x].wrapping_add(self.registers[y])
+                    }
+                };
             },
             0x0005 => {
                 // 8XY5
                 // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there 
                 // isn't. 
+                let res = self.registers[x].checked_sub(self.registers[y]);
+
+                self.registers[x] = match res {
+                    Some(res) => { 
+                        // addition worked as intendet
+                        // no carry
+                        self.registers[REGISTER_LAST] = 1;
+                        res
+                    },
+                    None => {
+                        // addition needs carry
+                        self.registers[REGISTER_LAST] = 0;
+                        self.registers[x].wrapping_sub(self.registers[y])
+                    }
+                };
             }
             0x0006 => {
                 // 8XY6
                 // Stores the least significant bit of VX in VF and then shifts VX to the right
                 // by 1.
+                self.registers[REGISTER_LAST] = self.registers[x] & 0b1;
+                self.registers[x] = self.registers[x] >> 1;
             }
             0x0007 => {
                 // 8XY7
                 // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there 
                 // isn't. 
+                let res = self.registers[y].checked_sub(self.registers[x]);
 
+                self.registers[x] = match res {
+                    Some(res) => { 
+                        // addition worked as intendet
+                        // no carry
+                        self.registers[REGISTER_LAST] = 0;
+                        res
+                    },
+                    None => {
+                        // addition needs carry
+                        self.registers[REGISTER_LAST] = 1;
+                        self.registers[y].wrapping_sub(self.registers[x])
+                    }
+                };
             }
             0x000E => {
                 // 8XYE
                 // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
-
+                self.registers[REGISTER_LAST] = self.registers[x] & 0b10000000;
+                self.registers[x] = self.registers[x] << 1;
             }
             _ => {
                 panic!(format!("An unsupported opcode was used {:#06X?}", self.opcode));
             }
         }
+        // increment the program counter by one
+        self.program_counter_step(1);
     }
 
     fn nine(&mut self) {
