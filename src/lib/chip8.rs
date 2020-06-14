@@ -1,8 +1,12 @@
-use crate::{
-    resources::Rom,
-    opcode::*
+use {
+    rand,
+    crate::{
+        fontset::FONSET, 
+        opcode::*, 
+        resources::Rom
+    }
 };
-use rand;
+
 /// The size of the chipset ram
 const MEMORY_SIZE: usize = 4096;
 /// The starting point for the program
@@ -68,23 +72,34 @@ pub struct ChipSet {
     ///  One skips an instruction if a specific key is pressed, while another does the same if a
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
-    pub keyboard: Vec<u8>,
+    pub keyboard: Vec<bool>,
 }
 
 impl ChipSet {
     /// will create a new chipset object
-    pub fn new(rom : Rom) -> Self {
+    pub fn new(rom: Rom) -> Self {
         // initialize all the memory with 0
-        let mut memory = vec![0;MEMORY_SIZE];
+        let mut ram = Vec::with_capacity(MEMORY_SIZE);
 
+        // load font set
+        for data in FONSET.iter() {
+            ram.push(*data);
+        }
+        
         // write all the data from the rom to memory
         for data in rom.data {
-            memory.push(data);
+            ram.push(data);
+        }
+
+        // fill up the rest of memory as some roms use memory
+        // space for saving information
+        for _ in ram.len()..MEMORY_SIZE {
+            ram.push(0);
         }
 
         ChipSet {
             opcode: 0,
-            memory: memory,
+            memory: ram,
             registers: vec![0; REGISTER_SIZE],
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
@@ -93,7 +108,7 @@ impl ChipSet {
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
             display: vec![0; DISPLAY_RESOLUTION],
-            keyboard: vec![0; KEYBOARD_SIZE],
+            keyboard: vec![false; KEYBOARD_SIZE],
         }
     }
 
@@ -361,7 +376,7 @@ impl ChipSet {
         // 9XY0
         // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is
         // a jump to skip a code block)
-        let (x,y) = self.opcode.xy();
+        let (x, y) = self.opcode.xy();
         if self.registers[x] != self.registers[y] {
             self.program_counter_step(2);
         } else {
@@ -404,16 +419,28 @@ impl ChipSet {
     }
 
     fn e(&mut self) {
-        match self.opcode & OPCODE_MASK_000F {
+        let x = self.opcode.x();
+        let inc = match self.opcode & OPCODE_MASK_000F {
             0x000E => {
                 // EX9E
                 // Skips the next instruction if the key stored in VX is pressed. (Usually the next
                 // instruction is a jump to skip a code block)
+                if self.keyboard[self.registers[x] as usize] {
+                    2
+                } else {
+                    1
+                }
+                
             }
             0x0001 => {
                 // EXA1
                 // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
                 // next instruction is a jump to skip a code block)
+                if !self.keyboard[self.registers[x] as usize] {
+                    2
+                } else {
+                    1
+                }
             }
             _ => {
                 panic!(format!(
@@ -421,7 +448,9 @@ impl ChipSet {
                     self.opcode
                 ));
             }
-        }
+        };
+
+        self.program_counter_step(inc);
     }
 
     fn f(&mut self) {
@@ -436,7 +465,6 @@ impl ChipSet {
                 // FX0A
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
-                
             }
             0x0015 => {
                 // FX15
@@ -471,7 +499,6 @@ impl ChipSet {
                 // FX29
                 // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
                 // hexadecimal) are represented by a 4x5 font.
-
             }
             0x0033 => {
                 // FX33
@@ -480,14 +507,11 @@ impl ChipSet {
                 // significant digit at I plus 2. (In other words, take the decimal representation
                 // of VX, place the hundreds digit in memory at location in I, the tens digit at
                 // location I+1, and the ones digit at location I+2.)
-
             }
             0x0055 => {
                 // FX55
                 // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
                 // is increased by 1 for each value written, but I itself is left unmodified.
-                
-                
             }
             0x0065 => {
                 // FX65

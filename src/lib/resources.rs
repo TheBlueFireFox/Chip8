@@ -7,7 +7,6 @@ use zip::{read::ZipArchive, result::ZipResult};
 /// Contains all the available roms needed for running the games
 /// in a ZIP archive
 const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources/c8games.zip");
-
 /// Represents an archive of roms
 pub struct RomArchives<'a> {
     archive: ZipArchive<Cursor<&'a [u8]>>,
