@@ -2,7 +2,7 @@ use lib::{
     resources::{
         RomArchives
     },
-    chip8::PROGRAM_COUNTER_BASE
+    chip8::PROGRAM_COUNTER
 };
 
 fn main() {
@@ -17,7 +17,7 @@ fn main() {
 
         for i in (0..rom.data.len()).step_by(6) {
             let n = (i+5).min(rom.data.len()-1);
-            print!("{:#06X} - {:#06X} : ", i + PROGRAM_COUNTER_BASE, n + PROGRAM_COUNTER_BASE);
+            print!("{:#06X} - {:#06X} : ", i + PROGRAM_COUNTER, n + PROGRAM_COUNTER);
             
             for j in i..n {
                 let opcode = u16::from_be_bytes(

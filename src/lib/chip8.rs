@@ -1,6 +1,8 @@
 
 /// The size of the chipset ram
 const MEMORY_SIZE : usize = 4096;
+/// The starting point for the program
+pub const PROGRAM_COUNTER : usize = 0x200;
 /// The size of the chipset registers
 const REGISTER_SIZE : usize = 0xF;
 /// The count of nesting entries
@@ -13,14 +15,23 @@ const TIMER_INTERVAL : u32 = 1000 / TIMER_HERZ as u32;
 const DISPLAY_RESOLUTION : usize = 64 * 23;
 /// all the different keybords
 const KEYBOARD_SIZE : usize = 0xF;
+/// the base mask used for generatring all the other sub masks
+/// the mask for all the bytes
+const OPCODE_MASK_FFFF: u16 = 0xFFFF;
+/// the mask for the first twelve bytes
+const OPCODE_MASK_FFF0 : u16 = OPCODE_MASK_FFFF << 4;
+/// the mask for the first eight bytes
+const OPCODE_MASK_FF00 : u16 = OPCODE_MASK_FFFF << 8;
 /// the mask for the first four bytes
-const OPCODE_MASK_BASE : u16 = 0xF000;
+const OPCODE_MASK_F000 : u16 = OPCODE_MASK_FFFF << 12;
+/// the base mask for all 0
+const OPCODE_MASK_0000 : u16 = 0x0000;
 /// the mask for the last four bytes
-const OPCODE_MASK_FOUR : u16 = 0x000F;
+const OPCODE_MASK_000F : u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FFF0;
+/// the mask for the last eight bytes
+const OPCODE_MASK_00FF : u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
 /// the mask for the last four bytes
-const OPCODE_MASK_EIGHT : u16 = 0x00FF;
-/// The starting point for the program
-pub const PROGRAM_COUNTER_BASE : usize = 0x200;
+const OPCODE_MASK_0FFF : u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
 
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures 
@@ -77,7 +88,7 @@ impl ChipSet<'_> {
             memory : &[0; MEMORY_SIZE],
             registers : &[0; REGISTER_SIZE],
             index_register : 0,
-            program_counter : PROGRAM_COUNTER_BASE,
+            program_counter : PROGRAM_COUNTER,
             stack : &[0; STACK_NESTING],
             stack_counter : 0,
             delay_timer : TIMER_HERZ,
@@ -94,7 +105,7 @@ impl ChipSet<'_> {
             [self.memory[self.program_counter], self.memory[self.program_counter + 1]]
         );
         
-        match self.opcode & OPCODE_MASK_BASE {
+        match self.opcode & OPCODE_MASK_F000 {
             0x0000 => {
                 self.zero();
             },
@@ -191,7 +202,7 @@ impl ChipSet<'_> {
         // 4XNN
         // Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a 
         // jump to skip a code block) 
-
+        
     }
 
     fn five(&mut self) {
@@ -214,7 +225,7 @@ impl ChipSet<'_> {
     }
 
     fn eight(&mut self) {
-        match self.opcode & OPCODE_MASK_FOUR{
+        match self.opcode & OPCODE_MASK_000F{
             0x0000 => {
                 // 8XY0
                 // Sets VX to the value of VY. 
@@ -277,13 +288,14 @@ impl ChipSet<'_> {
     fn a(&mut self) {
         // ANNN
         // Sets I to the address NNN. 
-
+        self.index_register = (self.opcode & OPCODE_MASK_0FFF) as usize;
     }
 
     fn b(&mut self) {
         // BNNN
         // Jumps to the address NNN plus V0. 
-
+        let v0 = self.registers[0] as usize;
+        self.program_counter = v0 + (self.opcode & OPCODE_MASK_0FFF) as usize;
     }
 
     fn c(&mut self) {
@@ -304,7 +316,7 @@ impl ChipSet<'_> {
     }
 
     fn e(&mut self) {
-        match self.opcode & OPCODE_MASK_FOUR {
+        match self.opcode & OPCODE_MASK_000F {
             0x000E => {
                 // EX9E
                 // Skips the next instruction if the key stored in VX is pressed. (Usually the next 
@@ -324,7 +336,7 @@ impl ChipSet<'_> {
     }
 
     fn f(&mut self) {
-        match self.opcode & OPCODE_MASK_EIGHT {
+        match self.opcode & OPCODE_MASK_FF00 {
             0x007 => {
                 // FX07
                 // Sets VX to the value of the delay timer. 
