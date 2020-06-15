@@ -69,7 +69,7 @@ pub struct ChipSet {
     pub display: Vec<u8>,
     /// Input is done with a hex keyboard that has 16 keys ranging 0 to F. The '8', '4', '6', and
     /// '2' keys are typically used for directional input. Three opcodes are used to detect input.
-    ///  One skips an instruction if a specific key is pressed, while another does the same if a
+    /// One skips an instruction if a specific key is pressed, while another does the same if a
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
     pub keyboard: Vec<bool>,
@@ -507,6 +507,16 @@ impl ChipSet {
                 // significant digit at I plus 2. (In other words, take the decimal representation
                 // of VX, place the hundreds digit in memory at location in I, the tens digit at
                 // location I+1, and the ones digit at location I+2.)
+                let i = self.index_register as usize;
+                let r = self.registers[x];
+                let h = r / 100; // 246u8 / 100 => 2
+                let d = r / 10  % 10; // 246u8 / 10 => 24 % 10 => 4
+                let s = r % 10; // 246u8 % 10 => 6
+
+                self.memory[i] = h;
+                self.memory[i + 1] = d;
+                self.memory[i + 2] = r;
+
             }
             0x0055 => {
                 // FX55
