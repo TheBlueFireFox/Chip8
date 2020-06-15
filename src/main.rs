@@ -13,15 +13,16 @@ fn main() {
 
     for file in files {
         let rom = rom.get_file_data(&file).unwrap();
-        println!("name {} len {}", file, rom.data.len());
+        let data = rom.get_data();
+        println!("name {} len {}", file, data.len());
 
-        for i in (0..rom.data.len()).step_by(6) {
-            let n = (i+5).min(rom.data.len()-1);
+        for i in (0..data.len()).step_by(6) {
+            let n = (i+5).min(data.len()-1);
             print!("{:#06X} - {:#06X} : ", i + PROGRAM_COUNTER, n + PROGRAM_COUNTER);
             
             for j in i..n {
                 let opcode = u16::from_be_bytes(
-                    [rom.data[j], rom.data[j+1]]
+                    [data[j], data[j+1]]
                 );
                 print!("{:#06X} ", opcode);
             }

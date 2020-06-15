@@ -5,8 +5,13 @@ use std::{
 use zip::{read::ZipArchive, result::ZipResult};
 
 /// Contains all the available roms needed for running the games
-/// in a ZIP archive
+/// in a ZIP archive (the path used works for both unix and windows)
+#[cfg(target_os="windows")]
+const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources\\c8games.zip");
+
+#[cfg(not(target_os="windows"))]
 const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources/c8games.zip");
+
 /// Represents an archive of roms
 pub struct RomArchives<'a> {
     archive: ZipArchive<Cursor<&'a [u8]>>,
@@ -44,12 +49,16 @@ impl RomArchives<'_> {
 
 /// Represents a single rom with it's information
 pub struct Rom {
-    pub data: Vec<u8>,
+    data: Vec<u8>,
 }
 
 impl Rom {
     /// Will generate a new rom based of the given data
     fn new(data: Vec<u8>) -> Self {
-        Rom { data: data }
+        Rom { data }
+    }
+
+    pub fn get_data(&self) -> Vec<u8> {
+        self.data.clone()
     }
 }

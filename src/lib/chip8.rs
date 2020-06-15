@@ -87,7 +87,7 @@ impl ChipSet {
         }
         
         // write all the data from the rom to memory
-        for data in rom.data {
+        for data in rom.get_data() {
             ram.push(data);
         }
 
