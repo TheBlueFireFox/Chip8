@@ -1,5 +1,9 @@
 use {
-    crate::{fontset::FONSET, opcode::*, resources::Rom},
+    crate::{
+        fontset::FONSET, 
+        opcode::*, 
+        resources::Rom
+    },
     rand,
 };
 
