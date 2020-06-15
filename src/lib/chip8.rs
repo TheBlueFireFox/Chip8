@@ -509,13 +509,10 @@ impl ChipSet {
                 // location I+1, and the ones digit at location I+2.)
                 let i = self.index_register as usize;
                 let r = self.registers[x];
-                let h = r / 100; // 246u8 / 100 => 2
-                let d = r / 10  % 10; // 246u8 / 10 => 24 % 10 => 4
-                let s = r % 10; // 246u8 % 10 => 6
 
-                self.memory[i] = h;
-                self.memory[i + 1] = d;
-                self.memory[i + 2] = r;
+                self.memory[i] = r / 100; // 246u8 / 100 => 2
+                self.memory[i + 1] = r / 10  % 10; // 246u8 / 10 => 24 % 10 => 4
+                self.memory[i + 2] = r % 10; // 246u8 % 10 => 6
 
             }
             0x0055 => {

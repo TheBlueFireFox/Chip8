@@ -25,7 +25,7 @@ impl RomArchives<'_> {
         }
     }
 
-    /// Will retuan all the rom names availale to be chosen
+    /// Will retuan all the rom names available to be chosen
     pub fn file_names(&self) -> Vec<String> {
         let mut data = Vec::new();
 
