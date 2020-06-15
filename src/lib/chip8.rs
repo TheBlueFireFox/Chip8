@@ -1,10 +1,6 @@
 use {
+    crate::{fontset::FONSET, opcode::*, resources::Rom},
     rand,
-    crate::{
-        fontset::FONSET, 
-        opcode::*, 
-        resources::Rom
-    }
 };
 
 /// The size of the chipset ram
@@ -85,7 +81,7 @@ impl ChipSet {
         for data in FONSET.iter() {
             ram.push(*data);
         }
-        
+
         // write all the data from the rom to memory
         for data in rom.get_data() {
             ram.push(data);
@@ -430,7 +426,6 @@ impl ChipSet {
                 } else {
                     1
                 }
-                
             }
             0x0001 => {
                 // EXA1
@@ -511,20 +506,27 @@ impl ChipSet {
                 let r = self.registers[x];
 
                 self.memory[i] = r / 100; // 246u8 / 100 => 2
-                self.memory[i + 1] = r / 10  % 10; // 246u8 / 10 => 24 % 10 => 4
+                self.memory[i + 1] = r / 10 % 10; // 246u8 / 10 => 24 % 10 => 4
                 self.memory[i + 2] = r % 10; // 246u8 % 10 => 6
-
             }
             0x0055 => {
                 // FX55
                 // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
                 // is increased by 1 for each value written, but I itself is left unmodified.
+                let index = self.index_register as usize;
+                for i in 0..=x {
+                    self.memory[index + i] = self.registers[i];
+                }
             }
             0x0065 => {
                 // FX65
                 // Fills V0 to VX (including VX) with values from memory starting at address I. The
                 // offset from I is increased by 1 for each value written, but I itself is left
                 // unmodified.
+                let index = self.index_register as usize;
+                for i in 0..=x {
+                    self.registers[i] = self.memory[index + i];
+                }
             }
             _ => {}
         }
