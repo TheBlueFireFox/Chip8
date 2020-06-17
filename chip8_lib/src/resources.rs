@@ -4,15 +4,18 @@ use std::{
 };
 use zip::{read::ZipArchive, result::ZipResult};
 
+#[cfg(target_os="windows")]
 /// Contains all the available roms needed for running the games
 /// in a ZIP archive (the path used works for both unix and windows)
-#[cfg(target_os="windows")]
 const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources\\c8games.zip");
 
 #[cfg(not(target_os="windows"))]
+/// Contains all the available roms needed for running the games
+/// in a ZIP archive (the path used works for both unix and windows)
 const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources/c8games.zip");
 
 /// Represents an archive of roms
+/// it contains all kind of information about the information of the archives
 pub struct RomArchives<'a> {
     archive: ZipArchive<Cursor<&'a [u8]>>,
 }
