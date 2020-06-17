@@ -17,21 +17,21 @@ pub const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
 pub type Opcode = u16;
 
 pub trait OpcodeTrait {
-    /// this is a opcode extractor for the opcode type TXNN
-    /// T is the opcode type
-    /// X is a register index
-    /// NN is a constant
+    /// this is a opcode extractor for the opcode type `TXNN`
+    /// - `T` is the opcode type
+    /// - `X` is a register index
+    /// - `NN` is a constant
     fn xnn(&self) -> (usize, u8);
 
-    /// this is a opcode extractor for the opcode type TXYT
-    /// T is the opcode type
-    /// X is a register index
-    /// Y is a constant
+    /// this is a opcode extractor for the opcode type `TXYT`
+    /// - `T` is the opcode type
+    /// - `X` is a register index
+    /// - `Y` is a constant
     fn xy(&self) -> (usize, usize);
 
-    /// this is a opcode extractor for the opcode type TXTT
-    /// T is the opcode type
-    /// X is a register index
+    /// this is a opcode extractor for the opcode type `TXTT`
+    /// - `T` is the opcode type
+    /// - `X` is a register index
     fn x(&self) -> usize;
 }
 

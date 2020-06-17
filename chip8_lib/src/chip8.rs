@@ -74,113 +74,35 @@ pub struct ChipSet {
     /// the data registers.
     pub keyboard: Vec<bool>,
 }
+/// These are the traits that hava to be fullfilled for a working opcode
+/// table
+pub trait ChipOpcodes {
+    /// A mutiuse opcode base for type `0NNN`
+    /// 
+    /// - `0NNN` - Call       -                   - Calls machine code routine ([RCA 1802](https://en.wikipedia.org/wiki/RCA_1802) for COSMAC VIP) at address `NNN`. Not necessary for most ROMs. 
+    /// - `00E0` - Display    - `disp_clear()`    - Clears the screen. 
+    /// - `00EE` - Flow       - `return;`         - Returns from a subroutine. 
+    fn zero(&mut self);
+    /// - `1NNN` - Flow       - `goto NNN;`       - Jumps to address `NNN`. 
+    fn one(&mut self);
 
-impl ChipSet {
-    /// will create a new chipset object
-    pub fn new(rom: Rom) -> Self {
-        // initialize all the memory with 0
-        let mut ram = Vec::with_capacity(MEMORY_SIZE);
+    fn two(&mut self);
+    fn three(&mut self);
+    fn four(&mut self);
+    fn five(&mut self);
+    fn six(&mut self);
+    fn seven(&mut self);
+    fn eight(&mut self);
+    fn nine(&mut self);
+    fn a(&mut self);
+    fn b(&mut self);
+    fn c(&mut self);
+    fn d(&mut self);
+    fn e(&mut self);
+    fn f(&mut self);
+}
 
-        // load font set
-        for data in FONSET.iter() {
-            ram.push(*data);
-        }
-
-        // write all the data from the rom to memory
-        for data in rom.get_data() {
-            ram.push(data);
-        }
-
-        // fill up the rest of memory as some roms use memory
-        // space for saving information
-        for _ in ram.len()..MEMORY_SIZE {
-            ram.push(0);
-        }
-
-        ChipSet {
-            opcode: 0,
-            memory: ram,
-            registers: vec![0; REGISTER_SIZE],
-            index_register: 0,
-            program_counter: PROGRAM_COUNTER,
-            stack: vec![0; STACK_NESTING],
-            stack_counter: 0,
-            delay_timer: TIMER_HERZ,
-            sound_timer: TIMER_HERZ,
-            display: vec![0; DISPLAY_RESOLUTION],
-            keyboard: vec![false; KEYBOARD_SIZE],
-        }
-    }
-
-    /// will advance the program by a single step
-    pub fn step(&mut self) {
-        // get next opcode
-        self.opcode = u16::from_be_bytes([
-            self.memory[self.program_counter],
-            self.memory[self.program_counter + 1],
-        ]);
-        match self.opcode & OPCODE_MASK_F000 {
-            0x0000 => {
-                self.zero();
-            }
-            0x1000 => {
-                self.one();
-            }
-            0x2000 => {
-                self.two();
-            }
-            0x3000 => {
-                self.three();
-            }
-            0x4000 => {
-                self.four();
-            }
-            0x5000 => {
-                self.five();
-            }
-            0x6000 => {
-                self.six();
-            }
-            0x7000 => {
-                self.seven();
-            }
-            0x8000 => {
-                self.eight();
-            }
-            0x9000 => {
-                self.nine();
-            }
-            0xA000 => {
-                self.a();
-            }
-            0xB000 => {
-                self.b();
-            }
-            0xC000 => {
-                self.c();
-            }
-            0xD000 => {
-                self.d();
-            }
-            0xE000 => {
-                self.e();
-            }
-            0xF000 => {
-                self.f();
-            }
-            _ => {
-                panic!(format!(
-                    "An unsupported opcode was used {:#06X}",
-                    self.opcode
-                ));
-            }
-        }
-    }
-
-    fn program_counter_step(&mut self, by: usize) {
-        self.program_counter += by * PROGRAM_COUNTER_STEP;
-    }
-
+impl ChipOpcodes for ChipSet {
     fn zero(&mut self) {
         match self.opcode {
             0x0E0 => {
@@ -536,4 +458,112 @@ impl ChipSet {
         }
         self.program_counter_step(1);
     }
+}
+
+impl ChipSet {
+    /// will create a new chipset object
+    pub fn new(rom: Rom) -> Self {
+        // initialize all the memory with 0
+        let mut ram = Vec::with_capacity(MEMORY_SIZE);
+
+        // load font set
+        for data in FONSET.iter() {
+            ram.push(*data);
+        }
+
+        // write all the data from the rom to memory
+        for data in rom.get_data() {
+            ram.push(data);
+        }
+
+        // fill up the rest of memory as some roms use memory
+        // space for saving information
+        for _ in ram.len()..MEMORY_SIZE {
+            ram.push(0);
+        }
+
+        ChipSet {
+            opcode: 0,
+            memory: ram,
+            registers: vec![0; REGISTER_SIZE],
+            index_register: 0,
+            program_counter: PROGRAM_COUNTER,
+            stack: vec![0; STACK_NESTING],
+            stack_counter: 0,
+            delay_timer: TIMER_HERZ,
+            sound_timer: TIMER_HERZ,
+            display: vec![0; DISPLAY_RESOLUTION],
+            keyboard: vec![false; KEYBOARD_SIZE],
+        }
+    }
+
+    /// will advance the program by a single step
+    pub fn step(&mut self) {
+        // get next opcode
+        self.opcode = u16::from_be_bytes([
+            self.memory[self.program_counter],
+            self.memory[self.program_counter + 1],
+        ]);
+        match self.opcode & OPCODE_MASK_F000 {
+            0x0000 => {
+                self.zero();
+            }
+            0x1000 => {
+                self.one();
+            }
+            0x2000 => {
+                self.two();
+            }
+            0x3000 => {
+                self.three();
+            }
+            0x4000 => {
+                self.four();
+            }
+            0x5000 => {
+                self.five();
+            }
+            0x6000 => {
+                self.six();
+            }
+            0x7000 => {
+                self.seven();
+            }
+            0x8000 => {
+                self.eight();
+            }
+            0x9000 => {
+                self.nine();
+            }
+            0xA000 => {
+                self.a();
+            }
+            0xB000 => {
+                self.b();
+            }
+            0xC000 => {
+                self.c();
+            }
+            0xD000 => {
+                self.d();
+            }
+            0xE000 => {
+                self.e();
+            }
+            0xF000 => {
+                self.f();
+            }
+            _ => {
+                panic!(format!(
+                    "An unsupported opcode was used {:#06X}",
+                    self.opcode
+                ));
+            }
+        }
+    }
+
+    fn program_counter_step(&mut self, by: usize) {
+        self.program_counter += by * PROGRAM_COUNTER_STEP;
+    }
+
 }

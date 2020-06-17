@@ -1,4 +1,4 @@
 pub mod chip8;
 pub mod resources;
-mod opcode;
-mod fontset;
+pub mod opcode;
+pub mod fontset;
