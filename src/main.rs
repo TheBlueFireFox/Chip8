@@ -1,6 +1,6 @@
 use chip8_lib::{
     resources::RomArchives,
-    chip8::PROGRAM_COUNTER
+    definitions::PROGRAM_COUNTER
 };
 
 fn main() {

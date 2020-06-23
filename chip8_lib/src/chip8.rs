@@ -2,37 +2,17 @@ use {
     crate::{
         fontset::FONSET, 
         opcode::*, 
+        definitions::*,
         resources::Rom
     },
     rand,
 };
 
-/// The size of the chipset ram
-const MEMORY_SIZE: usize = 4096;
-/// The starting point for the program
-pub const PROGRAM_COUNTER: usize = 0x200;
-/// The step used for calculating the program counter increments
-const PROGRAM_COUNTER_STEP: usize = 2;
-/// The size of the chipset registers
-const REGISTER_SIZE: usize = 0xF;
-/// The last entry of the registers
-const REGISTER_LAST: usize = REGISTER_SIZE - 1;
-/// The count of nesting entries
-const STACK_NESTING: usize = 16;
-/// The amount of herz the clocks run at in millisec
-const TIMER_HERZ: u8 = 60;
-/// The amount of herz the clocks run at in millisec
-pub const TIMER_INTERVAL: u32 = 1000 / TIMER_HERZ as u32;
-/// The amount of pixels the display has
-const DISPLAY_RESOLUTION: usize = 64 * 23;
-/// all the different keybords
-const KEYBOARD_SIZE: usize = 0xF;
-
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
 /// needed for emulating an instant on the
 /// Chip8 cpu.
-pub struct ChipSet {
+pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     /// all two bytes long and stored big-endian
     opcode: Opcode,
     /// 0x000-0x1FF - Chip 8 interpreter (contains font set in emu)
@@ -72,8 +52,23 @@ pub struct ChipSet {
     /// One skips an instruction if a specific key is pressed, while another does the same if a
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
-    pub keyboard: Vec<bool>,
+    keyboard: U,
+    adapter: T,
 }
+
+/// The traits responsible for the display based code
+pub trait DisplayCommands {
+    /// Will clear the display 
+    fn clear_display(&self);
+    /// Will display all from the pixels 
+    fn display(&self, pixels : &[u8]);
+}
+
+/// The trait responsible for writing the keybord data
+pub trait KeybordCommands {
+    fn get_keybord(&self) -> &[bool];
+}
+
 /// These are the traits that hava to be fullfilled for a working opcode
 /// table
 pub trait ChipOpcodes {
@@ -138,12 +133,13 @@ pub trait ChipOpcodes {
     fn f(&mut self);
 }
 
-impl ChipOpcodes for ChipSet {
+impl<T : DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
     fn zero(&mut self) {
         match self.opcode {
             0x0E0 => {
                 // 00E0
                 // clear display
+                self.adapter.clear_display();
             }
             0x0EE => {
                 // 00EE
@@ -378,12 +374,13 @@ impl ChipOpcodes for ChipSet {
 
     fn e(&mut self) {
         let x = self.opcode.x();
+        let keyboard = self.keyboard.get_keybord();
         let inc = match self.opcode & OPCODE_MASK_00FF {
             0x009E => {
                 // EX9E
                 // Skips the next instruction if the key stored in VX is pressed. (Usually the next
                 // instruction is a jump to skip a code block)
-                if self.keyboard[self.registers[x] as usize] {
+                if keyboard[self.registers[x] as usize] {
                     2
                 } else {
                     1
@@ -393,7 +390,7 @@ impl ChipOpcodes for ChipSet {
                 // EXA1
                 // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
                 // next instruction is a jump to skip a code block)
-                if !self.keyboard[self.registers[x] as usize] {
+                if !keyboard[self.registers[x] as usize] {
                     2
                 } else {
                     1
@@ -496,9 +493,9 @@ impl ChipOpcodes for ChipSet {
     }
 }
 
-impl ChipSet {
+impl<T : DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
     /// will create a new chipset object
-    pub fn new(rom: Rom) -> Self {
+    pub fn new(rom: Rom, display_adapter : T, keyboard_adapter : U) -> Self {
         // initialize all the memory with 0
         let mut ram = Vec::with_capacity(MEMORY_SIZE);
 
@@ -529,7 +526,8 @@ impl ChipSet {
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
             display: vec![0; DISPLAY_RESOLUTION],
-            keyboard: vec![false; KEYBOARD_SIZE],
+            keyboard: keyboard_adapter,
+            adapter : display_adapter
         }
     }
 
