@@ -1,4 +1,11 @@
 use {
+    std::{
+        fmt::{
+            self,
+            Debug,
+            Display,
+        }
+    },
     crate::{
         fontset::FONSET, 
         opcode::*, 
@@ -7,6 +14,13 @@ use {
     },
     rand,
 };
+
+/// The lenght of the pretty print data 
+/// as a single instruction is u16 the ocata 
+/// size will show how often the block shall 
+/// be repeated
+const OCTA_SIZE : usize = 8;
+
 
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
@@ -56,6 +70,57 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     adapter: T,
 }
 
+fn fmt_helper_u8(data : &[u8]) -> String {
+    let mut res = Vec::new();
+    for i in (0..data.len()).step_by(OCTA_SIZE) {
+        let n = (i + OCTA_SIZE - 1).min(data.len()-1);
+        let mut row = Vec::new();
+        row.push(format!("{:#06X} - {:#06X} :", i + PROGRAM_COUNTER, n + PROGRAM_COUNTER));
+
+        for j in i..n {
+            let opcode = u16::from_be_bytes([data[j], data[j+1]]);
+            row.push(format!("{:#06X}", opcode));
+        }
+        res.push(row.join(" "));
+    }
+    res.join("\n")
+}
+fn fmt_helper<T: Debug + Display>(data : &[T]) -> String {
+    let mut res = Vec::new();
+    for i in (0..data.len()).step_by(OCTA_SIZE) {
+        let n = (i + OCTA_SIZE - 1).min(data.len()-1);
+        let mut row = vec![format!("{:#06X} - {:#06X} :", i + PROGRAM_COUNTER, n + PROGRAM_COUNTER)];
+
+        for j in i..n {
+            row.push(format!("{:?}", data[j]));
+        }
+        res.push(row.join(" "));
+    }
+    res.join("\n")
+}
+
+fn fmt_indent_helper(data : &str) -> String {
+    data.split("\n").map(|x| format!("\t\t{}\n", x)).collect::<String>().trim_end().to_string()
+}
+
+impl<T : DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
+
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+
+        let mut mem = fmt_helper_u8(&self.memory);
+        let mut reg = fmt_helper_u8(&self.registers);
+        let mut key = fmt_helper(self.keyboard.get_keybord());
+        let mut sta = fmt_helper(&self.stack);
+        
+        mem = fmt_indent_helper(&mem);
+        reg = fmt_indent_helper(&reg);
+        key = fmt_indent_helper(&key);
+        sta = fmt_indent_helper(&sta);
+
+        write!(f, "Chipset {{ \n\tOpcode : {:#06X}\n\tProgram Pointer : {:#06X}\n\tMemory :\n{}\n\tKeybord :\n{}\n\tStack Pointer : {}\n\tStack :\n{}\n\tRegister :\n{}\n}}", self.opcode, self.program_counter, mem, key, self.stack_counter, sta, reg)
+    }
+}
+
 /// The traits responsible for the display based code
 pub trait DisplayCommands {
     /// Will clear the display 
@@ -84,7 +149,7 @@ pub trait ChipOpcodes {
     fn two(&mut self);
     /// - `3XNN` - Cond 	- `if(Vx==NN)`          - Skips the next instruction if `VX` equals `NN`. (Usually the next instruction is a jump to skip a code block) 
     fn three(&mut self);
-    /// - `4XNN` - Cond     - `if(Vx!=NN)`          - Skips the next instruction if `VX` doesn't equal `NN`. (Usually the next instruction is a jump to skip a code block) 
+    /// - `4XNN` - Cond     - `if(Vx!=NN)`          - Skips the next instruction if `VX` doesn' t equal `NN`. (Usually the next instruction is a jump to skip a code block) 
     fn four(&mut self);
     /// - `5XY0` - Cond     - `if(Vx==Vy)`          - Skips the next instruction if `VX` equals `VY`. (Usually the next instruction is a jump to skip a code block) 
     fn five(&mut self);
