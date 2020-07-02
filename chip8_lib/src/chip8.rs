@@ -19,8 +19,7 @@ use {
 /// as a single instruction is u16 the ocata 
 /// size will show how often the block shall 
 /// be repeated
-const OCTA_SIZE : usize = 8;
-
+const HEX_FORMAT_SIZE : usize = 8;
 
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
@@ -32,12 +31,12 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     /// 0x000-0x1FF - Chip 8 interpreter (contains font set in emu)
     /// 0x050-0x0A0 - Used for the built in 4x5 pixel font set (0-F)
     /// 0x200-0xFFF - Program ROM and work RAM
-    memory: Vec<u8>,
+    memory: Box<[u8]>,
     /// 8-bit data registers named V0 to VF. The VF register doubles as a flag for some
     /// instructions; thus, it should be avoided. In an addition operation, VF is the carry flag,
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction VF is set upon
     /// pixel collision.
-    registers: Vec<u8>,
+    registers: Box<[u8]>,
     /// The index for the register, this is a special register entrie
     /// called index I
     index_register: u16,
@@ -47,7 +46,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     /// RCA 1802 version allocated 48 bytes for up to 12 levels of nesting; modern
     /// implementations usually have more.
     /// (here we are using 16)
-    stack: Vec<usize>,
+    stack: Box<[usize]>,
     // The stack counter => where in the stack we are
     stack_counter: usize,
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
@@ -60,7 +59,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     pub sound_timer: u8,
     /// The graphics of the Chip 8 are black and white and the screen has a total of 2048 pixels
     /// (64 x 32). This can easily be implemented using an array that hold the pixel state (1 or 0):
-    pub display: Vec<u8>,
+    pub display: Box<[u8]>,
     /// Input is done with a hex keyboard that has 16 keys ranging 0 to F. The '8', '4', '6', and
     /// '2' keys are typically used for directional input. Three opcodes are used to detect input.
     /// One skips an instruction if a specific key is pressed, while another does the same if a
@@ -72,8 +71,8 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
 
 fn fmt_helper_u8(data : &[u8]) -> String {
     let mut res = Vec::new();
-    for i in (0..data.len()).step_by(OCTA_SIZE) {
-        let n = (i + OCTA_SIZE - 1).min(data.len()-1);
+    for i in (0..data.len()).step_by(HEX_FORMAT_SIZE) {
+        let n = (i + HEX_FORMAT_SIZE - 1).min(data.len()-1);
         let mut row = Vec::new();
         row.push(format!("{:#06X} - {:#06X} :", i + PROGRAM_COUNTER, n + PROGRAM_COUNTER));
 
@@ -87,8 +86,8 @@ fn fmt_helper_u8(data : &[u8]) -> String {
 }
 fn fmt_helper<T: Debug + Display>(data : &[T]) -> String {
     let mut res = Vec::new();
-    for i in (0..data.len()).step_by(OCTA_SIZE) {
-        let n = (i + OCTA_SIZE - 1).min(data.len()-1);
+    for i in (0..data.len()).step_by(HEX_FORMAT_SIZE) {
+        let n = (i + HEX_FORMAT_SIZE - 1).min(data.len()-1);
         let mut row = vec![format!("{:#06X} - {:#06X} :", i + PROGRAM_COUNTER, n + PROGRAM_COUNTER)];
 
         for j in i..n {
@@ -117,7 +116,7 @@ impl<T : DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
         key = fmt_indent_helper(&key);
         sta = fmt_indent_helper(&sta);
 
-        write!(f, "Chipset {{ \n\tOpcode : {:#06X}\n\tProgram Pointer : {:#06X}\n\tMemory :\n{}\n\tKeybord :\n{}\n\tStack Pointer : {}\n\tStack :\n{}\n\tRegister :\n{}\n}}", self.opcode, self.program_counter, mem, key, self.stack_counter, sta, reg)
+        write!(f, "Chipset {{ \n\tOpcode : {:#06X}\n\tProgram Pointer : {:#06X}\n\tMemory :\n{}\n\tKeybord :\n{}\n\tStack Pointer : {:#06X}\n\tStack :\n{}\n\tRegister :\n{}\n}}", self.opcode, self.program_counter, mem, key, self.stack_counter, sta, reg)
     }
 }
 
@@ -582,15 +581,15 @@ impl<T : DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
 
         ChipSet {
             opcode: 0,
-            memory: ram,
-            registers: vec![0; REGISTER_SIZE],
+            memory: ram.into_boxed_slice(),
+            registers: vec![0; REGISTER_SIZE].into_boxed_slice(),
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
-            stack: vec![0; STACK_NESTING],
+            stack: vec![0; STACK_NESTING].into_boxed_slice(),
             stack_counter: 0,
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
-            display: vec![0; DISPLAY_RESOLUTION],
+            display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
             keyboard: keyboard_adapter,
             adapter : display_adapter
         }
