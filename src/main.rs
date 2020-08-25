@@ -21,7 +21,7 @@ fn main() {
     }
 
     impl DisplayCommands for DC {
-        fn clear_display(&self) {}
+        fn clear_display(&mut self) {}
         fn display(&self, _: &[u8]) {}
     }
 

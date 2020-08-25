@@ -4,6 +4,12 @@ use {
     std::fmt::{self, Debug, Display},
 };
 
+#[cfg(test)]
+use mockall::{
+    automock
+};
+
+
 /// The lenght of the pretty print data
 /// as a single instruction is u16 the ocata
 /// size will show how often the block shall
@@ -108,7 +114,7 @@ impl<T: DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut mem = fmt_helper_u8(&self.memory);
         let mut reg = fmt_helper_u8(&self.registers);
-        let mut key = fmt_helper(self.keyboard.get_keybord());
+        let mut key = fmt_helper(&self.keyboard.get_keybord());
         let mut sta = fmt_helper(&self.stack);
 
         mem = fmt_indent_helper(&mem);
@@ -120,6 +126,7 @@ impl<T: DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
     }
 }
 
+#[cfg_attr(test, automock)]
 /// The traits responsible for the display based code
 pub trait DisplayCommands {
     /// Will clear the display
@@ -130,7 +137,7 @@ pub trait DisplayCommands {
 
 /// The trait responsible for writing the keybord data
 pub trait KeybordCommands {
-    fn get_keybord(&self) -> &[bool];
+    fn get_keybord(&self) -> Vec<bool>;
 }
 
 /// These are the traits that hava to be fullfilled for a working opcode
@@ -596,7 +603,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
     }
 
     /// will get the next opcode from memory
-    fn get_opcode(&mut self) {
+    fn set_opcode(&mut self) {
         self.opcode = u16::from_be_bytes([
             self.memory[self.program_counter],
             self.memory[self.program_counter + 1],
@@ -606,7 +613,13 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
     /// will advance the program by a single step
     pub fn step(&mut self) {
         // get next opcode
-        self.get_opcode();
+        self.set_opcode();
+
+        self.calc();
+    }
+
+    /// will calculate the programs step by a single step
+    fn calc(&mut self) {
         match self.opcode & OPCODE_MASK_F000 {
             0x0000 => {
                 self.zero();
@@ -671,56 +684,68 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
 }
 
 #[cfg(test)]
+// special functions just for simpler testing 
+impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T,U> {
+    pub fn set_opcode_custom(&mut self, opcode: u16) {
+        self.opcode = opcode;
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use {
         super::*,
         crate::{
             resources::RomArchives,
-            definitions
-        }
+        },
     };
-    #[derive(Debug)]
+
+    #[derive(Debug, Clone)]
     struct DC {
         keyboard: Vec<bool>,
-        cleared: bool
     }
 
     impl DC {
         fn new() -> Self {
             DC {
-                keyboard: vec![false; definitions::KEYBOARD_SIZE],
-                cleared: false
+                keyboard: vec![false; 4],
             }
         }
     }
 
-    impl DisplayCommands for DC {
-        fn clear_display(&mut self) { self.cleared=true; }
-        fn display(&self, _: &[u8]) {}
-    }
-
     impl KeybordCommands for DC {
-        fn get_keybord(&self) -> &[bool] {
-            &self.keyboard
+        fn get_keybord(&self) -> Vec<bool> {
+            self.keyboard.clone()
         }
     }
-
-    fn base() -> (ChipSet<DC, DC>, (DC, DC)) {
+    fn get_base_data() -> Rom {
         let mut rom = RomArchives::new();
-        let dis = DC::new();
-        let key = DC::new();
-        ChipSet::new(
-            rom.get_file_data(&rom.file_names()[0]).unwrap(),
-            dis,
-            key
-        )
+        rom.get_file_data(&rom.file_names()[0]).unwrap()
     }
 
     #[test]
     fn test_0x0e0() {
+
+        let rom = get_base_data();
+
+        // setup mock
+        let mut dis = MockDisplayCommands::new();
+        dis.expect_clear_display()
+            .times(1)
+            .return_const(());
+
+        let key = DC::new();
+
+        let mut chip = ChipSet::new(
+            rom,
+            dis,
+            key
+        );
         // set opcode 
-        let mut b = base();
-        b.opcode = 0x0E0; 
-        b.zero(); 
+        // setup chip state
+        chip.set_opcode_custom(0x0e0);
+        // run - if there was no panic it worked as intened
+        chip.zero(); 
+                
     }
 }
