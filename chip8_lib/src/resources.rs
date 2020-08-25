@@ -6,12 +6,12 @@ use zip::{read::ZipArchive, result::ZipResult};
 
 #[cfg(target_os="windows")]
 /// Contains all the available roms needed for running the games
-/// in a ZIP archive (the path used works for both unix and windows)
+/// in a ZIP archive (the path used works for windows)
 const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources\\c8games.zip");
 
 #[cfg(not(target_os="windows"))]
 /// Contains all the available roms needed for running the games
-/// in a ZIP archive (the path used works for both unix and windows)
+/// in a ZIP archive (the path used works for unix)
 const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources/c8games.zip");
 
 /// Represents an archive of roms
@@ -64,4 +64,49 @@ impl Rom {
     pub fn get_data(&self) -> Vec<u8> {
         self.data.clone()
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_file_names() {
+        let mut data = 
+        "15PUZZLE
+        BLINKY
+        BLITZ
+        BRIX
+        CONNECT4
+        GUESS
+        HIDDEN
+        INVADERS
+        KALEID
+        MAZE
+        MERLIN
+        MISSILE
+        PONG
+        PONG2
+        PUZZLE
+        SYZYGY
+        TANK
+        TETRIS
+        TICTAC
+        UFO
+        VBRIX
+        VERS
+        WIPEOFF".split("\n")
+            .map(|x| x.trim().to_string())
+            .collect::<Vec<_>>();
+        data.sort();
+
+        let ra = RomArchives::new();
+        let mut files = ra.file_names();
+        files.sort();
+        assert_eq!(data.len(), files.len());
+
+        for i in 0..(data.len()) {
+            assert_eq!(data[i], files[i]);
+        }
+    }
+
 }
