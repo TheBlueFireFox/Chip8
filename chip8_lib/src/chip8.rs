@@ -231,7 +231,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
 }
 
 impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
-    fn zero(&mut self) {
+    fn zero(&mut self) -> Result<(), &'static str>{
         match self.opcode {
             0x0E0 => {
                 // 00E0
@@ -241,30 +241,32 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
             0x0EE => {
                 // 00EE
                 // Return from sub routine => pop from stack
-                self.program_counter = self.stack[self.stack_counter];
-                self.stack_counter -= 1;
+
+                self.program_counter = self.pop_stack()?;
             }
             _ => {
                 // not needed so empty
             }
         }
+        Ok(())
     }
 
-    fn one(&mut self) {
+    fn one(&mut self)  -> Result<(), &'static str>{
         // 1NNN
         // Jumps to address NNN.
         self.program_counter = (self.opcode & OPCODE_MASK_0FFF) as usize;
     }
 
-    fn two(&mut self) {
+    fn two(&mut self) -> Result<(), &'static str> {
         // 2NNN
         // Calls subroutine at NNN
+
         self.stack[self.stack_counter] = self.program_counter;
         self.stack_counter += 1;
         self.program_counter = (self.opcode & OPCODE_MASK_0FFF) as usize;
     }
 
-    fn three(&mut self) {
+    fn three(&mut self)  -> Result<(), &'static str>{
         // 3XNN
         // Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to
         // skip a code block)
@@ -276,7 +278,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         }
     }
 
-    fn four(&mut self) {
+    fn four(&mut self)  -> Result<(), &'static str>{
         // 4XNN
         // Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a
         // jump to skip a code block)
@@ -288,7 +290,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         }
     }
 
-    fn five(&mut self) {
+    fn five(&mut self)  -> Result<(), &'static str>{
         // 5XY0
         // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
         // skip a code block)
@@ -300,7 +302,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         }
     }
 
-    fn six(&mut self) {
+    fn six(&mut self)  -> Result<(), &'static str>{
         // 6XNN
         // Sets VX to NN.
         let (x, nn) = self.opcode.xnn();
@@ -308,7 +310,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         self.program_counter_step(1);
     }
 
-    fn seven(&mut self) {
+    fn seven(&mut self)  -> Result<(), &'static str>{
         // 7XNN
         // Adds NN to VX. (Carry flag is not changed)
         let (x, nn) = self.opcode.xnn();
@@ -316,7 +318,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         self.program_counter_step(1);
     }
 
-    fn eight(&mut self) {
+    fn eight(&mut self) -> Result<(), &'static str> {
         // remove the middle 8 bits for calculations
         let (x, y) = self.opcode.xy();
         match self.opcode & OPCODE_MASK_000F {
@@ -423,7 +425,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         self.program_counter_step(1);
     }
 
-    fn nine(&mut self) {
+    fn nine(&mut self)  -> Result<(), &'static str>{
         // 9XY0
         // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is
         // a jump to skip a code block)
@@ -435,14 +437,14 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         }
     }
 
-    fn a(&mut self) {
+    fn a(&mut self)  -> Result<(), &'static str>{
         // ANNN
         // Sets I to the address NNN.
         self.index_register = self.opcode & OPCODE_MASK_0FFF;
         self.program_counter_step(1);
     }
 
-    fn b(&mut self) {
+    fn b(&mut self)  -> Result<(), &'static str>{
         // BNNN
         // Jumps to the address NNN plus V0.
         let v0 = self.registers[0] as usize;
@@ -450,7 +452,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         self.program_counter_step(1);
     }
 
-    fn c(&mut self) {
+    fn c(&mut self)  -> Result<(), &'static str>{
         // CXNN
         // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
         // and NN.
@@ -460,7 +462,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         self.program_counter_step(1);
     }
 
-    fn d(&mut self) {
+    fn d(&mut self)  -> Result<(), &'static str>{
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
@@ -469,7 +471,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         // to 0 if that doesn’t happen
     }
 
-    fn e(&mut self) {
+    fn e(&mut self)  -> Result<(), &'static str>{
         let x = self.opcode.x();
         let keyboard = self.keyboard.get_keybord();
         let inc = match self.opcode & OPCODE_MASK_00FF {
@@ -504,7 +506,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         self.program_counter_step(inc);
     }
 
-    fn f(&mut self) {
+    fn f(&mut self)  -> Result<(), &'static str>{
         let x = self.opcode.x();
         match self.opcode & OPCODE_MASK_FF00 {
             0x007 => {
@@ -592,12 +594,14 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
 
 mod print {
 
+    use super::*;
+    
     /// The lenght of the pretty print data
     /// as a single instruction is u16 the ocata
     /// size will show how often the block shall
     /// be repeated
     const HEX_FORMAT_SIZE: usize = 8;
-    use super::*;
+
     fn fmt_helper_u8(data: &[u8]) -> String {
         let mut res = Vec::new();
         for i in (0..data.len()).step_by(HEX_FORMAT_SIZE) {
@@ -660,6 +664,7 @@ mod print {
         }
     }
 }
+
 #[cfg(test)]
 mod tests {
     use {
@@ -667,24 +672,6 @@ mod tests {
         crate::{devices, resources::RomArchives},
     };
 
-    #[derive(Debug, Clone)]
-    struct DC {
-        keyboard: Vec<bool>,
-    }
-
-    impl DC {
-        fn new() -> Self {
-            DC {
-                keyboard: vec![false; 4],
-            }
-        }
-    }
-
-    impl KeybordCommands for DC {
-        fn get_keybord(&self) -> Vec<bool> {
-            self.keyboard.clone()
-        }
-    }
 
     fn get_base_data() -> Rom {
         let mut rom = RomArchives::new();
@@ -700,7 +687,7 @@ mod tests {
         let mut dis = devices::MockDisplayCommands::new();
         dis.expect_clear_display().times(1).return_const(());
 
-        let key = DC::new();
+        let key = devices::MockKeybordCommands::new();
 
         let mut chip = ChipSet::new(rom, dis, key);
         // set opcode

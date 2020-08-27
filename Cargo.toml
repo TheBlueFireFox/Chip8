@@ -9,3 +9,6 @@ edition = "2018"
 [dependencies]
 chip8_lib = { path = "chip8_lib" }
 #gui = { path = "gui" }
+
+[profile.release]
+panic = 'abort'

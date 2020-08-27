@@ -10,6 +10,7 @@ pub trait DisplayCommands {
     fn display(&self, pixels: &[u8]);
 }
 
+#[cfg_attr(test, automock)]
 /// The trait responsible for writing the keybord data
 pub trait KeybordCommands {
     fn get_keybord(&self) -> Vec<bool>;
