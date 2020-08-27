@@ -5,7 +5,7 @@ pub const PROGRAM_COUNTER: usize = 0x200;
 /// The step used for calculating the program counter increments
 pub const PROGRAM_COUNTER_STEP: usize = 2;
 /// The size of the chipset registers
-pub const REGISTER_SIZE: usize = 0xF;
+pub const REGISTER_SIZE: usize = 16;
 /// The last entry of the registers
 pub const REGISTER_LAST: usize = REGISTER_SIZE - 1;
 /// The count of nesting entries

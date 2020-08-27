@@ -61,8 +61,8 @@ impl Rom {
         Rom { data }
     }
 
-    pub fn get_data(&self) -> Vec<u8> {
-        self.data.clone()
+    pub fn get_data(&self) -> &[u8] {
+        &self.data
     }
 }
 

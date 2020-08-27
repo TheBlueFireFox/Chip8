@@ -58,6 +58,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
     keyboard: U,
+
     adapter: T,
 }
 
@@ -65,35 +66,33 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
     /// will create a new chipset object
     pub fn new(rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
         // initialize all the memory with 0
-        let mut ram = Vec::with_capacity(MEMORY_SIZE);
 
-        // load font set
-        for data in FONSET.iter() {
-            ram.push(*data);
+        let mut ram = Box::new([0; MEMORY_SIZE]);
+
+        // load fonts
+        let mut index = 0;
+        for i in FONSET.iter() {
+            ram[index] = *i;
+            index += 1;
         }
 
-        // write all the data from the rom to memory
-        for data in rom.get_data() {
-            ram.push(data);
+        for i in rom.get_data() {
+            ram[index] = *i;
+            index += 1;
         }
 
-        // fill up the rest of memory as some roms use memory
-        // space for saving information
-        for _ in ram.len()..MEMORY_SIZE {
-            ram.push(0);
-        }
 
         ChipSet {
             opcode: 0,
-            memory: ram.into_boxed_slice(),
-            registers: vec![0; REGISTER_SIZE].into_boxed_slice(),
+            memory: ram,
+            registers: Box::new([0; REGISTER_SIZE]), 
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
-            stack: vec![0; STACK_NESTING].into_boxed_slice(),
+            stack: Box::new([0; STACK_NESTING]), 
             stack_counter: 0,
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
-            display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
+            display: Box::new([0; DISPLAY_RESOLUTION]),
             keyboard: keyboard_adapter,
             adapter: display_adapter,
         }
@@ -115,11 +114,10 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
         self.calc(self.opcode)
     }
 
-
     fn program_counter_step(&mut self, by: usize) {
         self.program_counter += by * PROGRAM_COUNTER_STEP;
     }
-   
+
     /// Will push the current pointer to the stack
     /// stack_counter is alwas one bigger then the
     /// entry it points to
@@ -162,10 +160,10 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
     pub fn set_opcode_custom(&mut self, opcode: u16) {
         self.opcode = opcode;
     }
-
 }
+
 impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
-    fn zero(&mut self, opcode: Opcode) -> Result<(), String>{
+    fn zero(&mut self, opcode: Opcode) -> Result<(), String> {
         match opcode {
             0x0E0 => {
                 // 00E0
@@ -185,7 +183,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn one(&mut self, opcode: Opcode)  -> Result<(), String>{
+    fn one(&mut self, opcode: Opcode) -> Result<(), String> {
         // 1NNN
         // Jumps to address NNN.
         self.program_counter = opcode.nnn();
@@ -200,7 +198,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn three(&mut self, opcode: Opcode)  -> Result<(), String>{
+    fn three(&mut self, opcode: Opcode) -> Result<(), String> {
         // 3XNN
         // Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to
         // skip a code block)
@@ -213,7 +211,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn four(&mut self, opcode: Opcode)  -> Result<(), String>{
+    fn four(&mut self, opcode: Opcode) -> Result<(), String> {
         // 4XNN
         // Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a
         // jump to skip a code block)
@@ -226,7 +224,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn five(&mut self, opcode: Opcode)  -> Result<(), String>{
+    fn five(&mut self, opcode: Opcode) -> Result<(), String> {
         // 5XY0
         // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
         // skip a code block)
@@ -239,7 +237,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn six(&mut self, opcode: Opcode)  -> Result<(), String>{
+    fn six(&mut self, opcode: Opcode) -> Result<(), String> {
         // 6XNN
         // Sets VX to NN.
         let (x, nn) = opcode.xnn();
@@ -248,7 +246,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn seven(&mut self, opcode: Opcode)  -> Result<(), String>{
+    fn seven(&mut self, opcode: Opcode) -> Result<(), String> {
         // 7XNN
         // Adds NN to VX. (Carry flag is not changed)
         let (x, nn) = opcode.xnn();
@@ -259,7 +257,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
 
     fn eight(&mut self, opcode: Opcode) -> Result<(), String> {
         // remove the middle 8 bits for calculations
-        let (x, y,n ) = opcode.xyn();
+        let (x, y, n) = opcode.xyn();
         match n {
             0x0 => {
                 // 8XY0
@@ -365,7 +363,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn nine(&mut self, opcode: Opcode)  -> Result<(), String>{
+    fn nine(&mut self, opcode: Opcode) -> Result<(), String> {
         // 9XY0
         // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is
         // a jump to skip a code block)
@@ -378,7 +376,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn a(&mut self, opcode: Opcode)  -> Result<(), String>{
+    fn a(&mut self, opcode: Opcode) -> Result<(), String> {
         // ANNN
         // Sets I to the address NNN.
         self.index_register = opcode.nnn() as u16;
@@ -386,7 +384,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn b(&mut self, opcode: Opcode)  -> Result<(), String> {
+    fn b(&mut self, opcode: Opcode) -> Result<(), String> {
         // BNNN
         // Jumps to the address NNN plus V0.
         let nnn = opcode.nnn();
@@ -396,7 +394,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn c(&mut self, opcode: Opcode)  -> Result<(), String> {
+    fn c(&mut self, opcode: Opcode) -> Result<(), String> {
         // CXNN
         // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
         // and NN.
@@ -407,18 +405,18 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn d(&mut self, opcode: Opcode)  -> Result<(), String> {
+    fn d(&mut self, opcode: Opcode) -> Result<(), String> {
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
         // value doesn’t change after the execution of this instruction. As described above, VF is
         // set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and
         // to 0 if that doesn’t happen
-        let (x,y,n) = opcode.xyn();
+        let (x, y, n) = opcode.xyn();
         panic!("Not implemented!")
     }
 
-    fn e(&mut self, opcode: Opcode)  -> Result<(), String> {
+    fn e(&mut self, opcode: Opcode) -> Result<(), String> {
         let (x, nn) = opcode.xnn();
         let keyboard = self.keyboard.get_keybord();
         let inc = match nn {
@@ -454,7 +452,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn f(&mut self, opcode: Opcode)  -> Result<(), String>{
+    fn f(&mut self, opcode: Opcode) -> Result<(), String> {
         let (x, nn) = opcode.xnn();
         match nn {
             0x7 => {
@@ -544,7 +542,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
 mod print {
 
     use super::*;
-    
+
     /// The lenght of the pretty print data
     /// as a single instruction is u16 the ocata
     /// size will show how often the block shall
@@ -621,7 +619,6 @@ mod tests {
         crate::{devices, resources::RomArchives},
     };
 
-
     fn get_base_data() -> Rom {
         let mut rom = RomArchives::new();
         rom.get_file_data(&rom.file_names()[0]).unwrap()
@@ -641,11 +638,11 @@ mod tests {
         let mut chip = ChipSet::new(rom, dis, key);
 
         // set opcode
-        let opcode: Opcode = 0x00E0; 
+        let opcode: Opcode = 0x00E0;
         // setup chip state
         chip.set_opcode_custom(opcode);
         // run - if there was no panic it worked as intened
-        assert_eq!(chip.calc(opcode), Ok(()) );
+        assert_eq!(chip.calc(opcode), Ok(()));
     }
 
     #[test]
