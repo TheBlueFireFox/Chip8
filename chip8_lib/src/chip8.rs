@@ -1,20 +1,14 @@
 use {
-    crate::{definitions::*, fontset::FONSET, opcode::*, resources::Rom},
+    crate::{
+        definitions::*,
+        devices::{DisplayCommands, KeybordCommands},
+        fontset::FONSET,
+        opcode::*,
+        resources::Rom,
+    },
     rand,
-    std::fmt::{self, Debug, Display},
+    std::fmt,
 };
-
-#[cfg(test)]
-use mockall::{
-    automock
-};
-
-
-/// The lenght of the pretty print data
-/// as a single instruction is u16 the ocata
-/// size will show how often the block shall
-/// be repeated
-const HEX_FORMAT_SIZE: usize = 8;
 
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
@@ -42,7 +36,10 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     /// implementations usually have more.
     /// (here we are using 16)
     stack: Box<[usize]>,
-    // The stack counter => where in the stack we are
+    /// The stack counter => where in the stack we are
+    /// it points to +1 from where we are
+    /// so 'stack_counter = 1' means the last stack is
+    /// in 'stack[0]'
     stack_counter: usize,
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
@@ -64,144 +61,173 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     adapter: T,
 }
 
-fn fmt_helper_u8(data: &[u8]) -> String {
-    let mut res = Vec::new();
-    for i in (0..data.len()).step_by(HEX_FORMAT_SIZE) {
-        let n = (i + HEX_FORMAT_SIZE - 1).min(data.len() - 1);
-        let mut row = Vec::new();
-        row.push(format!(
-            "{:#06X} - {:#06X} :",
-            i + PROGRAM_COUNTER,
-            n + PROGRAM_COUNTER
-        ));
+impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
+    /// will create a new chipset object
+    pub fn new(rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
+        // initialize all the memory with 0
+        let mut ram = Vec::with_capacity(MEMORY_SIZE);
 
-        for j in i..n {
-            let opcode = u16::from_be_bytes([data[j], data[j + 1]]);
-            row.push(format!("{:#06X}", opcode));
+        // load font set
+        for data in FONSET.iter() {
+            ram.push(*data);
         }
-        res.push(row.join(" "));
-    }
-    res.join("\n")
-}
 
-fn fmt_helper<T: Debug + Display>(data: &[T]) -> String {
-    let mut res = Vec::new();
-    for i in (0..data.len()).step_by(HEX_FORMAT_SIZE) {
-        let n = (i + HEX_FORMAT_SIZE - 1).min(data.len() - 1);
-        let mut row = vec![format!(
-            "{:#06X} - {:#06X} :",
-            i + PROGRAM_COUNTER,
-            n + PROGRAM_COUNTER
-        )];
-
-        for j in i..n {
-            row.push(format!("{:?}", data[j]));
+        // write all the data from the rom to memory
+        for data in rom.get_data() {
+            ram.push(data);
         }
-        res.push(row.join(" "));
+
+        // fill up the rest of memory as some roms use memory
+        // space for saving information
+        for _ in ram.len()..MEMORY_SIZE {
+            ram.push(0);
+        }
+
+        ChipSet {
+            opcode: 0,
+            memory: ram.into_boxed_slice(),
+            registers: vec![0; REGISTER_SIZE].into_boxed_slice(),
+            index_register: 0,
+            program_counter: PROGRAM_COUNTER,
+            stack: vec![0; STACK_NESTING].into_boxed_slice(),
+            stack_counter: 0,
+            delay_timer: TIMER_HERZ,
+            sound_timer: TIMER_HERZ,
+            display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
+            keyboard: keyboard_adapter,
+            adapter: display_adapter,
+        }
     }
-    res.join("\n")
-}
 
-fn fmt_indent_helper(data: &str) -> String {
-    data.split("\n")
-        .map(|x| format!("\t\t{}\n", x))
-        .collect::<String>()
-        .trim_end()
-        .to_string()
-}
-
-impl<T: DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut mem = fmt_helper_u8(&self.memory);
-        let mut reg = fmt_helper_u8(&self.registers);
-        let mut key = fmt_helper(&self.keyboard.get_keybord());
-        let mut sta = fmt_helper(&self.stack);
-
-        mem = fmt_indent_helper(&mem);
-        reg = fmt_indent_helper(&reg);
-        key = fmt_indent_helper(&key);
-        sta = fmt_indent_helper(&sta);
-
-        write!(f, "Chipset {{ \n\tOpcode : {:#06X}\n\tProgram Pointer : {:#06X}\n\tMemory :\n{}\n\tKeybord :\n{}\n\tStack Pointer : {:#06X}\n\tStack :\n{}\n\tRegister :\n{}\n}}", self.opcode, self.program_counter, mem, key, self.stack_counter, sta, reg)
+    /// will get the next opcode from memory
+    fn set_opcode(&mut self) {
+        self.opcode = u16::from_be_bytes([
+            self.memory[self.program_counter],
+            self.memory[self.program_counter + 1],
+        ]);
     }
-}
 
-#[cfg_attr(test, automock)]
-/// The traits responsible for the display based code
-pub trait DisplayCommands {
-    /// Will clear the display
-    fn clear_display(&mut self);
-    /// Will display all from the pixels
-    fn display(&self, pixels: &[u8]);
-}
+    /// will advance the program by a single step
+    pub fn step(&mut self) {
+        // get next opcode
+        self.set_opcode();
 
-/// The trait responsible for writing the keybord data
-pub trait KeybordCommands {
-    fn get_keybord(&self) -> Vec<bool>;
-}
+        self.calc();
+    }
 
-/// These are the traits that hava to be fullfilled for a working opcode
-/// table
-pub trait ChipOpcodes {
-    /// A mutiuse opcode base for type `0NNN`
-    ///
-    /// - `0NNN` - Call     -                       - Calls machine code routine ([RCA 1802](https://en.wikipedia.org/wiki/RCA_1802) for COSMAC VIP) at address `NNN`. Not necessary for most ROMs.
-    /// - `00E0` - Display  - `disp_clear()`        - Clears the screen.
-    /// - `00EE` - Flow     - `return;`             - Returns from a subroutine.
-    fn zero(&mut self);
-    /// - `1NNN` - Flow     - `goto NNN;`           - Jumps to address `NNN`.
-    fn one(&mut self);
-    /// - `2NNN` - Flow     - `*(0xNNN)()`          - Calls subroutine at `NNN`.
-    fn two(&mut self);
-    /// - `3XNN` - Cond 	- `if(Vx==NN)`          - Skips the next instruction if `VX` equals `NN`. (Usually the next instruction is a jump to skip a code block)
-    fn three(&mut self);
-    /// - `4XNN` - Cond     - `if(Vx!=NN)`          - Skips the next instruction if `VX` doesn' t equal `NN`. (Usually the next instruction is a jump to skip a code block)
-    fn four(&mut self);
-    /// - `5XY0` - Cond     - `if(Vx==Vy)`          - Skips the next instruction if `VX` equals `VY`. (Usually the next instruction is a jump to skip a code block)
-    fn five(&mut self);
-    /// - `6XNN` - Const    - `Vx = NN`             - Sets `VX` to `NN`.
-    fn six(&mut self);
-    /// - `7XNN` - Const    - `Vx += NN`            - Adds `NN` to `VX`. (Carry flag is not changed)
-    fn seven(&mut self);
-    /// A mutiuse opcode base for type `8NNT` (T is a sub obcode)
-    ///
-    /// - `8XY0` - Assign   - `Vx=Vy`               - Sets `VX` to the value of `VY`.
-    /// - `8XY1` - BitOp    - `Vx=Vx|Vy`            - Sets `VX` to `VX` or `VY`. (Bitwise OR operation)
-    /// - `8XY2` - BitOp    - `Vx=Vx&Vy`            - Sets `VX` to `VX` and `VY`. (Bitwise AND operation)
-    /// - `8XY3` - BitOp    - `Vx=Vx^Vy`            - Sets `VX` to `VX` xor `VY`. (Bitwise XOR operation)
-    /// - `8XY4` - Math     - `Vx += Vy`            - Adds `VY` to `VX`. `VF` is set to `1` when there's a carry, and to `0` when there isn't.
-    /// - `8XY5` - Math     - `Vx -= Vy`            - `VY` is subtracted from VX. `VX` is set to `0` when there's a borrow, and `1` when there isn't.
-    /// - `8XY6` - BitOp    - `Vx>>=1`              - Stores the least significant bit of `VX` in `VF` and then shifts VX to the right by `1`.
-    /// - `8XY7` - Math     - `Vx=Vy-Vx`            - Sets `VX` to `VY` minus `VX`. `VF` is set to `0` when there's a borrow, and `1` when there isn't.
-    /// - `8XYE` - BitOp    - `Vx<<=1`              - Stores the most significant bit of `VX` in `VF` and then shifts `VX` to the left by `1`.
-    fn eight(&mut self);
-    /// - `9XY0` - Cond     - `if(Vx!=Vy)`          - Skips the next instruction if `VX` doesn't equal `VY`. (Usually the next instruction is a jump to skip a code block)
-    fn nine(&mut self);
-    /// - `ANNN` - MEM      - `I = NNN`             - Sets `I` to the address `NNN`.
-    fn a(&mut self);
-    /// - `BNNN` - Flow 	- `PC=V0+NNN`           - Jumps to the address `NNN` plus `V0`.
-    fn b(&mut self);
-    /// - `CXNN` - Rand     - `Vx=rand()&NN`        - Sets `VX` to the result of a bitwise and operation on a random number (Typically: `0 to 255`) and `NN`.
-    fn c(&mut self);
-    /// - `DXYN` - Disp     - `draw(Vx,Vy,N)`       - Draws a sprite at coordinate `(VX, VY)` that has a width of `8` pixels and a height of `N` pixels. Each row of `8` pixels is read as bit-coded starting from memory location `I`; `I` value doesn’t change after the execution of this instruction. As described above, `VF` is set to `1` if any screen pixels are flipped from set to unset when the sprite is drawn, and to `0` if that doesn’t happen
-    fn d(&mut self);
-    /// A mutiuse opcode base for type `EXTT` (T is a sub obcode)
-    ///
-    /// - `EX9E` - KeyOp    - `if(key()==Vx)`       - Skips the next instruction if the key stored in `VX` is pressed. (Usually the next instruction is a jump to skip a code block)
-    /// - `EXA1` - KeyOp    - `if(key()!=Vx)`       - Skips the next instruction if the key stored in `VX` isn't pressed. (Usually the next instruction is a jump to skip a code block)
-    fn e(&mut self);
-    /// A mutiuse opcode base for type `FXTT` (T is a sub obcode)
-    ///
-    /// - `FX07` - Timer    - `Vx = get_delay()`    - Sets `VX` to the value of the delay timer.
-    /// - `FX0A` - KeyOp    - `Vx = get_key()`      - A key press is awaited, and then stored in `VX`. (Blocking Operation. All instruction halted until next key event)
-    /// - `FX15` - Timer    - `delay_timer(Vx)`     - Sets the delay timer to `VX`.
-    /// - `FX18` - Sound    - `sound_timer(Vx)`     - Sets the sound timer to `VX`.
-    /// - `FX1E` - MEM      - `I +=Vx`              - Adds `VX` to `I`. `VF` is not affected.
-    /// - `FX29` - MEM      - `I=sprite_addr[Vx]`   - Sets `I` to the location of the sprite for the character in `VX`. Characters `0-F` (in hexadecimal) are represented by a `4x5` font.
-    /// - `FX33` - BCD      - `246 / 100 => 2` `246 / 10 => 24 % 10 => 4` `246 % 10 => 6` - Stores the [binary-coded decimal](https://en.wikipedia.org/wiki/Binary-coded_decimal) representation of `VX`, with the most significant of three digits at the address in `I`, the middle digit at `I` plus `1`, and the least significant digit at `I` plus `2`. (In other words, take the decimal representation of `VX`, place the hundreds digit in memory at location in `I`, the tens digit at location `I+1`, and the ones digit at location `I+2`.)
-    /// - `FX55` - MEM      - `reg_dump(Vx,&I)`     - Stores `V0` to `VX`  (including `VX`) in memory starting at address `I`. The offset from `I` is increased by `1` for each value written, but `I` itself is left unmodified.
-    /// - `FX65` - MEM      - `reg_load(Vx,&I)`     - Fills `V0` to `VX` (including `VX`) with values from memory starting at address `I`. The offset from `I` is increased by `1` for each value written, but `I` itself is left unmodified.
-    fn f(&mut self);
+    /// will calculate the programs step by a single step
+    fn calc(&mut self) {
+        match self.opcode & OPCODE_MASK_F000 {
+            0x0000 => {
+                self.zero();
+            }
+            0x1000 => {
+                self.one();
+            }
+            0x2000 => {
+                self.two();
+            }
+            0x3000 => {
+                self.three();
+            }
+            0x4000 => {
+                self.four();
+            }
+            0x5000 => {
+                self.five();
+            }
+            0x6000 => {
+                self.six();
+            }
+            0x7000 => {
+                self.seven();
+            }
+            0x8000 => {
+                self.eight();
+            }
+            0x9000 => {
+                self.nine();
+            }
+            0xA000 => {
+                self.a();
+            }
+            0xB000 => {
+                self.b();
+            }
+            0xC000 => {
+                self.c();
+            }
+            0xD000 => {
+                self.d();
+            }
+            0xE000 => {
+                self.e();
+            }
+            0xF000 => {
+                self.f();
+            }
+            _ => {
+                panic!(format!(
+                    "An unsupported opcode was used {:#06X}",
+                    self.opcode
+                ));
+            }
+        }
+    }
+
+    fn program_counter_step(&mut self, by: usize) {
+        self.program_counter += by * PROGRAM_COUNTER_STEP;
+    }
+    /// Will push the current pointer to the stack
+    /// stack_counter is alwas one bigger then the
+    /// entry it points to
+    fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
+        if self.stack.len() - 1 >= self.stack_counter {
+            Err("Stack is full")
+        } else {
+            // increment stack counter
+            self.stack_counter += 1;
+
+            // push to stack
+            self.stack[self.stack_counter] = pointer;
+            Ok(())
+        }
+    }
+
+    /// Will pop from the counter
+    /// stack_counter is always one bigger then the entry
+    /// it points to
+    fn pop_stack(&mut self) -> Result<usize, &'static str> {
+        if self.stack_counter == 0 {
+            Err("stack is empty")
+        } else {
+            let pointer = self.stack[self.stack_counter];
+            self.stack_counter -= 1;
+            Ok(pointer)
+        }
+    }
+
+    #[cfg(test)]
+    /// special function for simpler testing used
+    /// for returning a pointer to the stack
+    pub fn get_stack(&self) -> &[usize] {
+        &self.stack[..]
+    }
+
+    #[cfg(test)]
+    /// special function just for simpler testing used
+    /// for manually setting opcodes
+    pub fn set_opcode_custom(&mut self, opcode: u16) {
+        self.opcode = opcode;
+    }
+
+    #[cfg(test)]
+    /// special functions just for simpler testing used
+    /// as a wrapper function for calling the private
+    /// calc funcitonality
+    pub fn custom_calc(&mut self) {
+        self.calc();
+    }
 }
 
 impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
@@ -564,140 +590,81 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
     }
 }
 
-impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
-    /// will create a new chipset object
-    pub fn new(rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
-        // initialize all the memory with 0
-        let mut ram = Vec::with_capacity(MEMORY_SIZE);
+mod print {
 
-        // load font set
-        for data in FONSET.iter() {
-            ram.push(*data);
-        }
+    /// The lenght of the pretty print data
+    /// as a single instruction is u16 the ocata
+    /// size will show how often the block shall
+    /// be repeated
+    const HEX_FORMAT_SIZE: usize = 8;
+    use super::*;
+    fn fmt_helper_u8(data: &[u8]) -> String {
+        let mut res = Vec::new();
+        for i in (0..data.len()).step_by(HEX_FORMAT_SIZE) {
+            let n = (i + HEX_FORMAT_SIZE - 1).min(data.len() - 1);
+            let mut row = Vec::new();
+            row.push(format!(
+                "{:#06X} - {:#06X} :",
+                i + PROGRAM_COUNTER,
+                n + PROGRAM_COUNTER
+            ));
 
-        // write all the data from the rom to memory
-        for data in rom.get_data() {
-            ram.push(data);
+            for j in i..n {
+                let opcode = u16::from_be_bytes([data[j], data[j + 1]]);
+                row.push(format!("{:#06X}", opcode));
+            }
+            res.push(row.join(" "));
         }
-
-        // fill up the rest of memory as some roms use memory
-        // space for saving information
-        for _ in ram.len()..MEMORY_SIZE {
-            ram.push(0);
-        }
-
-        ChipSet {
-            opcode: 0,
-            memory: ram.into_boxed_slice(),
-            registers: vec![0; REGISTER_SIZE].into_boxed_slice(),
-            index_register: 0,
-            program_counter: PROGRAM_COUNTER,
-            stack: vec![0; STACK_NESTING].into_boxed_slice(),
-            stack_counter: 0,
-            delay_timer: TIMER_HERZ,
-            sound_timer: TIMER_HERZ,
-            display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
-            keyboard: keyboard_adapter,
-            adapter: display_adapter,
-        }
+        res.join("\n")
     }
 
-    /// will get the next opcode from memory
-    fn set_opcode(&mut self) {
-        self.opcode = u16::from_be_bytes([
-            self.memory[self.program_counter],
-            self.memory[self.program_counter + 1],
-        ]);
-    }
+    fn fmt_helper<T: fmt::Debug + fmt::Display>(data: &[T]) -> String {
+        let mut res = Vec::new();
+        for i in (0..data.len()).step_by(HEX_FORMAT_SIZE) {
+            let n = (i + HEX_FORMAT_SIZE - 1).min(data.len() - 1);
+            let mut row = vec![format!(
+                "{:#06X} - {:#06X} :",
+                i + PROGRAM_COUNTER,
+                n + PROGRAM_COUNTER
+            )];
 
-    /// will advance the program by a single step
-    pub fn step(&mut self) {
-        // get next opcode
-        self.set_opcode();
-
-        self.calc();
-    }
-
-    /// will calculate the programs step by a single step
-    fn calc(&mut self) {
-        match self.opcode & OPCODE_MASK_F000 {
-            0x0000 => {
-                self.zero();
+            for j in i..n {
+                row.push(format!("{:?}", data[j]));
             }
-            0x1000 => {
-                self.one();
-            }
-            0x2000 => {
-                self.two();
-            }
-            0x3000 => {
-                self.three();
-            }
-            0x4000 => {
-                self.four();
-            }
-            0x5000 => {
-                self.five();
-            }
-            0x6000 => {
-                self.six();
-            }
-            0x7000 => {
-                self.seven();
-            }
-            0x8000 => {
-                self.eight();
-            }
-            0x9000 => {
-                self.nine();
-            }
-            0xA000 => {
-                self.a();
-            }
-            0xB000 => {
-                self.b();
-            }
-            0xC000 => {
-                self.c();
-            }
-            0xD000 => {
-                self.d();
-            }
-            0xE000 => {
-                self.e();
-            }
-            0xF000 => {
-                self.f();
-            }
-            _ => {
-                panic!(format!(
-                    "An unsupported opcode was used {:#06X}",
-                    self.opcode
-                ));
-            }
+            res.push(row.join(" "));
         }
+        res.join("\n")
     }
 
-    fn program_counter_step(&mut self, by: usize) {
-        self.program_counter += by * PROGRAM_COUNTER_STEP;
+    fn fmt_indent_helper(data: &str) -> String {
+        data.split("\n")
+            .map(|x| format!("\t\t{}\n", x))
+            .collect::<String>()
+            .trim_end()
+            .to_string()
+    }
+
+    impl<T: DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            let mut mem = fmt_helper_u8(&self.memory);
+            let mut reg = fmt_helper_u8(&self.registers);
+            let mut key = fmt_helper(&self.keyboard.get_keybord());
+            let mut sta = fmt_helper(&self.stack);
+
+            mem = fmt_indent_helper(&mem);
+            reg = fmt_indent_helper(&reg);
+            key = fmt_indent_helper(&key);
+            sta = fmt_indent_helper(&sta);
+
+            write!(f, "Chipset {{ \n\tOpcode : {:#06X}\n\tProgram Pointer : {:#06X}\n\tMemory :\n{}\n\tKeybord :\n{}\n\tStack Pointer : {:#06X}\n\tStack :\n{}\n\tRegister :\n{}\n}}", self.opcode, self.program_counter, mem, key, self.stack_counter, sta, reg)
+        }
     }
 }
-
-#[cfg(test)]
-// special functions just for simpler testing 
-impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T,U> {
-    pub fn set_opcode_custom(&mut self, opcode: u16) {
-        self.opcode = opcode;
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use {
         super::*,
-        crate::{
-            resources::RomArchives,
-        },
+        crate::{devices, resources::RomArchives},
     };
 
     #[derive(Debug, Clone)]
@@ -718,34 +685,32 @@ mod tests {
             self.keyboard.clone()
         }
     }
+
     fn get_base_data() -> Rom {
         let mut rom = RomArchives::new();
         rom.get_file_data(&rom.file_names()[0]).unwrap()
     }
 
     #[test]
-    fn test_0x0e0() {
-
+    /// test clear display opcode
+    fn test_clear_display_opcode() {
         let rom = get_base_data();
 
         // setup mock
-        let mut dis = MockDisplayCommands::new();
-        dis.expect_clear_display()
-            .times(1)
-            .return_const(());
+        let mut dis = devices::MockDisplayCommands::new();
+        dis.expect_clear_display().times(1).return_const(());
 
         let key = DC::new();
 
-        let mut chip = ChipSet::new(
-            rom,
-            dis,
-            key
-        );
-        // set opcode 
+        let mut chip = ChipSet::new(rom, dis, key);
+        // set opcode
         // setup chip state
         chip.set_opcode_custom(0x0e0);
         // run - if there was no panic it worked as intened
-        chip.zero(); 
-                
+        chip.custom_calc();
     }
+
+    #[test]
+    /// test return from subrutine
+    fn test_return_subrutine() {}
 }

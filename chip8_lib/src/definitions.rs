@@ -1,5 +1,5 @@
 /// The size of the chipset ram
-pub const MEMORY_SIZE: usize = 4096;
+pub const MEMORY_SIZE: usize = 0x1000; // 4096
 /// The starting point for the program
 pub const PROGRAM_COUNTER: usize = 0x200;
 /// The step used for calculating the program counter increments

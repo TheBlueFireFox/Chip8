@@ -1,5 +1,6 @@
 use chip8_lib::{
-    chip8::{ChipSet, DisplayCommands, KeybordCommands},
+    chip8::ChipSet,
+    devices::{DisplayCommands, KeybordCommands},
     resources::RomArchives,
 };
 
@@ -26,8 +27,8 @@ fn main() {
     }
 
     impl KeybordCommands for DC {
-        fn get_keybord(&self) -> &[bool] {
-            &self.keyboard
+        fn get_keybord(&self) -> Vec<bool> {
+            self.keyboard.clone()
         }
     }
     let t = DC::new();
