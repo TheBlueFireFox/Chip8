@@ -17,9 +17,14 @@ pub const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
 /// a wrapper type for u16 to make it clear what is meant to be used
 pub type Opcode = u16;
 
+/// will build an opcode from data and the given pointe
+pub fn build_opcode(data : &[u8], pointer : usize) -> Opcode {
+    u16::from_be_bytes([data[pointer], data[pointer + 1]])
+}
 /// These are special traits used to filter out information
 /// from opcodes
 pub trait OpcodeTrait {
+
 
     /// this is an opcode extractor that will return the
     /// opcode number form any opcode

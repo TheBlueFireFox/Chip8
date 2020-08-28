@@ -7,6 +7,7 @@ use {
         resources::Rom,
     },
     rand,
+    num,
     std::fmt,
 };
 
@@ -75,20 +76,20 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
             ram[index] = *i;
             index += 1;
         }
-
+        index = PROGRAM_COUNTER;
+        // load rom data into memory
         for i in rom.get_data() {
             ram[index] = *i;
             index += 1;
         }
 
-
         ChipSet {
             opcode: 0,
             memory: ram,
-            registers: Box::new([0; REGISTER_SIZE]), 
+            registers: Box::new([0; REGISTER_SIZE]),
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
-            stack: Box::new([0; STACK_NESTING]), 
+            stack: Box::new([0; STACK_NESTING]),
             stack_counter: 0,
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
@@ -100,10 +101,12 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
 
     /// will get the next opcode from memory
     fn set_opcode(&mut self) {
-        self.opcode = u16::from_be_bytes([
-            self.memory[self.program_counter],
-            self.memory[self.program_counter + 1],
-        ]);
+        self.opcode = self.opcode_builder(self.program_counter);
+    }
+
+    /// will build the opcode given from the pointer
+    fn opcode_builder(&self, pointer: usize) -> Opcode {
+        build_opcode(&self.memory, pointer)
     }
 
     /// will advance the program by a single step
@@ -114,8 +117,9 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
         self.calc(self.opcode)
     }
 
-    fn program_counter_step(&mut self, by: usize) {
-        self.program_counter += by * PROGRAM_COUNTER_STEP;
+    /// will move the program counter forward be an offset
+    fn program_counter_step(&mut self, offset: usize) {
+        self.program_counter += offset * OPCODE_BYTE_SIZE;
     }
 
     /// Will push the current pointer to the stack
@@ -549,61 +553,61 @@ mod print {
     /// be repeated
     const HEX_PRINT_STEP: usize = 8;
 
-    fn fmt_helper_u8(data: &[u8], offset: usize) -> String {
-        let mut res = Vec::new();
-        let data_lenght_max = data.len()-1;
-        let mut has_data = vec![(0,0)];
+    const POINTER_INCREMENT: usize = HEX_PRINT_STEP * OPCODE_BYTE_SIZE;
 
-        for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
-            let n = (i + HEX_PRINT_STEP - 1).min(data_lenght_max);
-            let mut row = Vec::new();
-            row.push(format!("{:#06X} - {:#06X} :", i + offset, n + offset));
-            
-            let mut is_null = true;
+    fn fmt_opcode_hex_formatter(opcode: Opcode) -> String {
+        format!("{:#06X}", opcode)
+    }
 
-            for j in (i..n).step_by(2) {
-                let opcode = u16::from_be_bytes([data[j], data[j + 1]]);
-                
-                row.push(format!("{:#06X}", opcode));
+    fn fmt_helper_pointer_formatter(from: usize, to: usize) -> String {
+        format!("{:#06X} - {:#06X} :", from, to)
+    }
 
-                if opcode > 0 {
-                    is_null = false;
-                }
-            }
+    fn fmt_helper_opcode(data: &[u8], offset: usize) -> String {
+        let mut res: Vec<String> = Vec::new();
+        let mut contains_data = vec![(0, 0)];
 
-            if !is_null {
-                let (_, to) = has_data.last_mut().unwrap();
-                *to+=1;
-            } else {
-                let (_, to) = has_data.last().unwrap().clone();
-                has_data.push((to, to));
+        for from in (offset..data.len()).step_by(POINTER_INCREMENT) {
+            let to = (from + POINTER_INCREMENT - 1).min(data.len() - 1);
+            let mut row: Vec<String> = Vec::with_capacity(HEX_PRINT_STEP + 1);
+
+            row.push(fmt_helper_pointer_formatter(from, to));
+
+            for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
+                // get the next opcode for the
+                //print!("{:X}{:X} ", data[index], data[index + 1]);
+                let opcode = build_opcode(data, index);
+
+                row.push(fmt_opcode_hex_formatter(opcode));
             }
             res.push(row.join(" "));
         }
 
-       // res.join("\n")
-       let mut end = Vec::with_capacity(2 * has_data.len() - 1);
-       for (from, to) in has_data {
-           end.push(res[from..to].join("\n"));
-           if to < data_lenght_max {
-               end.push(format!("{:#06X} - {:#06X} : 0x0000 ... 0x0000", to + offset, to + offset + HEX_PRINT_STEP));
-           }
-       }
-       end.join("\n")
+        res.join("\n")
     }
 
-    fn fmt_helper<T: fmt::Debug + fmt::Display>(data: &[T]) -> String {
+    fn fmt_helper<T: fmt::Display + fmt::UpperHex + num::Unsigned>(data: &[T], offset: usize) -> String {
         let mut res = Vec::new();
         for i in (0..data.len()).step_by(HEX_PRINT_STEP) {
             let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
-            let mut row = vec![format!(
-                "{:#06X} - {:#06X} :",
-                i + PROGRAM_COUNTER,
-                n + PROGRAM_COUNTER
-            )];
+            let mut row = vec![format!("{:#06X} - {:#06X} :", i + offset, n + offset)];
 
             for j in i..n {
-                row.push(format!("{:?}", data[j]));
+                row.push(format!("{:#06X}", data[j]));
+            }
+            res.push(row.join(" "));
+        }
+        res.join("\n")
+    }
+
+    fn fmt_helper_bool(data: &[bool], offset: usize) -> String {
+        let mut res = Vec::new();
+        for i in (0..data.len()).step_by(HEX_PRINT_STEP) {
+            let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
+            let mut row = vec![format!("{:#06X} - {:#06X} :", i + offset, n + offset)];
+
+            for j in i..n {
+                row.push(format!("{}", data[j]));
             }
             res.push(row.join(" "));
         }
@@ -620,17 +624,27 @@ mod print {
 
     impl<T: DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            let mut mem = fmt_helper_u8(&self.memory[PROGRAM_COUNTER..], PROGRAM_COUNTER);
-            let mut reg = fmt_helper_u8(&self.registers, 0);
-            let mut key = fmt_helper(&self.keyboard.get_keybord());
-            let mut sta = fmt_helper(&self.stack);
+            let mut mem = fmt_helper_opcode(&self.memory, 0);
+            let mut reg = fmt_helper(&self.registers, 0);
+            let mut sta = fmt_helper(&self.stack, 0);
+            let mut key = fmt_helper_bool(&self.keyboard.get_keybord(), 0);
 
             mem = fmt_indent_helper(&mem);
             reg = fmt_indent_helper(&reg);
             key = fmt_indent_helper(&key);
             sta = fmt_indent_helper(&sta);
 
-            write!(f, "Chipset {{ \n\tOpcode : {:#06X}\n\tProgram Pointer : {:#06X}\n\tMemory :\n{}\n\tKeybord :\n{}\n\tStack Pointer : {:#06X}\n\tStack :\n{}\n\tRegister :\n{}\n}}", self.opcode, self.program_counter, mem, key, self.stack_counter, sta, reg)
+            write!(
+                f,
+                "Chipset {{ \n\tOpcode : {:#06X}\n\
+                  \tProgram Pointer : {:#06X}\n\
+                  \tMemory :\n{}\n\
+                  \tKeybord :\n{}\n\
+                  \tStack Pointer : {:#06X}\n\
+                  \tStack :\n{}\n\
+                  \tRegister :\n{}\n}}",
+                self.opcode, self.program_counter, mem, key, self.stack_counter, sta, reg
+            )
         }
     }
 }

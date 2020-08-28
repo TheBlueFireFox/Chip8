@@ -3,7 +3,7 @@ pub const MEMORY_SIZE: usize = 0x1000; // 4096
 /// The starting point for the program
 pub const PROGRAM_COUNTER: usize = 0x200;
 /// The step used for calculating the program counter increments
-pub const PROGRAM_COUNTER_STEP: usize = 2;
+pub const OPCODE_BYTE_SIZE: usize = 2;
 /// The size of the chipset registers
 pub const REGISTER_SIZE: usize = 16;
 /// The last entry of the registers

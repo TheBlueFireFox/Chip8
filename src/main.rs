@@ -7,8 +7,8 @@ use chip8_lib::{
 
 fn main() {
     let mut rom = RomArchives::new();
-    let files = rom.file_names();
-
+    let mut files = rom.file_names();
+    files.sort();
     #[derive(Debug)]
     struct DC {
         keyboard: Box<[bool]>,
@@ -34,7 +34,8 @@ fn main() {
     }
     let t = DC::new();
     let t2 = DC::new();
-
-    let c = ChipSet::new(rom.get_file_data(&files[0]).unwrap(), t, t2);
+    let rom_name = files[0].clone();
+    let c = ChipSet::new(rom.get_file_data(&rom_name).unwrap(), t, t2);
     println!("{}", c);
+
 }
