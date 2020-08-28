@@ -547,32 +547,55 @@ mod print {
     /// as a single instruction is u16 the ocata
     /// size will show how often the block shall
     /// be repeated
-    const HEX_FORMAT_SIZE: usize = 8;
+    const HEX_PRINT_STEP: usize = 8;
 
-    fn fmt_helper_u8(data: &[u8]) -> String {
+    fn fmt_helper_u8(data: &[u8], offset: usize) -> String {
         let mut res = Vec::new();
-        for i in (0..data.len()).step_by(HEX_FORMAT_SIZE) {
-            let n = (i + HEX_FORMAT_SIZE - 1).min(data.len() - 1);
-            let mut row = Vec::new();
-            row.push(format!(
-                "{:#06X} - {:#06X} :",
-                i + PROGRAM_COUNTER,
-                n + PROGRAM_COUNTER
-            ));
+        let data_lenght_max = data.len()-1;
+        let mut has_data = vec![(0,0)];
 
-            for j in i..n {
+        for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
+            let n = (i + HEX_PRINT_STEP - 1).min(data_lenght_max);
+            let mut row = Vec::new();
+            row.push(format!("{:#06X} - {:#06X} :", i + offset, n + offset));
+            
+            let mut is_null = true;
+
+            for j in (i..n).step_by(2) {
                 let opcode = u16::from_be_bytes([data[j], data[j + 1]]);
+                
                 row.push(format!("{:#06X}", opcode));
+
+                if opcode > 0 {
+                    is_null = false;
+                }
+            }
+
+            if !is_null {
+                let (_, to) = has_data.last_mut().unwrap();
+                *to+=1;
+            } else {
+                let (_, to) = has_data.last().unwrap().clone();
+                has_data.push((to, to));
             }
             res.push(row.join(" "));
         }
-        res.join("\n")
+
+       // res.join("\n")
+       let mut end = Vec::with_capacity(2 * has_data.len() - 1);
+       for (from, to) in has_data {
+           end.push(res[from..to].join("\n"));
+           if to < data_lenght_max {
+               end.push(format!("{:#06X} - {:#06X} : 0x0000 ... 0x0000", to + offset, to + offset + HEX_PRINT_STEP));
+           }
+       }
+       end.join("\n")
     }
 
     fn fmt_helper<T: fmt::Debug + fmt::Display>(data: &[T]) -> String {
         let mut res = Vec::new();
-        for i in (0..data.len()).step_by(HEX_FORMAT_SIZE) {
-            let n = (i + HEX_FORMAT_SIZE - 1).min(data.len() - 1);
+        for i in (0..data.len()).step_by(HEX_PRINT_STEP) {
+            let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
             let mut row = vec![format!(
                 "{:#06X} - {:#06X} :",
                 i + PROGRAM_COUNTER,
@@ -597,8 +620,8 @@ mod print {
 
     impl<T: DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            let mut mem = fmt_helper_u8(&self.memory);
-            let mut reg = fmt_helper_u8(&self.registers);
+            let mut mem = fmt_helper_u8(&self.memory[PROGRAM_COUNTER..], PROGRAM_COUNTER);
+            let mut reg = fmt_helper_u8(&self.registers, 0);
             let mut key = fmt_helper(&self.keyboard.get_keybord());
             let mut sta = fmt_helper(&self.stack);
 

@@ -2,6 +2,7 @@ use chip8_lib::{
     chip8::ChipSet,
     devices::{DisplayCommands, KeybordCommands},
     resources::RomArchives,
+    definitions::KEYBOARD_SIZE
 };
 
 fn main() {
@@ -10,13 +11,13 @@ fn main() {
 
     #[derive(Debug)]
     struct DC {
-        keyboard: Vec<bool>,
+        keyboard: Box<[bool]>,
     }
 
     impl DC {
         fn new() -> Self {
             DC {
-                keyboard: vec![false; 4],
+                keyboard: Box::new([false; KEYBOARD_SIZE]),
             }
         }
     }
@@ -27,7 +28,7 @@ fn main() {
     }
 
     impl KeybordCommands for DC {
-        fn get_keybord(&self) -> Vec<bool> {
+        fn get_keybord(&self) -> Box<[bool]> {
             self.keyboard.clone()
         }
     }

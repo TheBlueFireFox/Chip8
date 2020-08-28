@@ -17,4 +17,4 @@ pub const TIMER_INTERVAL: u32 = 1000 / TIMER_HERZ as u32;
 /// The amount of pixels the display has
 pub const DISPLAY_RESOLUTION: usize = 64 * 23;
 /// all the different keybords
-pub const KEYBOARD_SIZE: usize = 0xF;
+pub const KEYBOARD_SIZE: usize = 16;
