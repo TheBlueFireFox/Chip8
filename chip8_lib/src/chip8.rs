@@ -564,6 +564,28 @@ mod print {
     /// be repeated has to be bigger then 0
     const HEX_PRINT_STEP: usize = 8;
 
+    /// will add an indent post processing
+    fn indent_helper(data: &str, indent: usize) -> String {
+        let indent = "\t".repeat(indent);
+        data.split("\n")
+            .map(|x| format!("{}{}\n", indent, x))
+            .collect::<String>()
+            .trim_end()
+            .to_string()
+    }
+
+    mod pointer_print {
+        use super::*;
+        /// will formatt the pointers according to definition
+        pub fn formatter(from: usize, to: usize) -> String {
+            format!(
+                "{} - {} :",
+                integer_print::formatter(from),
+                integer_print::formatter(to)
+            )
+        }
+    }
+
     mod opcode_print {
         use {super::*, lazy_static};
 
@@ -575,12 +597,12 @@ mod print {
         lazy_static::lazy_static! {
             // preparing for the 0 block fillers
             static ref ZERO_FILLER : String = if HEX_PRINT_STEP == 1 {
-                formatter_integer(0u16)
+                integer_print::formatter(0u16)
             } else if HEX_PRINT_STEP == 2 {
-                vec![formatter_integer(0u16); 2].join(" ")
+                vec![integer_print::formatter(0u16); 2].join(" ")
             } else {
                 let filler_base = "...";
-                let formatted_integer = formatter_integer(0u16);
+                let formatted_integer = integer_print::formatter(0u16);
                 let lenght = vec![formatted_integer.clone(); HEX_PRINT_STEP]
                 .join(" ")
                 .len() - formatted_integer.len() * 2 - filler_base.len();
@@ -607,23 +629,23 @@ mod print {
         impl fmt::Display for Row {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let mut res = Vec::with_capacity(HEX_PRINT_STEP);
-                res.push(formatter_pointer(self.from, self.to));
+                res.push(pointer_print::formatter(self.from, self.to));
                 if self.only_null {
                     res.push(ZERO_FILLER.clone());
-                // res.push("0x0000{}...{}0x0000".to_string());
                 } else {
                     for entry in self.data.iter() {
-                        res.push(formatter_integer(*entry));
+                        res.push(integer_print::formatter(*entry));
                     }
                 }
                 write!(f, "{}", res.join(" "))
             }
         }
+
         /// will pretty print the content of the raw memory
         /// this functions assumes the full data to be passed
         /// as the offset is calculated from the beggining of the
         /// memory block
-        pub fn printer_opcode(memory: &[u8], offset: usize) -> String {
+        pub fn printer(memory: &[u8], offset: usize) -> String {
             // using the offset
             let data_last_index = memory.len() - 1;
             let mut rows: Vec<Row> = Vec::with_capacity((memory.len() - offset) / HEX_PRINT_STEP);
@@ -673,83 +695,86 @@ mod print {
         }
     }
 
-    /// will format all integer types
-    fn formatter_integer<T: fmt::Display + fmt::UpperHex + num::Unsigned + std::marker::Copy>(
-        data: T,
-    ) -> String {
-        format!("{:#06X}", data)
-    }
-
-    /// will formatt the pointers according to definition
-    fn formatter_pointer(from: usize, to: usize) -> String {
-        format!("{} - {} :", formatter_integer(from), formatter_integer(to))
-    }
-
-    /// will pretty print all the integer data given
-    fn printer_integer<T: fmt::Display + fmt::UpperHex + num::Unsigned + std::marker::Copy>(
-        data: &[T],
-        offset: usize,
-    ) -> String {
-        let mut res = Vec::new();
-        for i in (0..data.len()).step_by(HEX_PRINT_STEP) {
-            let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
-            let mut row = vec![formatter_pointer(i + offset, n + offset)];
-
-            for j in i..=n {
-                row.push(formatter_integer(data[j]));
-            }
-            res.push(row.join(" "));
+    mod integer_print {
+        use super::*;
+        /// will format all integer types
+        pub fn formatter<T: fmt::Display + fmt::UpperHex + num::Unsigned + std::marker::Copy>(
+            data: T,
+        ) -> String {
+            format!("{:#06X}", data)
         }
-        res.join("\n")
-    }
 
-    /// will pretty print all the boolean data given
-    fn printer_bool(data: &[bool], offset: usize) -> String {
-        let mut res = Vec::new();
-        // constant
-        let true_str = "true  ".to_string();
-        let false_str = "false ".to_string();
-        for i in (0..data.len()).step_by(HEX_PRINT_STEP) {
-            let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
-            let mut row = vec![formatter_pointer(i + offset, n + offset)];
+        /// will pretty print all the integer data given
+        pub fn printer<T: fmt::Display + fmt::UpperHex + num::Unsigned + std::marker::Copy>(
+            data: &[T],
+            offset: usize,
+        ) -> String {
+            let mut res = Vec::new();
+            for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
+                let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
+                let mut row = vec![ pointer_print::formatter(i, n)];
 
-            for j in i..=n {
-                row.push(if data[j] {
-                    true_str.clone()
-                } else {
-                    false_str.clone()
-                });
+                for j in i..=n {
+                    row.push(formatter(data[j]));
+                }
+                res.push(row.join(" "));
             }
-            res.push(row.join(" "));
+            res.join("\n")
         }
-        res.join("\n")
     }
 
-    /// will add an indent post processing
-    fn indent_helper(data: &str, indent: usize) -> String {
-        let indent = "\t".repeat(indent);
-        data.split("\n")
-            .map(|x| format!("{}{}\n", indent, x))
-            .collect::<String>()
-            .trim_end()
-            .to_string()
+    mod bool_print {
+        use {super::*, lazy_static};
+
+        lazy_static::lazy_static! {
+            static ref TRUE : String = formatter("true");
+            static ref FALSE: String = formatter("false");
+        }
+
+        /// a function to keep the correct format lenght
+        fn formatter(string: &str) -> String {
+            let mut string = string.to_string();
+            let formatted = integer_print::formatter(0u16);
+            while string.len() < formatted.len() {
+                string.push(' ');
+            }
+            string
+        }
+
+        /// will pretty print all the boolean data given
+        /// the offset will be calculated automatically from
+        /// the data block
+        pub fn printer(data: &[bool], offset: usize) -> String {
+            let mut res = Vec::new();
+
+            for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
+                let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
+                let mut row = vec![pointer_print::formatter(i, n)];
+
+                for j in i..=n {
+                    row.push(if data[j] { TRUE.clone() } else { FALSE.clone() });
+                }
+                res.push(row.join(" "));
+            }
+            res.join("\n")
+        }
     }
 
     impl<T: DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            let mem = opcode_print::printer_opcode(&self.memory, 0);
-            let reg = printer_integer(&self.registers, 0);
-            let sta = printer_integer(&self.stack, 0);
-            let key = printer_bool(&self.keyboard.get_keybord(), 0);
+            let mem = opcode_print::printer(&self.memory, 0);
+            let reg = integer_print::printer(&self.registers, 0);
+            let sta = integer_print::printer(&self.stack, 0);
+            let key = bool_print::printer(&self.keyboard.get_keybord(), 0);
 
             let mem = indent_helper(&mem, 2);
             let reg = indent_helper(&reg, 2);
             let key = indent_helper(&key, 2);
             let sta = indent_helper(&sta, 2);
 
-            let opc = formatter_integer(self.opcode);
-            let prc = formatter_integer(self.program_counter);
-            let stc = formatter_integer(self.stack_counter);
+            let opc = integer_print::formatter(self.opcode);
+            let prc = integer_print::formatter(self.program_counter);
+            let stc = integer_print::formatter(self.stack_counter);
 
             write!(
                 f,
