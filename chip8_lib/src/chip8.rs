@@ -544,15 +544,34 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
 
 mod print {
 
+    #[macro_use]
+    use lazy_static;
     use super::*;
 
     /// The lenght of the pretty print data
     /// as a single instruction is u16 the ocata
     /// size will show how often the block shall
-    /// be repeated
+    /// be repeated has to be bigger then 0
     const HEX_PRINT_STEP: usize = 8;
 
     const POINTER_INCREMENT: usize = HEX_PRINT_STEP * OPCODE_BYTE_SIZE;
+
+    lazy_static::lazy_static! {
+
+        // preparing for the 0 block fillers
+        static ref ZERO_FILLER : String = if HEX_PRINT_STEP == 1 {
+            "0x0000".to_string()
+        } else if HEX_PRINT_STEP == 2 {
+            "0x0000 0x0000".to_string()
+        } else {
+            let filler_base = "...";
+            let lenght = vec![fmt_opcode_hex_formatter(0); HEX_PRINT_STEP]
+            .join(" ")
+            .len()- fmt_opcode_hex_formatter(0).len() * 2 - filler_base.len();
+            let filler = " ".repeat(lenght / 2);
+            format!("0x0000{}...{}0x0000", filler.clone(), filler)
+        };
+    }
 
     fn fmt_opcode_hex_formatter(opcode: Opcode) -> String {
         format!("{:#06X}", opcode)
@@ -576,12 +595,13 @@ mod print {
         }
 
         /// using the fmt::Display for simple printing of the data later on
-        impl fmt::Display for Row { 
+        impl fmt::Display for Row {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let mut res = Vec::with_capacity(HEX_PRINT_STEP);
                 res.push(fmt_helper_pointer_formatter(self.from, self.to));
                 if self.is_null {
-                    res.push("0x0000 ... 0x0000".to_string());
+                    res.push(ZERO_FILLER.clone());
+                // res.push("0x0000{}...{}0x0000".to_string());
                 } else {
                     for entry in self.data.iter() {
                         res.push(fmt_opcode_hex_formatter(*entry));
@@ -590,22 +610,22 @@ mod print {
                 write!(f, "{}", res.join(" "))
             }
         }
-        // using the offset 
+        // using the offset
         let data = &raw_memory[offset..];
         let data_last_index = data.len() - 1;
         let mut rows: Vec<Row> = Vec::with_capacity(data.len() / HEX_PRINT_STEP);
 
         for from in (offset..data.len()).step_by(POINTER_INCREMENT) {
-            // precalculate the end location 
+            // precalculate the end location
             let to = (from + POINTER_INCREMENT - 1).min(data_last_index);
 
             let mut row_data = [0; HEX_PRINT_STEP];
             let mut row_data_index = 0;
             let mut only_null = true;
 
-            // loop over all the opcodes u8 pairs 
+            // loop over all the opcodes u8 pairs
             for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
-                // set the opcode 
+                // set the opcode
                 row_data[row_data_index] = build_opcode(data, index);
                 // check if opcode is above 0, if so toggle the is null flag
                 if row_data[row_data_index] > 0 {
@@ -630,9 +650,7 @@ mod print {
                         true => rows.remove(rows.len() - 1),
                         false => row,
                     },
-                    None => {
-                        row
-                    }
+                    None => row,
                 };
                 current_row.to = to;
                 rows.push(current_row);
@@ -686,10 +704,10 @@ mod print {
 
     impl<T: DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            let mut mem = fmt_helper_opcode(&self.memory, 0);
-            let mut reg = fmt_helper(&self.registers, 0);
-            let mut sta = fmt_helper(&self.stack, 0);
-            let mut key = fmt_helper_bool(&self.keyboard.get_keybord(), 0);
+            let mem = fmt_helper_opcode(&self.memory, 0);
+            let reg = fmt_helper(&self.registers, 0);
+            let sta = fmt_helper(&self.stack, 0);
+            let key = fmt_helper_bool(&self.keyboard.get_keybord(), 0);
 
             let mem = fmt_indent_helper(&mem);
             let reg = fmt_indent_helper(&reg);
