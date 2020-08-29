@@ -712,7 +712,7 @@ mod print {
             let mut res = Vec::new();
             for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
                 let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
-                let mut row = vec![ pointer_print::formatter(i, n)];
+                let mut row = vec![pointer_print::formatter(i, n)];
 
                 for j in i..=n {
                     row.push(formatter(data[j]));
