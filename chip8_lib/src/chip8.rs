@@ -39,19 +39,19 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     /// The stack counter => where in the stack we are
     /// it points to +1 from where we are
     /// so 'stack_counter = 1' means the last stack is
-    /// in 'stack[0]'
+    /// in 'stack\[0\]'
     stack_counter: usize,
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub delay_timer: u8,
+    delay_timer: u8,
     /// Sound timer: This timer is used for sound effects. When its value is nonzero, a beeping
     /// sound is made.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub sound_timer: u8,
+    sound_timer: u8,
     /// The graphics of the Chip 8 are black and white and the screen has a total of 2048 pixels
     /// (64 x 32). This can easily be implemented using an array that hold the pixel state (1 or 0):
-    pub display: Box<[u8]>,
+    display: Box<[u8]>,
     /// Input is done with a hex keyboard that has 16 keys ranging 0 to F. The '8', '4', '6', and
     /// '2' keys are typically used for directional input. Three opcodes are used to detect input.
     /// One skips an instruction if a specific key is pressed, while another does the same if a
@@ -119,6 +119,19 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
     /// will move the program counter forward be an offset
     fn program_counter_step(&mut self, offset: usize) {
         self.program_counter += offset * OPCODE_BYTE_SIZE;
+    }
+
+    /// will return the sound timer
+    pub fn get_sound_timer(&self) -> u8 {
+        self.sound_timer
+    }
+    /// will return the delay timer
+    pub fn get_delay_timer(&self) -> u8 {
+        self.delay_timer
+    }
+    /// will return a clone of the current display configuration
+    pub fn get_display(&self) -> Box<[u8]> {
+        self.display.clone()
     }
 
     /// Will push the current pointer to the stack
@@ -543,9 +556,6 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
 }
 
 mod print {
-
-    #[macro_use]
-    use lazy_static;
     use super::*;
 
     /// The lenght of the pretty print data
@@ -554,149 +564,177 @@ mod print {
     /// be repeated has to be bigger then 0
     const HEX_PRINT_STEP: usize = 8;
 
-    const POINTER_INCREMENT: usize = HEX_PRINT_STEP * OPCODE_BYTE_SIZE;
-
-    lazy_static::lazy_static! {
-
-        // preparing for the 0 block fillers
-        static ref ZERO_FILLER : String = if HEX_PRINT_STEP == 1 {
-            "0x0000".to_string()
-        } else if HEX_PRINT_STEP == 2 {
-            "0x0000 0x0000".to_string()
-        } else {
-            let filler_base = "...";
-            let lenght = vec![fmt_opcode_hex_formatter(0); HEX_PRINT_STEP]
-            .join(" ")
-            .len()- fmt_opcode_hex_formatter(0).len() * 2 - filler_base.len();
-            let filler = " ".repeat(lenght / 2);
-            format!("0x0000{}...{}0x0000", filler.clone(), filler)
+    mod opcode_print {
+        use {
+            super::*,
+            lazy_static,
         };
-    }
 
-    fn fmt_opcode_hex_formatter(opcode: Opcode) -> String {
-        format!("{:#06X}", opcode)
-    }
+        /// The internal lenght of the given data
+        /// as the data is stored as u8 and an opcode
+        /// is u16 long
+        const POINTER_INCREMENT: usize = HEX_PRINT_STEP * OPCODE_BYTE_SIZE;
 
-    fn fmt_helper_pointer_formatter(from: usize, to: usize) -> String {
-        format!("{:#06X} - {:#06X} :", from, to)
-    }
+        lazy_static::lazy_static! {
 
-    /// will pretty print the content of the raw memory
-    /// this functions assumes the full data to be passed
-    /// as the offset is calculated from the beggining of the
-    /// raw memory
-    fn fmt_helper_opcode(raw_memory: &[u8], offset: usize) -> String {
-        /// this struct will simulate a single row of opcodes (only in this context)
-        struct Row {
-            from: usize,
-            to: usize,
-            data: [Opcode; HEX_PRINT_STEP],
-            is_null: bool,
-        }
-
-        /// using the fmt::Display for simple printing of the data later on
-        impl fmt::Display for Row {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                let mut res = Vec::with_capacity(HEX_PRINT_STEP);
-                res.push(fmt_helper_pointer_formatter(self.from, self.to));
-                if self.is_null {
-                    res.push(ZERO_FILLER.clone());
-                // res.push("0x0000{}...{}0x0000".to_string());
-                } else {
-                    for entry in self.data.iter() {
-                        res.push(fmt_opcode_hex_formatter(*entry));
-                    }
-                }
-                write!(f, "{}", res.join(" "))
-            }
-        }
-        // using the offset
-        let data = &raw_memory[offset..];
-        let data_last_index = data.len() - 1;
-        let mut rows: Vec<Row> = Vec::with_capacity(data.len() / HEX_PRINT_STEP);
-
-        for from in (offset..data.len()).step_by(POINTER_INCREMENT) {
-            // precalculate the end location
-            let to = (from + POINTER_INCREMENT - 1).min(data_last_index);
-
-            let mut row_data = [0; HEX_PRINT_STEP];
-            let mut row_data_index = 0;
-            let mut only_null = true;
-
-            // loop over all the opcodes u8 pairs
-            for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
-                // set the opcode
-                row_data[row_data_index] = build_opcode(data, index);
-                // check if opcode is above 0, if so toggle the is null flag
-                if row_data[row_data_index] > 0 {
-                    only_null = false;
-                }
-                row_data_index += 1;
-            }
-
-            // create the row that shall be used later on
-            let row = Row {
-                from,
-                to,
-                data: row_data,
-                is_null: only_null,
-            };
-
-            if !only_null {
-                rows.push(row);
+            // preparing for the 0 block fillers
+            static ref ZERO_FILLER : String = if HEX_PRINT_STEP == 1 {
+                formatter_integer(0u16)
+            } else if HEX_PRINT_STEP == 2 {
+                vec![formatter_integer(0u16); 2].join(" ")
             } else {
-                let mut current_row = match rows.last() {
-                    Some(last_row) => match last_row.is_null {
-                        true => rows.remove(rows.len() - 1),
-                        false => row,
-                    },
-                    None => row,
-                };
-                current_row.to = to;
-                rows.push(current_row);
-            }
+                let filler_base = "...";
+                let formatted_integer = formatter_integer(0u16);
+                let lenght = vec![formatted_integer.clone(); HEX_PRINT_STEP]
+                .join(" ")
+                .len() - formatted_integer.len() * 2 - filler_base.len();
+                let filler = " ".repeat(lenght / 2);
+                format!("{}{}...{}{}", formatted_integer.clone(), filler.clone(), filler, formatted_integer)
+            };
         }
-        // create the end structure to be used for calculations
-        rows.iter()
-            .map(|x| format!("{}", x))
-            .collect::<Vec<_>>()
-            .join("\n")
+
+        /// will pretty print the content of the raw memory
+        /// this functions assumes the full data to be passed
+        /// as the offset is calculated from the beggining of the
+        /// raw memory
+        pub fn printer_opcode(raw_memory: &[u8], offset: usize) -> String {
+            /// this struct will simulate a single row of opcodes (only in this context)
+            struct Row {
+                from: usize,
+                to: usize,
+                data: [Opcode; HEX_PRINT_STEP],
+                is_null: bool,
+            }
+
+            /// using the fmt::Display for simple printing of the data later on
+            impl fmt::Display for Row {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    let mut res = Vec::with_capacity(HEX_PRINT_STEP);
+                    res.push(formatter_pointer(self.from, self.to));
+                    if self.is_null {
+                        res.push(ZERO_FILLER.clone());
+                    // res.push("0x0000{}...{}0x0000".to_string());
+                    } else {
+                        for entry in self.data.iter() {
+                            res.push(formatter_integer(*entry));
+                        }
+                    }
+                    write!(f, "{}", res.join(" "))
+                }
+            }
+            // using the offset
+            let data = &raw_memory[offset..];
+            let data_last_index = data.len() - 1;
+            let mut rows: Vec<Row> = Vec::with_capacity(data.len() / HEX_PRINT_STEP);
+
+            for from in (offset..data.len()).step_by(POINTER_INCREMENT) {
+                // precalculate the end location
+                let to = (from + POINTER_INCREMENT - 1).min(data_last_index);
+
+                let mut row_data = [0; HEX_PRINT_STEP];
+                let mut row_data_index = 0;
+                let mut only_null = true;
+
+                // loop over all the opcodes u8 pairs
+                for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
+                    // set the opcode
+                    row_data[row_data_index] = build_opcode(data, index);
+                    // check if opcode is above 0, if so toggle the is null flag
+                    if row_data[row_data_index] > 0 {
+                        only_null = false;
+                    }
+                    row_data_index += 1;
+                }
+
+                // create the row that shall be used later on
+                let row = Row {
+                    from,
+                    to,
+                    data: row_data,
+                    is_null: only_null,
+                };
+
+                if !only_null {
+                    rows.push(row);
+                } else {
+                    let mut current_row = match rows.last() {
+                        Some(last_row) => match last_row.is_null {
+                            true => rows.remove(rows.len() - 1),
+                            false => row,
+                        },
+                        None => row,
+                    };
+                    current_row.to = to;
+                    rows.push(current_row);
+                }
+            }
+            // create the end structure to be used for calculations
+            rows.iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<_>>()
+                .join("\n")
+        }
     }
 
-    fn fmt_helper<T: fmt::Display + fmt::UpperHex + num::Unsigned>(
+    /// will format all integer types
+    fn formatter_integer<T: fmt::Display + fmt::UpperHex + num::Unsigned + std::marker::Copy>(
+        data: T,
+    ) -> String {
+        format!("{:#06X}", data)
+    }
+
+    /// will formatt the pointers according to definition
+    fn formatter_pointer(from: usize, to: usize) -> String {
+        format!("{} - {} :", formatter_integer(from), formatter_integer(to))
+    }
+
+    /// will pretty print all the integer data given
+    fn printer_integer<T: fmt::Display + fmt::UpperHex + num::Unsigned + std::marker::Copy>(
         data: &[T],
         offset: usize,
     ) -> String {
         let mut res = Vec::new();
         for i in (0..data.len()).step_by(HEX_PRINT_STEP) {
             let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
-            let mut row = vec![format!("{:#06X} - {:#06X} :", i + offset, n + offset)];
+            let mut row = vec![formatter_pointer(i + offset, n + offset)];
 
-            for j in i..n {
-                row.push(format!("{:#06X}", data[j]));
+            for j in i..=n {
+                row.push(formatter_integer(data[j]));
             }
             res.push(row.join(" "));
         }
         res.join("\n")
     }
 
-    fn fmt_helper_bool(data: &[bool], offset: usize) -> String {
+    /// will pretty print all the boolean data given
+    fn printer_bool(data: &[bool], offset: usize) -> String {
         let mut res = Vec::new();
+        // constant
+        let true_str = "true  ".to_string();
+        let false_str = "false ".to_string();
         for i in (0..data.len()).step_by(HEX_PRINT_STEP) {
             let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
-            let mut row = vec![format!("{:#06X} - {:#06X} :", i + offset, n + offset)];
+            let mut row = vec![formatter_pointer(i + offset, n + offset)];
 
-            for j in i..n {
-                row.push(format!("{}", data[j]));
+            for j in i..=n {
+                row.push(
+                    if data[j] {
+                        true_str.clone()
+                    } else {
+                        false_str.clone()
+                    }
+                );
             }
             res.push(row.join(" "));
         }
         res.join("\n")
     }
 
-    fn fmt_indent_helper(data: &str) -> String {
+    /// will add an indent post processing
+    fn indent_helper(data: &str, indent : usize) -> String {
+        let indent = "\t".repeat(indent);
         data.split("\n")
-            .map(|x| format!("\t\t{}\n", x))
+            .map(|x| format!("{}{}\n", indent, x))
             .collect::<String>()
             .trim_end()
             .to_string()
@@ -704,15 +742,15 @@ mod print {
 
     impl<T: DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            let mem = fmt_helper_opcode(&self.memory, 0);
-            let reg = fmt_helper(&self.registers, 0);
-            let sta = fmt_helper(&self.stack, 0);
-            let key = fmt_helper_bool(&self.keyboard.get_keybord(), 0);
+            let mem = opcode_print::printer_opcode(&self.memory, 0);
+            let reg = printer_integer(&self.registers, 0);
+            let sta = printer_integer(&self.stack, 0);
+            let key = printer_bool(&self.keyboard.get_keybord(), 0);
 
-            let mem = fmt_indent_helper(&mem);
-            let reg = fmt_indent_helper(&reg);
-            let key = fmt_indent_helper(&key);
-            let sta = fmt_indent_helper(&sta);
+            let mem = indent_helper(&mem, 2);
+            let reg = indent_helper(&reg, 2);
+            let key = indent_helper(&key, 2);
+            let sta = indent_helper(&sta, 2);
 
             write!(
                 f,
