@@ -565,10 +565,7 @@ mod print {
     const HEX_PRINT_STEP: usize = 8;
 
     mod opcode_print {
-        use {
-            super::*,
-            lazy_static,
-        };
+        use {super::*, lazy_static};
 
         /// The internal lenght of the given data
         /// as the data is stored as u8 and an opcode
@@ -576,7 +573,6 @@ mod print {
         const POINTER_INCREMENT: usize = HEX_PRINT_STEP * OPCODE_BYTE_SIZE;
 
         lazy_static::lazy_static! {
-
             // preparing for the 0 block fillers
             static ref ZERO_FILLER : String = if HEX_PRINT_STEP == 1 {
                 formatter_integer(0u16)
@@ -589,84 +585,85 @@ mod print {
                 .join(" ")
                 .len() - formatted_integer.len() * 2 - filler_base.len();
                 let filler = " ".repeat(lenght / 2);
-                format!("{}{}...{}{}", formatted_integer.clone(), filler.clone(), filler, formatted_integer)
+                format!("{}{}{}{}{}",
+                    formatted_integer.clone(),
+                    filler.clone(),
+                    filler_base,
+                    filler,
+                    formatted_integer
+                )
             };
         }
 
+        /// this struct will simulate a single row of opcodes (only in this context)
+        struct Row {
+            from: usize,
+            to: usize,
+            data: [Opcode; HEX_PRINT_STEP],
+            only_null: bool,
+        }
+
+        /// using the fmt::Display for simple printing of the data later on
+        impl fmt::Display for Row {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let mut res = Vec::with_capacity(HEX_PRINT_STEP);
+                res.push(formatter_pointer(self.from, self.to));
+                if self.only_null {
+                    res.push(ZERO_FILLER.clone());
+                // res.push("0x0000{}...{}0x0000".to_string());
+                } else {
+                    for entry in self.data.iter() {
+                        res.push(formatter_integer(*entry));
+                    }
+                }
+                write!(f, "{}", res.join(" "))
+            }
+        }
         /// will pretty print the content of the raw memory
         /// this functions assumes the full data to be passed
         /// as the offset is calculated from the beggining of the
-        /// raw memory
-        pub fn printer_opcode(raw_memory: &[u8], offset: usize) -> String {
-            /// this struct will simulate a single row of opcodes (only in this context)
-            struct Row {
-                from: usize,
-                to: usize,
-                data: [Opcode; HEX_PRINT_STEP],
-                is_null: bool,
-            }
-
-            /// using the fmt::Display for simple printing of the data later on
-            impl fmt::Display for Row {
-                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                    let mut res = Vec::with_capacity(HEX_PRINT_STEP);
-                    res.push(formatter_pointer(self.from, self.to));
-                    if self.is_null {
-                        res.push(ZERO_FILLER.clone());
-                    // res.push("0x0000{}...{}0x0000".to_string());
-                    } else {
-                        for entry in self.data.iter() {
-                            res.push(formatter_integer(*entry));
-                        }
-                    }
-                    write!(f, "{}", res.join(" "))
-                }
-            }
+        /// memory block
+        pub fn printer_opcode(memory: &[u8], offset: usize) -> String {
             // using the offset
-            let data = &raw_memory[offset..];
-            let data_last_index = data.len() - 1;
-            let mut rows: Vec<Row> = Vec::with_capacity(data.len() / HEX_PRINT_STEP);
+            let data_last_index = memory.len() - 1;
+            let mut rows: Vec<Row> = Vec::with_capacity((memory.len() - offset) / HEX_PRINT_STEP);
 
-            for from in (offset..data.len()).step_by(POINTER_INCREMENT) {
+            for from in (offset..memory.len()).step_by(POINTER_INCREMENT) {
                 // precalculate the end location
                 let to = (from + POINTER_INCREMENT - 1).min(data_last_index);
 
-                let mut row_data = [0; HEX_PRINT_STEP];
-                let mut row_data_index = 0;
+                let mut data = [0; HEX_PRINT_STEP];
+                let mut data_index = 0;
                 let mut only_null = true;
 
                 // loop over all the opcodes u8 pairs
                 for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
                     // set the opcode
-                    row_data[row_data_index] = build_opcode(data, index);
+                    data[data_index] = build_opcode(memory, index);
                     // check if opcode is above 0, if so toggle the is null flag
-                    if row_data[row_data_index] > 0 {
+                    if data[data_index] > 0 {
                         only_null = false;
                     }
-                    row_data_index += 1;
+                    data_index += 1;
                 }
 
                 // create the row that shall be used later on
-                let row = Row {
+                let mut row = Row {
                     from,
                     to,
-                    data: row_data,
-                    is_null: only_null,
+                    data,
+                    only_null,
                 };
 
-                if !only_null {
-                    rows.push(row);
-                } else {
-                    let mut current_row = match rows.last() {
-                        Some(last_row) => match last_row.is_null {
-                            true => rows.remove(rows.len() - 1),
-                            false => row,
-                        },
-                        None => row,
-                    };
-                    current_row.to = to;
-                    rows.push(current_row);
+                if only_null {
+                    if let Some(last_row) = rows.last() {
+                        if last_row.only_null {
+                            row.from = last_row.from;
+                            rows.remove(rows.len() - 1);
+                        }
+                    }
                 }
+                rows.push(row)
             }
             // create the end structure to be used for calculations
             rows.iter()
@@ -717,13 +714,11 @@ mod print {
             let mut row = vec![formatter_pointer(i + offset, n + offset)];
 
             for j in i..=n {
-                row.push(
-                    if data[j] {
-                        true_str.clone()
-                    } else {
-                        false_str.clone()
-                    }
-                );
+                row.push(if data[j] {
+                    true_str.clone()
+                } else {
+                    false_str.clone()
+                });
             }
             res.push(row.join(" "));
         }
@@ -731,7 +726,7 @@ mod print {
     }
 
     /// will add an indent post processing
-    fn indent_helper(data: &str, indent : usize) -> String {
+    fn indent_helper(data: &str, indent: usize) -> String {
         let indent = "\t".repeat(indent);
         data.split("\n")
             .map(|x| format!("{}{}\n", indent, x))
@@ -752,18 +747,22 @@ mod print {
             let key = indent_helper(&key, 2);
             let sta = indent_helper(&sta, 2);
 
+            let opc = formatter_integer(self.opcode);
+            let prc = formatter_integer(self.program_counter);
+            let stc = formatter_integer(self.stack_counter);
+
             write!(
                 f,
                 "Chipset {{ \n\
-                  \tOpcode : {:#06X}\n\
-                  \tProgram Pointer : {:#06X}\n\
+                  \tOpcode : {}\n\
+                  \tProgram Pointer : {}\n\
                   \tMemory :\n{}\n\
                   \tKeybord :\n{}\n\
-                  \tStack Pointer : {:#06X}\n\
+                  \tStack Pointer : {}\n\
                   \tStack :\n{}\n\
                   \tRegister :\n{}\n\
                 }}",
-                self.opcode, self.program_counter, mem, key, self.stack_counter, sta, reg
+                opc, prc, mem, key, stc, sta, reg
             )
         }
     }
