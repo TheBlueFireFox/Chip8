@@ -567,6 +567,7 @@ mod print {
     /// as the offset is calculated from the beggining of the
     /// raw memory
     fn fmt_helper_opcode(raw_memory: &[u8], offset: usize) -> String {
+        /// this struct will simulate a single row of opcodes (only in this context)
         struct Row {
             from: usize,
             to: usize,
@@ -574,7 +575,8 @@ mod print {
             is_null: bool,
         }
 
-        impl fmt::Display for Row {
+        /// using the fmt::Display for simple printing of the data later on
+        impl fmt::Display for Row { 
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let mut res = Vec::with_capacity(HEX_PRINT_STEP);
                 res.push(fmt_helper_pointer_formatter(self.from, self.to));
@@ -588,27 +590,36 @@ mod print {
                 write!(f, "{}", res.join(" "))
             }
         }
-
+        // using the offset 
         let data = &raw_memory[offset..];
+        let data_last_index = data.len() - 1;
         let mut rows: Vec<Row> = Vec::with_capacity(data.len() / HEX_PRINT_STEP);
+
         for from in (offset..data.len()).step_by(POINTER_INCREMENT) {
-            let to = (from + POINTER_INCREMENT - 1).min(data.len() - 1);
+            // precalculate the end location 
+            let to = (from + POINTER_INCREMENT - 1).min(data_last_index);
+
             let mut row_data = [0; HEX_PRINT_STEP];
             let mut row_data_index = 0;
             let mut only_null = true;
+
+            // loop over all the opcodes u8 pairs 
             for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
+                // set the opcode 
                 row_data[row_data_index] = build_opcode(data, index);
+                // check if opcode is above 0, if so toggle the is null flag
                 if row_data[row_data_index] > 0 {
                     only_null = false;
                 }
                 row_data_index += 1;
             }
 
+            // create the row that shall be used later on
             let row = Row {
                 from,
                 to,
                 data: row_data,
-                is_null: false,
+                is_null: only_null,
             };
 
             if !only_null {
@@ -623,12 +634,11 @@ mod print {
                         row
                     }
                 };
-                current_row.is_null = true;
                 current_row.to = to;
                 rows.push(current_row);
             }
         }
-
+        // create the end structure to be used for calculations
         rows.iter()
             .map(|x| format!("{}", x))
             .collect::<Vec<_>>()
@@ -681,20 +691,22 @@ mod print {
             let mut sta = fmt_helper(&self.stack, 0);
             let mut key = fmt_helper_bool(&self.keyboard.get_keybord(), 0);
 
-            mem = fmt_indent_helper(&mem);
-            reg = fmt_indent_helper(&reg);
-            key = fmt_indent_helper(&key);
-            sta = fmt_indent_helper(&sta);
+            let mem = fmt_indent_helper(&mem);
+            let reg = fmt_indent_helper(&reg);
+            let key = fmt_indent_helper(&key);
+            let sta = fmt_indent_helper(&sta);
 
             write!(
                 f,
-                "Chipset {{ \n\tOpcode : {:#06X}\n\
+                "Chipset {{ \n\
+                  \tOpcode : {:#06X}\n\
                   \tProgram Pointer : {:#06X}\n\
                   \tMemory :\n{}\n\
                   \tKeybord :\n{}\n\
                   \tStack Pointer : {:#06X}\n\
                   \tStack :\n{}\n\
-                  \tRegister :\n{}\n}}",
+                  \tRegister :\n{}\n\
+                }}",
                 self.opcode, self.program_counter, mem, key, self.stack_counter, sta, reg
             )
         }
