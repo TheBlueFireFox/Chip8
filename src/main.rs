@@ -34,7 +34,7 @@ fn main() {
     }
     let t = DC::new();
     let t2 = DC::new();
-    let rom_name = files[0].clone();
+    let rom_name = files[1].clone();
     let c = ChipSet::new(rom.get_file_data(&rom_name).unwrap(), t, t2);
     println!("{}", c);
 

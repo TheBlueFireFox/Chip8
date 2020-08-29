@@ -6,8 +6,7 @@ use {
         opcode::*,
         resources::Rom,
     },
-    rand,
-    num,
+    num, rand,
     std::fmt,
 };
 
@@ -563,30 +562,83 @@ mod print {
         format!("{:#06X} - {:#06X} :", from, to)
     }
 
-    fn fmt_helper_opcode(data: &[u8], offset: usize) -> String {
-        let mut res: Vec<String> = Vec::new();
-        let mut contains_data = vec![(0, 0)];
-
-        for from in (offset..data.len()).step_by(POINTER_INCREMENT) {
-            let to = (from + POINTER_INCREMENT - 1).min(data.len() - 1);
-            let mut row: Vec<String> = Vec::with_capacity(HEX_PRINT_STEP + 1);
-
-            row.push(fmt_helper_pointer_formatter(from, to));
-
-            for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
-                // get the next opcode for the
-                //print!("{:X}{:X} ", data[index], data[index + 1]);
-                let opcode = build_opcode(data, index);
-
-                row.push(fmt_opcode_hex_formatter(opcode));
-            }
-            res.push(row.join(" "));
+    /// will pretty print the content of the raw memory
+    /// this functions assumes the full data to be passed
+    /// as the offset is calculated from the beggining of the
+    /// raw memory
+    fn fmt_helper_opcode(raw_memory: &[u8], offset: usize) -> String {
+        struct Row {
+            from: usize,
+            to: usize,
+            data: [Opcode; HEX_PRINT_STEP],
+            is_null: bool,
         }
 
-        res.join("\n")
+        impl fmt::Display for Row {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let mut res = Vec::with_capacity(HEX_PRINT_STEP);
+                res.push(fmt_helper_pointer_formatter(self.from, self.to));
+                if self.is_null {
+                    res.push("0x0000 ... 0x0000".to_string());
+                } else {
+                    for entry in self.data.iter() {
+                        res.push(fmt_opcode_hex_formatter(*entry));
+                    }
+                }
+                write!(f, "{}", res.join(" "))
+            }
+        }
+
+        let data = &raw_memory[offset..];
+        let mut rows: Vec<Row> = Vec::with_capacity(data.len() / HEX_PRINT_STEP);
+        for from in (offset..data.len()).step_by(POINTER_INCREMENT) {
+            let to = (from + POINTER_INCREMENT - 1).min(data.len() - 1);
+            let mut row_data = [0; HEX_PRINT_STEP];
+            let mut row_data_index = 0;
+            let mut only_null = true;
+            for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
+                row_data[row_data_index] = build_opcode(data, index);
+                if row_data[row_data_index] > 0 {
+                    only_null = false;
+                }
+                row_data_index += 1;
+            }
+
+            let row = Row {
+                from,
+                to,
+                data: row_data,
+                is_null: false,
+            };
+
+            if !only_null {
+                rows.push(row);
+            } else {
+                let mut current_row = match rows.last() {
+                    Some(last_row) => match last_row.is_null {
+                        true => rows.remove(rows.len() - 1),
+                        false => row,
+                    },
+                    None => {
+                        row
+                    }
+                };
+                current_row.is_null = true;
+                current_row.to = to;
+                rows.push(current_row);
+            }
+        }
+
+        rows.iter()
+            .map(|x| format!("{}", x))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 
-    fn fmt_helper<T: fmt::Display + fmt::UpperHex + num::Unsigned>(data: &[T], offset: usize) -> String {
+    fn fmt_helper<T: fmt::Display + fmt::UpperHex + num::Unsigned>(
+        data: &[T],
+        offset: usize,
+    ) -> String {
         let mut res = Vec::new();
         for i in (0..data.len()).step_by(HEX_PRINT_STEP) {
             let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
