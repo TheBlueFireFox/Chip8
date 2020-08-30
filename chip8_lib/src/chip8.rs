@@ -1,13 +1,15 @@
 use {
     crate::{
-        definitions::*,
+        definitions::{
+            DISPLAY_RESOLUTION, MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST,
+            REGISTER_SIZE, STACK_NESTING, TIMER_HERZ,
+        },
         devices::{DisplayCommands, KeybordCommands},
         fontset::FONSET,
-        opcode::*,
+        opcode::{self, ChipOpcodes, Opcode, OpcodeTrait},
         resources::Rom,
     },
-    num, rand,
-    std::fmt,
+    rand,
 };
 
 /// The ChipSet struct represents the current state
@@ -105,7 +107,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
 
     /// will build the opcode given from the pointer
     fn opcode_builder(&self, pointer: usize) -> Opcode {
-        build_opcode(&self.memory, pointer)
+        opcode::build_opcode(&self.memory, pointer)
     }
 
     /// will advance the program by a single step
@@ -556,7 +558,10 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
 }
 
 mod print {
-    use super::*;
+    use {
+        super::{ChipSet, DisplayCommands, KeybordCommands},
+        std::fmt,
+    };
 
     /// The lenght of the pretty print data
     /// as a single instruction is u16 the ocata
@@ -575,7 +580,7 @@ mod print {
     }
 
     mod pointer_print {
-        use super::*;
+        use super::integer_print;
         /// will formatt the pointers according to definition
         pub fn formatter(from: usize, to: usize) -> String {
             format!(
@@ -587,7 +592,15 @@ mod print {
     }
 
     mod opcode_print {
-        use {super::*, lazy_static};
+        use {
+            super::{integer_print, pointer_print, HEX_PRINT_STEP},
+            crate::{
+                definitions::OPCODE_BYTE_SIZE,
+                opcode::{self, Opcode},
+            },
+            lazy_static,
+            std::fmt,
+        };
 
         /// The internal lenght of the given data
         /// as the data is stored as u8 and an opcode
@@ -661,7 +674,8 @@ mod print {
                 // loop over all the opcodes u8 pairs
                 for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
                     // set the opcode
-                    data[data_index] = build_opcode(memory, index);
+                    data[data_index] = opcode::build_opcode(memory, index);
+
                     // check if opcode is above 0, if so toggle the is null flag
                     if data[data_index] > 0 {
                         only_null = false;
@@ -696,16 +710,20 @@ mod print {
     }
 
     mod integer_print {
-        use super::*;
+        use {
+            super::{pointer_print, HEX_PRINT_STEP},
+            num,
+            std::fmt,
+        };
         /// will format all integer types
-        pub fn formatter<T: fmt::Display + fmt::UpperHex + num::Unsigned + std::marker::Copy>(
+        pub fn formatter<T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy>(
             data: T,
         ) -> String {
             format!("{:#06X}", data)
         }
 
         /// will pretty print all the integer data given
-        pub fn printer<T: fmt::Display + fmt::UpperHex + num::Unsigned + std::marker::Copy>(
+        pub fn printer<T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy>(
             data: &[T],
             offset: usize,
         ) -> String {
@@ -724,7 +742,10 @@ mod print {
     }
 
     mod bool_print {
-        use {super::*, lazy_static};
+        use {
+            super::{integer_print, pointer_print, HEX_PRINT_STEP},
+            lazy_static,
+        };
 
         lazy_static::lazy_static! {
             static ref TRUE : String = formatter("true");
@@ -796,8 +817,12 @@ mod print {
 #[cfg(test)]
 mod tests {
     use {
-        super::*,
-        crate::{devices, resources::RomArchives},
+        super::{ChipOpcodes, ChipSet},
+        crate::{
+            devices,
+            opcode::Opcode,
+            resources::{Rom, RomArchives},
+        },
     };
 
     fn get_base_data() -> Rom {
