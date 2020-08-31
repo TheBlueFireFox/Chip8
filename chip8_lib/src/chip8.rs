@@ -127,19 +127,34 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
     pub fn get_sound_timer(&self) -> u8 {
         self.sound_timer
     }
+
     /// will return the delay timer
     pub fn get_delay_timer(&self) -> u8 {
         self.delay_timer
     }
+    
     /// will return a clone of the current display configuration
     pub fn get_display(&self) -> Box<[u8]> {
         self.display.clone()
+    }
+
+    /// Will move the internal program counter to the given location
+    /// assumes the given pointer is pointing to a 0 initialized memory
+    fn move_program_counter(&self, pointer: usize) -> Result<usize, &'static str> {
+        let pointer = pointer + PROGRAM_COUNTER;
+
+        if pointer >= self.memory.len() {
+            Err("Memory out of bounds error")
+        } else {
+            Ok(pointer)
+        }
     }
 
     /// Will push the current pointer to the stack
     /// stack_counter is alwas one bigger then the
     /// entry it points to
     fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
+        self.move_program_counter(pointer)?;
         if self.stack.len() - 1 >= self.stack_counter {
             Err("Stack is full")
         } else {
@@ -147,7 +162,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
             self.stack_counter += 1;
 
             // push to stack
-            self.stack[self.stack_counter] = pointer;
+            self.stack[self.stack_counter] = self.move_program_counter(pointer)?;
             Ok(())
         }
     }
@@ -183,12 +198,12 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
 impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
     fn zero(&mut self, opcode: Opcode) -> Result<(), String> {
         match opcode {
-            0x0E0 => {
+            0x00E0 => {
                 // 00E0
                 // clear display
                 self.adapter.clear_display();
             }
-            0x0EE => {
+            0x00EE => {
                 // 00EE
                 // Return from sub routine => pop from stack
 
