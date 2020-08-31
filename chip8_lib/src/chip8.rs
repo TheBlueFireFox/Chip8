@@ -31,11 +31,11 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     /// The index for the register, this is a special register entry
     /// called index `I`
     index_register: u16,
-    /// The program counter is a CPU register in the computer processor which has the address of the 
-    /// next instruction to be executed from memory. 
+    /// The program counter is a CPU register in the computer processor which has the address of the
+    /// next instruction to be executed from memory.
     program_counter: usize,
     /// The stack is only used to store return addresses when subroutines are called. The original
-    /// [RCA 1802](https://de.wikipedia.org/wiki/RCA1802) version allocated `48` bytes for up to 
+    /// [RCA 1802](https://de.wikipedia.org/wiki/RCA1802) version allocated `48` bytes for up to
     // 12 levels of nesting; modern implementations usually have more.
     /// (here we are using 16)
     stack: Box<[usize]>,
@@ -132,7 +132,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     pub fn get_delay_timer(&self) -> u8 {
         self.delay_timer
     }
-    
+
     /// will return a clone of the current display configuration
     pub fn get_display(&self) -> Box<[u8]> {
         self.display.clone()
@@ -144,7 +144,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
         let pointer = pointer + PROGRAM_COUNTER;
 
         if pointer >= self.memory.len() {
-            Err("Memory out of bounds error")
+            Err("Memory out of bounds error!")
         } else {
             Ok(pointer)
         }
@@ -154,15 +154,16 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     /// stack_counter is alwas one bigger then the
     /// entry it points to
     fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
-        self.move_program_counter(pointer)?;
-        if self.stack.len() - 1 >= self.stack_pointer {
+        let pointer = self.move_program_counter(pointer)?;
+    if self.stack.len() - 1 <= self.stack_pointer {
             Err("Stack is full")
         } else {
+
             // increment stack counter
             self.stack_pointer += 1;
 
             // push to stack
-            self.stack[self.stack_pointer] = self.move_program_counter(pointer)?;
+            self.stack[self.stack_pointer] = pointer;
             Ok(())
         }
     }
@@ -172,7 +173,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     /// it points to
     fn pop_stack(&mut self) -> Result<usize, &'static str> {
         if self.stack_pointer == 0 {
-            Err("stack is empty")
+            Err("Stack is empty!")
         } else {
             let pointer = self.stack[self.stack_pointer];
             self.stack_pointer -= 1;
@@ -624,25 +625,26 @@ mod print {
 
         lazy_static::lazy_static! {
             // preparing for the 0 block fillers
-            static ref ZERO_FILLER : String = if HEX_PRINT_STEP == 1 {
-                integer_print::formatter(0u16)
-            } else if HEX_PRINT_STEP == 2 {
-                vec![integer_print::formatter(0u16); 2].join(" ")
-            } else {
-                let filler_base = "...";
-                let formatted_integer = integer_print::formatter(0u16);
-                let lenght = vec![formatted_integer.clone(); HEX_PRINT_STEP]
-                .join(" ")
-                .len() - formatted_integer.len() * 2 - filler_base.len();
-                let filler = " ".repeat(lenght / 2);
-                format!("{}{}{}{}{}",
-                    formatted_integer.clone(),
-                    filler.clone(),
-                    filler_base,
-                    filler,
-                    formatted_integer
-                )
-            };
+            static ref ZERO_FILLER : String = {
+                let formatted = integer_print::formatter(0u16);
+                match HEX_PRINT_STEP {
+                    1 => formatted,
+                    2 => vec![formatted; 2].join(" "),
+                    _ => {
+                        let filler_base = "...";
+                        let lenght = formatted.len() * (HEX_PRINT_STEP - 2) + (HEX_PRINT_STEP - 1)
+                             - filler_base.len();
+                        let filler = " ".repeat(lenght / 2);
+                        format!("{}{}{}{}{}",
+                            formatted.clone(),
+                            filler.clone(),
+                            filler_base,
+                            filler,
+                            formatted
+                        )
+                    }
+                }
+           };
         }
 
         /// this struct will simulate a single row of opcodes (only in this context)
@@ -656,14 +658,15 @@ mod print {
         /// using the fmt::Display for simple printing of the data later on
         impl fmt::Display for Row {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                let mut res = Vec::with_capacity(HEX_PRINT_STEP);
+                let mut res = Vec::with_capacity(HEX_PRINT_STEP + 1);
                 res.push(pointer_print::formatter(self.from, self.to));
-                if self.only_null {
-                    res.push(ZERO_FILLER.clone());
-                } else {
+
+                if !self.only_null {
                     for entry in self.data.iter() {
                         res.push(integer_print::formatter(*entry));
                     }
+                } else {
+                    res.push(ZERO_FILLER.clone());
                 }
                 write!(f, "{}", res.join(" "))
             }
@@ -835,30 +838,34 @@ mod tests {
         super::{ChipOpcodes, ChipSet},
         crate::{
             devices,
+            definitions::{PROGRAM_COUNTER, MEMORY_SIZE},
             resources::{Rom, RomArchives},
         },
-        lazy_static::lazy_static
+        lazy_static::lazy_static,
     };
 
-    lazy_static!{
+    lazy_static! {
         /// pre calculating this as it get's called multiple times per unit
-        static ref BASE_ROM : Rom = get_rom();
+        static ref BASE_ROM : Rom = {
+            let mut ra = RomArchives::new();
+            ra.get_file_data(&ra.file_names()[0]).unwrap()
+        };
     }
 
-    fn get_rom() -> Rom {
-        let mut ra = RomArchives::new();
-        ra.get_file_data(&ra.file_names()[0]).unwrap()
-    }
-
-    fn get_base() -> (Rom, devices::MockDisplayCommands, devices::MockKeyboardCommands) {
+    fn get_base() -> (
+        Rom,
+        devices::MockDisplayCommands,
+        devices::MockKeyboardCommands,
+    ) {
         (
             BASE_ROM.clone(),
             devices::MockDisplayCommands::new(),
-            devices::MockKeyboardCommands::new()
+            devices::MockKeyboardCommands::new(),
         )
     }
 
-    fn set_up_default_chip() -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
+    fn set_up_default_chip() -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands>
+    {
         let (rom, dis, key) = get_base();
         ChipSet::new(rom, dis, key)
     }
@@ -882,10 +889,34 @@ mod tests {
     }
 
     #[test]
-    /// test inserting a location into the stack
-    fn test_call_subrutine() {
-        
+    fn test_push_pop_stack() {
+        let mut chip = set_up_default_chip();
+
+        // check empty initial stack
+        assert_eq!(0, chip.stack_pointer);
+
+        let next_counter = 0x0133;
+        let res = next_counter + PROGRAM_COUNTER;
+        //// test move pc instructions
+        // positiv test
+        assert_eq!(Ok(res), chip.move_program_counter(next_counter));
+        // negative test
+        assert_eq!(Err("Memory out of bounds error!"), chip.move_program_counter(MEMORY_SIZE));
+
+        // as the stack is empty just accept the result
+        assert_eq!(Ok(()), chip.push_stack(next_counter));
+        // check if the stack counter moved as expected
+        assert_eq!(1, chip.stack_pointer);
+        // pop the stack
+        assert_eq!(Ok(res), chip.pop_stack());
+        assert_eq!(0, chip.stack_pointer);
+        // test if stack is now empty
+        assert_eq!(Err("Stack is empty!"), chip.pop_stack());
     }
+
+    #[test]
+    /// test inserting a location into the stack
+    fn test_call_subrutine() {}
 
     #[test]
     /// test return from subrutine
@@ -894,7 +925,5 @@ mod tests {
         // set opcode
         let opcode = 0x00EE;
         chip.set_opcode_custom(opcode);
-
-
     }
 }

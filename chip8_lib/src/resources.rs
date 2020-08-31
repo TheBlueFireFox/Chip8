@@ -1,6 +1,7 @@
 use std::{
     self,
     io::{prelude::*, Cursor},
+    ops
 };
 use zip::{read::ZipArchive, result::ZipResult};
 
