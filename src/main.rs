@@ -1,6 +1,6 @@
 use chip8_lib::{
     chip8::ChipSet,
-    devices::{DisplayCommands, KeybordCommands},
+    devices::{DisplayCommands, KeyboardCommands},
     resources::RomArchives,
     definitions::KEYBOARD_SIZE
 };
@@ -27,8 +27,8 @@ fn main() {
         fn display(&self, _: &[u8]) {}
     }
 
-    impl KeybordCommands for DC {
-        fn get_keybord(&self) -> Box<[bool]> {
+    impl KeyboardCommands for DC {
+        fn get_keyboard(&self) -> Box<[bool]> {
             self.keyboard.clone()
         }
     }

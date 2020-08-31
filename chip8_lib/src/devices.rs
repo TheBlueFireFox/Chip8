@@ -12,6 +12,6 @@ pub trait DisplayCommands {
 
 #[cfg_attr(test, automock)]
 /// The trait responsible for writing the keybord data
-pub trait KeybordCommands {
-    fn get_keybord(&self) -> Box<[bool]>;
+pub trait KeyboardCommands {
+    fn get_keyboard(&self) -> Box<[bool]>;
 }

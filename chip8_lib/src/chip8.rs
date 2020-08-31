@@ -4,7 +4,7 @@ use {
             DISPLAY_RESOLUTION, MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST,
             REGISTER_SIZE, STACK_NESTING, TIMER_HERZ,
         },
-        devices::{DisplayCommands, KeybordCommands},
+        devices::{DisplayCommands, KeyboardCommands},
         fontset::FONSET,
         opcode::{self, ChipOpcodes, Opcode, OpcodeTrait},
         resources::Rom,
@@ -16,33 +16,33 @@ use {
 /// of the system, it contains all the structures
 /// needed for emulating an instant on the
 /// Chip8 cpu.
-pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
+pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     /// all two bytes long and stored big-endian
     opcode: Opcode,
-    /// 0x000-0x1FF - Chip 8 interpreter (contains font set in emu)
-    /// 0x050-0x0A0 - Used for the built in 4x5 pixel font set (0-F)
-    /// 0x200-0xFFF - Program ROM and work RAM
+    /// - `0x000-0x1FF` - Chip 8 interpreter (contains font set in emu)
+    /// - `0x050-0x0A0` - Used for the built in `4x5` pixel font set (`0-F`)
+    /// - `0x200-0xFFF` - Program ROM and work RAM
     memory: Box<[u8]>,
-    /// 8-bit data registers named V0 to VF. The VF register doubles as a flag for some
-    /// instructions; thus, it should be avoided. In an addition operation, VF is the carry flag,
-    /// while in subtraction, it is the "no borrow" flag. In the draw instruction VF is set upon
+    /// `8-bit` data registers named `V0` to `VF`. The `VF` register doubles as a flag for some
+    /// instructions; thus, it should be avoided. In an addition operation, `VF` is the carry flag,
+    /// while in subtraction, it is the "no borrow" flag. In the draw instruction `VF` is set upon
     /// pixel collision.
     registers: Box<[u8]>,
-    /// The index for the register, this is a special register entrie
-    /// called index I
+    /// The index for the register, this is a special register entry
+    /// called index `I`
     index_register: u16,
-    // The program counter => where in the program we are
+    /// The program counter is a CPU register in the computer processor which has the address of the 
+    /// next instruction to be executed from memory. 
     program_counter: usize,
     /// The stack is only used to store return addresses when subroutines are called. The original
-    /// RCA 1802 version allocated 48 bytes for up to 12 levels of nesting; modern
-    /// implementations usually have more.
+    /// [RCA 1802](https://de.wikipedia.org/wiki/RCA1802) version allocated `48` bytes for up to 
+    // 12 levels of nesting; modern implementations usually have more.
     /// (here we are using 16)
     stack: Box<[usize]>,
-    /// The stack counter => where in the stack we are
-    /// it points to +1 from where we are
-    /// so 'stack_counter = 1' means the last stack is
-    /// in 'stack\[0\]'
-    stack_counter: usize,
+    /// The stack pointer stores the address of the last program request in a stack.
+    /// it points to `+1` of the actuall entry, so `stack_pointer = 1` means the last requests is
+    /// in `stack[0]`.
+    stack_pointer: usize,
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
     /// Counts down at 60 hertz, until it reaches 0.
@@ -51,11 +51,11 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     /// sound is made.
     /// Counts down at 60 hertz, until it reaches 0.
     sound_timer: u8,
-    /// The graphics of the Chip 8 are black and white and the screen has a total of 2048 pixels
-    /// (64 x 32). This can easily be implemented using an array that hold the pixel state (1 or 0):
+    /// The graphics of the Chip 8 are black and white and the screen has a total of `2048` pixels
+    /// `(64 x 32)`. This can easily be implemented using an array that hold the pixel state `(1 or 0)`:
     display: Box<[u8]>,
-    /// Input is done with a hex keyboard that has 16 keys ranging 0 to F. The '8', '4', '6', and
-    /// '2' keys are typically used for directional input. Three opcodes are used to detect input.
+    /// Input is done with a hex keyboard that has 16 keys ranging `0-F`. The `8`, `4`, `6`, and
+    /// `2` keys are typically used for directional input. Three opcodes are used to detect input.
     /// One skips an instruction if a specific key is pressed, while another does the same if a
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
@@ -64,7 +64,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeybordCommands> {
     adapter: T,
 }
 
-impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
+impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     /// will create a new chipset object
     pub fn new(rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
         // initialize all the memory with 0
@@ -91,7 +91,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
             stack: Box::new([0; STACK_NESTING]),
-            stack_counter: 0,
+            stack_pointer: 0,
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
             display: Box::new([0; DISPLAY_RESOLUTION]),
@@ -155,14 +155,14 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
     /// entry it points to
     fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
         self.move_program_counter(pointer)?;
-        if self.stack.len() - 1 >= self.stack_counter {
+        if self.stack.len() - 1 >= self.stack_pointer {
             Err("Stack is full")
         } else {
             // increment stack counter
-            self.stack_counter += 1;
+            self.stack_pointer += 1;
 
             // push to stack
-            self.stack[self.stack_counter] = self.move_program_counter(pointer)?;
+            self.stack[self.stack_pointer] = self.move_program_counter(pointer)?;
             Ok(())
         }
     }
@@ -171,11 +171,11 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
     /// stack_counter is always one bigger then the entry
     /// it points to
     fn pop_stack(&mut self) -> Result<usize, &'static str> {
-        if self.stack_counter == 0 {
+        if self.stack_pointer == 0 {
             Err("stack is empty")
         } else {
-            let pointer = self.stack[self.stack_counter];
-            self.stack_counter -= 1;
+            let pointer = self.stack[self.stack_pointer];
+            self.stack_pointer -= 1;
             Ok(pointer)
         }
     }
@@ -190,12 +190,12 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipSet<T, U> {
     #[cfg(test)]
     /// special function just for simpler testing used
     /// for manually setting opcodes
-    pub fn set_opcode_custom(&mut self, opcode: u16) {
+    pub fn set_opcode_custom(&mut self, opcode: Opcode) {
         self.opcode = opcode;
     }
 }
 
-impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
+impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
     fn zero(&mut self, opcode: Opcode) -> Result<(), String> {
         match opcode {
             0x00E0 => {
@@ -451,7 +451,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
 
     fn e(&mut self, opcode: Opcode) -> Result<(), String> {
         let (x, nn) = opcode.xnn();
-        let keyboard = self.keyboard.get_keybord();
+        let keyboard = self.keyboard.get_keyboard();
         let inc = match nn {
             0x9E => {
                 // EX9E
@@ -574,7 +574,7 @@ impl<T: DisplayCommands, U: KeybordCommands> ChipOpcodes for ChipSet<T, U> {
 
 mod print {
     use {
-        super::{ChipSet, DisplayCommands, KeybordCommands},
+        super::{ChipSet, DisplayCommands, KeyboardCommands},
         std::fmt,
     };
 
@@ -796,12 +796,12 @@ mod print {
         }
     }
 
-    impl<T: DisplayCommands, U: KeybordCommands> fmt::Display for ChipSet<T, U> {
+    impl<T: DisplayCommands, U: KeyboardCommands> fmt::Display for ChipSet<T, U> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             let mem = opcode_print::printer(&self.memory, 0);
             let reg = integer_print::printer(&self.registers, 0);
             let sta = integer_print::printer(&self.stack, 0);
-            let key = bool_print::printer(&self.keyboard.get_keybord(), 0);
+            let key = bool_print::printer(&self.keyboard.get_keyboard(), 0);
 
             let mem = indent_helper(&mem, 2);
             let reg = indent_helper(&reg, 2);
@@ -810,7 +810,7 @@ mod print {
 
             let opc = integer_print::formatter(self.opcode);
             let prc = integer_print::formatter(self.program_counter);
-            let stc = integer_print::formatter(self.stack_counter);
+            let stc = integer_print::formatter(self.stack_pointer);
 
             write!(
                 f,
@@ -835,31 +835,46 @@ mod tests {
         super::{ChipOpcodes, ChipSet},
         crate::{
             devices,
-            opcode::Opcode,
             resources::{Rom, RomArchives},
         },
+        lazy_static::lazy_static
     };
 
-    fn get_base_data() -> Rom {
-        let mut rom = RomArchives::new();
-        rom.get_file_data(&rom.file_names()[0]).unwrap()
+    lazy_static!{
+        /// pre calculating this as it get's called multiple times per unit
+        static ref BASE_ROM : Rom = get_rom();
+    }
+
+    fn get_rom() -> Rom {
+        let mut ra = RomArchives::new();
+        ra.get_file_data(&ra.file_names()[0]).unwrap()
+    }
+
+    fn get_base() -> (Rom, devices::MockDisplayCommands, devices::MockKeyboardCommands) {
+        (
+            BASE_ROM.clone(),
+            devices::MockDisplayCommands::new(),
+            devices::MockKeyboardCommands::new()
+        )
+    }
+
+    fn set_up_default_chip() -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
+        let (rom, dis, key) = get_base();
+        ChipSet::new(rom, dis, key)
     }
 
     #[test]
     /// test clear display opcode
     fn test_clear_display_opcode() {
-        let rom = get_base_data();
+        let (rom, mut dis, key) = get_base();
 
         // setup mock
-        let mut dis = devices::MockDisplayCommands::new();
         dis.expect_clear_display().times(1).return_const(());
-
-        let key = devices::MockKeybordCommands::new();
 
         let mut chip = ChipSet::new(rom, dis, key);
 
         // set opcode
-        let opcode: Opcode = 0x00E0;
+        let opcode = 0x00E0;
         // setup chip state
         chip.set_opcode_custom(opcode);
         // run - if there was no panic it worked as intened
@@ -867,6 +882,19 @@ mod tests {
     }
 
     #[test]
+    /// test inserting a location into the stack
+    fn test_call_subrutine() {
+        
+    }
+
+    #[test]
     /// test return from subrutine
-    fn test_return_subrutine() {}
+    fn test_return_subrutine() {
+        let mut chip = set_up_default_chip();
+        // set opcode
+        let opcode = 0x00EE;
+        chip.set_opcode_custom(opcode);
+
+
+    }
 }
