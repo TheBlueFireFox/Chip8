@@ -436,8 +436,9 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // value doesn’t change after the execution of this instruction. As described above, VF is
         // set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and
         // to 0 if that doesn’t happen
-        let (x, y, n) = opcode.xyn();
-        panic!("Not implemented!")
+        
+        // let (x, y, n) = opcode.xyn();
+        todo!("Not implemented yet");
     }
 
     fn e(&mut self, opcode: Opcode) -> Result<(), String> {
@@ -950,8 +951,20 @@ mod tests {
     /// test return from subrutine
     fn test_return_subrutine() {
         let mut chip = set_up_default_chip();
+        let curr_pc = chip.program_counter;
+        // set up test
+        let base = 0x234;
+        let opcode = 0x2000 ^ base;
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(()), chip.calc(opcode));
+
         // set opcode
         let opcode = 0x00EE;
         chip.opcode = opcode;
+
+        assert_eq!(Ok(()), chip.calc(opcode));
+
+        assert_eq!(curr_pc, chip.program_counter)
     }
 }
