@@ -139,14 +139,13 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     }
 
     /// Will move the internal program counter to the given location
-    /// assumes the given pointer is pointing to a 0 initialized memory
-    fn move_program_counter(&self, pointer: usize) -> Result<usize, &'static str> {
-        let pointer = pointer + PROGRAM_COUNTER;
-
-        if pointer >= self.memory.len() {
-            Err("Memory out of bounds error!")
+    /// 
+    fn move_program_counter(&mut self, pointer: usize) -> Result<(), &'static str> {
+        if PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
+            self.program_counter = pointer;
+            Ok(())
         } else {
-            Ok(pointer)
+            Err("Memory out of bounds error!")
         }
     }
 
@@ -187,15 +186,16 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
                 // 00E0
                 // clear display
                 self.adapter.clear_display();
+                self.program_counter_step(1);
             }
             0x00EE => {
                 // 00EE
                 // Return from sub routine => pop from stack
-
                 self.program_counter = self.pop_stack()?;
             }
             _ => {
                 // not needed so empty
+                return Err("Not supported command!".to_string());
             }
         }
         Ok(())
@@ -204,21 +204,24 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
     fn one(&mut self, opcode: Opcode) -> Result<(), String> {
         // 1NNN
         // Jumps to address NNN.
-        self.program_counter = match self.move_program_counter(opcode.nnn()) {
-            Ok(res) => res,
-            Err(err) => return Err(String::from(err))
-        };
-        Ok(())
+        if let Err(err) = self.move_program_counter(opcode.nnn()) {
+            Err(String::from(err))
+        } else {
+            Ok(())
+        }
     }
 
     fn two(&mut self, opcode: Opcode) -> Result<(), String> {
         // 2NNN
         // Calls subroutine at NNN
-        self.push_stack(self.program_counter)?;
-        self.program_counter = match self.move_program_counter(opcode.nnn()) {
-            Ok(res) => res,
-            Err(err) => return Err(String::from(err))
-        };
+        if let Err(err) = self.push_stack(self.program_counter) {
+            return Err(String::from(err));
+        }
+        
+        if let Err(err) = self.move_program_counter(opcode.nnn()) {
+            return Err(String::from(err))
+        } 
+
         Ok(())
     }
 
@@ -888,15 +891,16 @@ mod tests {
         assert_eq!(0, chip.stack_pointer);
 
         let next_counter = 0x0133;
-        let res = next_counter + PROGRAM_COUNTER;
         //// test move pc instructions
         // positiv test
-        assert_eq!(Ok(res), chip.move_program_counter(next_counter));
+        assert_eq!(Err("Memory out of bounds error!"), chip.move_program_counter(next_counter));
         // negative test
         assert_eq!(
             Err("Memory out of bounds error!"),
             chip.move_program_counter(MEMORY_SIZE)
         );
+
+        let next_counter = next_counter + PROGRAM_COUNTER;
 
         for i in 0..STACK_NESTING {
             // as the stack is empty just accept the result
@@ -921,12 +925,12 @@ mod tests {
         let mut chip = set_up_default_chip();
         let base  = 0x234;
         let opcode = 0x1000 ^ base as Opcode;
-        let res = chip.move_program_counter(base).unwrap();
+        let _ = chip.move_program_counter(base);
         chip.opcode = opcode;
 
         assert_eq!(Ok(()), chip.calc(opcode));
 
-        assert_eq!(res, chip.program_counter);
+        assert_eq!(base, chip.program_counter);
     }
 
     #[test]
@@ -934,7 +938,6 @@ mod tests {
     fn test_call_subrutine() {
         let mut chip = set_up_default_chip();
         let base = 0x234;
-        let res = chip.move_program_counter(base as usize).unwrap();
         let opcode = 0x2000 ^ base;
         let curr_pc = chip.program_counter;
 
@@ -942,7 +945,7 @@ mod tests {
         
         assert_eq!(Ok(()), chip.calc(opcode));
 
-        assert_eq!(res, chip.program_counter);
+        assert_eq!(base as usize, chip.program_counter);
 
         assert_eq!(curr_pc, chip.stack[0]);
     }
