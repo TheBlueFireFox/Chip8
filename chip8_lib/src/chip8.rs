@@ -155,15 +155,13 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     /// entry it points to
     fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
         let pointer = self.move_program_counter(pointer)?;
-    if self.stack.len() - 1 <= self.stack_pointer {
-            Err("Stack is full")
+        if self.stack.len() == self.stack_pointer {
+            Err("Stack is full!")
         } else {
-
-            // increment stack counter
-            self.stack_pointer += 1;
-
             // push to stack
             self.stack[self.stack_pointer] = pointer;
+            // increment stack counter
+            self.stack_pointer += 1;
             Ok(())
         }
     }
@@ -175,8 +173,8 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
         if self.stack_pointer == 0 {
             Err("Stack is empty!")
         } else {
-            let pointer = self.stack[self.stack_pointer];
             self.stack_pointer -= 1;
+            let pointer = self.stack[self.stack_pointer];
             Ok(pointer)
         }
     }
@@ -837,8 +835,8 @@ mod tests {
     use {
         super::{ChipOpcodes, ChipSet},
         crate::{
+            definitions::{MEMORY_SIZE, PROGRAM_COUNTER, STACK_NESTING},
             devices,
-            definitions::{PROGRAM_COUNTER, MEMORY_SIZE},
             resources::{Rom, RomArchives},
         },
         lazy_static::lazy_static,
@@ -901,14 +899,24 @@ mod tests {
         // positiv test
         assert_eq!(Ok(res), chip.move_program_counter(next_counter));
         // negative test
-        assert_eq!(Err("Memory out of bounds error!"), chip.move_program_counter(MEMORY_SIZE));
+        assert_eq!(
+            Err("Memory out of bounds error!"),
+            chip.move_program_counter(MEMORY_SIZE)
+        );
 
-        // as the stack is empty just accept the result
-        assert_eq!(Ok(()), chip.push_stack(next_counter));
+        for i in 0..STACK_NESTING {
+            // as the stack is empty just accept the result
+            assert_eq!(Ok(()), chip.push_stack(next_counter + i * 8));
+        }
+        // check for the correct error message
+        assert_eq!(Err("Stack is full!"), chip.push_stack(next_counter));
+
         // check if the stack counter moved as expected
-        assert_eq!(1, chip.stack_pointer);
+        assert_eq!(STACK_NESTING, chip.stack_pointer);
         // pop the stack
-        assert_eq!(Ok(res), chip.pop_stack());
+        for i in (0..STACK_NESTING).rev() {
+            assert_eq!(Ok(res + i * 8), chip.pop_stack());
+        }
         assert_eq!(0, chip.stack_pointer);
         // test if stack is now empty
         assert_eq!(Err("Stack is empty!"), chip.pop_stack());
