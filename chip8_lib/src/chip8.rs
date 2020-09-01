@@ -154,7 +154,6 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     /// stack_counter is alwas one bigger then the
     /// entry it points to
     fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
-        let pointer = self.move_program_counter(pointer)?;
         if self.stack.len() == self.stack_pointer {
             Err("Stack is full!")
         } else {
@@ -179,19 +178,6 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
         }
     }
 
-    #[cfg(test)]
-    /// special function for simpler testing used
-    /// for returning a pointer to the stack
-    pub fn get_stack(&self) -> &[usize] {
-        &self.stack[..]
-    }
-
-    #[cfg(test)]
-    /// special function just for simpler testing used
-    /// for manually setting opcodes
-    pub fn set_opcode_custom(&mut self, opcode: Opcode) {
-        self.opcode = opcode;
-    }
 }
 
 impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
@@ -218,7 +204,10 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
     fn one(&mut self, opcode: Opcode) -> Result<(), String> {
         // 1NNN
         // Jumps to address NNN.
-        self.program_counter = opcode.nnn();
+        self.program_counter = match self.move_program_counter(opcode.nnn()) {
+            Ok(res) => res,
+            Err(err) => return Err(String::from(err))
+        };
         Ok(())
     }
 
@@ -226,7 +215,10 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // 2NNN
         // Calls subroutine at NNN
         self.push_stack(self.program_counter)?;
-        self.program_counter = opcode.nnn();
+        self.program_counter = match self.move_program_counter(opcode.nnn()) {
+            Ok(res) => res,
+            Err(err) => return Err(String::from(err))
+        };
         Ok(())
     }
 
@@ -711,7 +703,7 @@ mod print {
                     if let Some(last_row) = rows.last() {
                         if last_row.only_null {
                             row.from = last_row.from;
-                            rows.remove(rows.len() - 1);
+                            rows.pop();
                         }
                     }
                 }
@@ -838,6 +830,7 @@ mod tests {
             definitions::{MEMORY_SIZE, PROGRAM_COUNTER, STACK_NESTING},
             devices,
             resources::{Rom, RomArchives},
+            opcode::Opcode
         },
         lazy_static::lazy_static,
     };
@@ -881,7 +874,7 @@ mod tests {
         // set opcode
         let opcode = 0x00E0;
         // setup chip state
-        chip.set_opcode_custom(opcode);
+        chip.opcode = opcode;
         // run - if there was no panic it worked as intened
         assert_eq!(chip.calc(opcode), Ok(()));
     }
@@ -915,7 +908,7 @@ mod tests {
         assert_eq!(STACK_NESTING, chip.stack_pointer);
         // pop the stack
         for i in (0..STACK_NESTING).rev() {
-            assert_eq!(Ok(res + i * 8), chip.pop_stack());
+            assert_eq!(Ok(next_counter + i * 8), chip.pop_stack());
         }
         assert_eq!(0, chip.stack_pointer);
         // test if stack is now empty
@@ -923,8 +916,35 @@ mod tests {
     }
 
     #[test]
+    fn test_jump_address() {
+        let mut chip = set_up_default_chip();
+        let base  = 0x234;
+        let opcode = 0x1000 ^ base as Opcode;
+        let res = chip.move_program_counter(base).unwrap();
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(()), chip.calc(opcode));
+
+        assert_eq!(res, chip.program_counter);
+    }
+
+    #[test]
     /// test inserting a location into the stack
-    fn test_call_subrutine() {}
+    fn test_call_subrutine() {
+        let mut chip = set_up_default_chip();
+        let base = 0x234;
+        let res = chip.move_program_counter(base as usize).unwrap();
+        let opcode = 0x2000 ^ base;
+        let curr_pc = chip.program_counter;
+
+        chip.opcode = opcode;
+        
+        assert_eq!(Ok(()), chip.calc(opcode));
+
+        assert_eq!(res, chip.program_counter);
+
+        assert_eq!(curr_pc, chip.stack[0]);
+    }
 
     #[test]
     /// test return from subrutine
@@ -932,6 +952,6 @@ mod tests {
         let mut chip = set_up_default_chip();
         // set opcode
         let opcode = 0x00EE;
-        chip.set_opcode_custom(opcode);
+        chip.opcode = opcode;
     }
 }
