@@ -12,6 +12,8 @@ pub const OPCODE_MASK_000F: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FFF0;
 pub const OPCODE_MASK_00FF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
 /// the mask for the last four bytes
 pub const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
+/// the size of a single byte
+const BYTE_SIZE : u16 = 0x8;
 
 /// a wrapper type for u16 to make it clear what is meant to be used
 pub type Opcode = u16;
@@ -25,9 +27,9 @@ pub type Opcode = u16;
 /// # Example
 /// ```
 /// # use chip8_lib::opcode::build_opcode;
-/// let data = vec![0x00, 0xEE, 0x1E, 0xDA];
+/// let data = &[0x00, 0xEE, 0x1E, 0xDA];
 /// let pointer = 2;
-/// let opcode = build_opcode(&data[..], pointer);
+/// let opcode = build_opcode(data, pointer);
 /// assert_eq!(opcode, 0x1EDA);
 /// ```
 pub fn build_opcode(data: &[u8], pointer: usize) -> Opcode {
@@ -73,34 +75,62 @@ pub trait OpcodeTrait {
 }
 
 impl OpcodeTrait for Opcode {
+    /// this is an opcode extractor that will return the
+    /// opcode number form any opcode
+    /// - `T` is the opcode type
+    /// # Example
+    /// ```rust
+    /// ```
     fn t(&self) -> usize {
         (self & OPCODE_MASK_F000) as usize
     }
 
+    /// this is an opcode extractor for the opcode type `TNNN`
+    /// - `T` is the opcode type
+    /// - `NNN` is a register index
+    /// this is an opcode extractor for the opcode type `TNNN`
+    /// - `T` is the opcode type
+    /// - `NNN` is a register index
     fn nnn(&self) -> usize {
         (self & OPCODE_MASK_0FFF) as usize
     }
 
+    /// this is an opcode extractor for the opcode type `TXNN`
+    /// - `T` is the opcode type
+    /// - `X` is a register index
+    /// - `NN` is a constant
     fn xnn(&self) -> (usize, u8) {
         let x = self.x();
         let nn = (self & OPCODE_MASK_00FF) as u8;
         (x, nn)
     }
 
+    /// this is an opcode extractor for the opcode type `TXYN`
+    /// - `T` is the opcode type
+    /// - `X` is a register index
+    /// - `Y` is a constant
+    /// - `N` is a opcode subtype
     fn xyn(&self) -> (usize, usize, usize) {
         let (x, y) = self.xy();
         let n = (self & OPCODE_MASK_000F) as usize;
         (x, y, n)
     }
 
+    /// this is an opcode extractor for the opcode type `TXYT`
+    /// - `T` is the opcode type
+    /// - `X` is a register index
+    /// - `Y` is a constant
     fn xy(&self) -> (usize, usize) {
         let x = self.x();
-        let y = (self & OPCODE_MASK_00FF & 0x00F0) as usize;
+        let y = ((self & (OPCODE_MASK_00FF ^ OPCODE_MASK_000F)) >> BYTE_SIZE / 2) as usize;
         (x, y)
     }
 
+    /// this is an opcode extractor for the opcode type `TXTT`
+    /// - `T` is the opcode type
+    /// - `X` is a register index
     fn x(&self) -> usize {
-        (self & OPCODE_MASK_0FFF & OPCODE_MASK_FF00) as usize
+        ((self & OPCODE_MASK_0FFF & OPCODE_MASK_FF00) >> BYTE_SIZE) as usize
     }
 }
 
@@ -223,4 +253,39 @@ pub trait ChipOpcodes {
     ///
     /// Returns any possible error
     fn f(&mut self, opcode: Opcode) -> Result<(), String>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const BASE_OPCODE: Opcode = 0x1EDA;
+    #[test]
+    fn test_opcode_t() {
+        assert_eq!(BASE_OPCODE.t(), 0x1000);
+    }
+
+    #[test]
+    fn test_opcode_nnn() {
+        assert_eq!(BASE_OPCODE.nnn(), 0xEDA);
+    }
+
+    #[test]
+    fn test_opcode_xnn() {
+        assert_eq!(BASE_OPCODE.xnn(), (0xE, 0xDA));
+    }
+ 
+    #[test]
+    fn test_opcode_xyn() {
+        assert_eq!(BASE_OPCODE.xyn(), (0xE, 0xD, 0xA));
+    }
+
+    #[test]
+    fn test_opcode_x() {
+        assert_eq!(BASE_OPCODE.x(), 0xE);
+    }
+
+    #[test]
+    fn test_opcode_xy() {
+        assert_eq!(BASE_OPCODE.xy(), (0xE,0xD));
+    }
 }

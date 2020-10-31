@@ -69,7 +69,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     pub fn new(rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
         // initialize all the memory with 0
 
-        let mut ram = Box::new([0; MEMORY_SIZE]);
+        let mut ram = vec![0; MEMORY_SIZE].into_boxed_slice();
 
         // load fonts
         let mut index = 0;
@@ -94,7 +94,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
             stack_pointer: 0,
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
-            display: Box::new([0; DISPLAY_RESOLUTION]),
+            display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
             keyboard: keyboard_adapter,
             adapter: display_adapter,
         }
@@ -139,7 +139,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     }
 
     /// Will move the internal program counter to the given location
-    /// 
+    ///
     fn move_program_counter(&mut self, pointer: usize) -> Result<(), &'static str> {
         if PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
             self.program_counter = pointer;
@@ -176,7 +176,6 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
             Ok(pointer)
         }
     }
-
 }
 
 impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
@@ -217,10 +216,10 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         if let Err(err) = self.push_stack(self.program_counter) {
             return Err(String::from(err));
         }
-        
+
         if let Err(err) = self.move_program_counter(opcode.nnn()) {
-            return Err(String::from(err))
-        } 
+            return Err(String::from(err));
+        }
 
         Ok(())
     }
@@ -439,7 +438,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // value doesn’t change after the execution of this instruction. As described above, VF is
         // set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and
         // to 0 if that doesn’t happen
-        
+
         // let (x, y, n) = opcode.xyn();
         todo!("Not implemented yet");
     }
@@ -800,23 +799,27 @@ mod print {
             let sta = integer_print::printer(&self.stack, 0);
             let key = bool_print::printer(&self.keyboard.get_keyboard(), 0);
 
+            let opc = integer_print::formatter(self.opcode);
+            let prc = integer_print::formatter(self.program_counter);
+            let stc = integer_print::formatter(self.stack_pointer);
+
             let mem = indent_helper(&mem, 2);
             let reg = indent_helper(&reg, 2);
             let key = indent_helper(&key, 2);
             let sta = indent_helper(&sta, 2);
 
-            let opc = integer_print::formatter(self.opcode);
-            let prc = integer_print::formatter(self.program_counter);
-            let stc = integer_print::formatter(self.stack_pointer);
+            let opc = indent_helper(&opc, 2); 
+            let prc = indent_helper(&prc, 2); 
+            let stc = indent_helper(&stc, 2); 
 
             write!(
                 f,
                 "Chipset {{ \n\
-                  \tOpcode : {}\n\
-                  \tProgram Pointer : {}\n\
+                  \tOpcode : \n{}\n\
+                  \tProgram Counter: \n{}\n\
                   \tMemory :\n{}\n\
                   \tKeybord :\n{}\n\
-                  \tStack Pointer : {}\n\
+                  \tStack Pointer : \n{}\n\
                   \tStack :\n{}\n\
                   \tRegister :\n{}\n\
                 }}",
@@ -831,10 +834,10 @@ mod tests {
     use {
         super::{ChipOpcodes, ChipSet},
         crate::{
-            definitions::{MEMORY_SIZE, PROGRAM_COUNTER, STACK_NESTING},
+            definitions::{MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, STACK_NESTING},
             devices,
+            opcode::Opcode,
             resources::{Rom, RomArchives},
-            opcode::Opcode
         },
         lazy_static::lazy_static,
     };
@@ -859,14 +862,14 @@ mod tests {
         )
     }
 
-    fn set_up_default_chip() -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands>
-    {
+    fn get_default_chip() -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
         let (rom, dis, key) = get_base();
         ChipSet::new(rom, dis, key)
     }
 
     #[test]
     /// test clear display opcode
+    /// `0x00E0`
     fn test_clear_display_opcode() {
         let (rom, mut dis, key) = get_base();
 
@@ -884,8 +887,9 @@ mod tests {
     }
 
     #[test]
+    /// tesxting internal functionality of poping and pushing into the stack
     fn test_push_pop_stack() {
-        let mut chip = set_up_default_chip();
+        let mut chip = get_default_chip();
 
         // check empty initial stack
         assert_eq!(0, chip.stack_pointer);
@@ -893,7 +897,10 @@ mod tests {
         let next_counter = 0x0133;
         //// test move pc instructions
         // positiv test
-        assert_eq!(Err("Memory out of bounds error!"), chip.move_program_counter(next_counter));
+        assert_eq!(
+            Err("Memory out of bounds error!"),
+            chip.move_program_counter(next_counter)
+        );
         // negative test
         assert_eq!(
             Err("Memory out of bounds error!"),
@@ -921,9 +928,11 @@ mod tests {
     }
 
     #[test]
+    /// test a simple jump to the next address
+    /// `1NNN`
     fn test_jump_address() {
-        let mut chip = set_up_default_chip();
-        let base  = 0x234;
+        let mut chip = get_default_chip();
+        let base = 0x234;
         let opcode = 0x1000 ^ base as Opcode;
         let _ = chip.move_program_counter(base);
         chip.opcode = opcode;
@@ -935,14 +944,15 @@ mod tests {
 
     #[test]
     /// test inserting a location into the stack
+    /// "2NNN"
     fn test_call_subrutine() {
-        let mut chip = set_up_default_chip();
+        let mut chip = get_default_chip();
         let base = 0x234;
         let opcode = 0x2000 ^ base;
         let curr_pc = chip.program_counter;
 
         chip.opcode = opcode;
-        
+
         assert_eq!(Ok(()), chip.calc(opcode));
 
         assert_eq!(base as usize, chip.program_counter);
@@ -952,8 +962,9 @@ mod tests {
 
     #[test]
     /// test return from subrutine
+    /// `0x00EE`
     fn test_return_subrutine() {
-        let mut chip = set_up_default_chip();
+        let mut chip = get_default_chip();
         let curr_pc = chip.program_counter;
         // set up test
         let base = 0x234;
@@ -969,5 +980,28 @@ mod tests {
         assert_eq!(Ok(()), chip.calc(opcode));
 
         assert_eq!(curr_pc, chip.program_counter)
+    }
+
+    #[test]
+    /// test the skip instruction if equal method
+    /// `3XNN`
+    fn test_skip_instruction_if_equals() {
+        let mut chip = get_default_chip();
+        let register = 0x1;
+        let solution = 0x3;
+        // skip register 1 if it is equal to 03
+        let opcode = 0x3 << (3 * 4) ^ (register << (2 * 4)) ^ solution;
+
+        let curr_pc = chip.program_counter;
+
+        assert_eq!(Ok(()), chip.calc(opcode));
+
+        assert_eq!(curr_pc, chip.program_counter + 1 * OPCODE_BYTE_SIZE);
+
+        let curr_pc = chip.program_counter;
+        chip.registers[register as usize] = solution as u8;
+        assert_eq!(Ok(()), chip.calc(opcode));
+
+        assert_eq!(curr_pc, chip.program_counter + 2 * OPCODE_BYTE_SIZE);
     }
 }
