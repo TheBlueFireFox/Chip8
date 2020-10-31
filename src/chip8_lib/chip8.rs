@@ -1,3 +1,5 @@
+use crate::opcode::Operation;
+
 use {
     crate::{
         definitions::{
@@ -111,7 +113,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     }
 
     /// will advance the program by a single step
-    pub fn step(&mut self) -> Result<(), String> {
+    pub fn step(&mut self) -> Result<opcode::Operation, String> {
         // get next opcode
         self.set_opcode();
 
@@ -431,7 +433,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(())
     }
 
-    fn d(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn d(&mut self, opcode: Opcode) -> Result<opcode::Operation, String> {
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
@@ -439,8 +441,10 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and
         // to 0 if that doesn’t happen
 
-        // let (x, y, n) = opcode.xyn();
-        todo!("Not implemented yet");
+        let (x, y, n) = opcode.xyn();
+        let i = self.index_register;
+
+        Ok(opcode::Operation::None)
     }
 
     fn e(&mut self, opcode: Opcode) -> Result<(), String> {
@@ -836,7 +840,7 @@ mod tests {
         crate::{
             definitions::{MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, STACK_NESTING},
             devices,
-            opcode::Opcode,
+            opcode::{Opcode, Operation},
             resources::{Rom, RomArchives},
         },
         lazy_static::lazy_static,
@@ -883,7 +887,7 @@ mod tests {
         // setup chip state
         chip.opcode = opcode;
         // run - if there was no panic it worked as intened
-        assert_eq!(chip.calc(opcode), Ok(()));
+        assert_eq!(chip.calc(opcode), Ok(Operation::None));
     }
 
     #[test]
@@ -937,7 +941,7 @@ mod tests {
         let _ = chip.move_program_counter(base);
         chip.opcode = opcode;
 
-        assert_eq!(Ok(()), chip.calc(opcode));
+        assert_eq!(chip.calc(opcode),Ok(Operation::None));
 
         assert_eq!(base, chip.program_counter);
     }
@@ -953,7 +957,7 @@ mod tests {
 
         chip.opcode = opcode;
 
-        assert_eq!(Ok(()), chip.calc(opcode));
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(base as usize, chip.program_counter);
 
@@ -971,13 +975,12 @@ mod tests {
         let opcode = 0x2000 ^ base;
         chip.opcode = opcode;
 
-        assert_eq!(Ok(()), chip.calc(opcode));
-
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
         // set opcode
         let opcode = 0x00EE;
         chip.opcode = opcode;
 
-        assert_eq!(Ok(()), chip.calc(opcode));
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(curr_pc, chip.program_counter)
     }
@@ -994,13 +997,13 @@ mod tests {
 
         let curr_pc = chip.program_counter;
 
-        assert_eq!(Ok(()), chip.calc(opcode));
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(curr_pc, chip.program_counter + 1 * OPCODE_BYTE_SIZE);
 
         let curr_pc = chip.program_counter;
         chip.registers[register as usize] = solution as u8;
-        assert_eq!(Ok(()), chip.calc(opcode));
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(curr_pc, chip.program_counter + 2 * OPCODE_BYTE_SIZE);
     }

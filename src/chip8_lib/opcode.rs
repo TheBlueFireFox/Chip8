@@ -13,7 +13,7 @@ pub const OPCODE_MASK_00FF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
 /// the mask for the last four bytes
 pub const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
 /// the size of a single byte
-const BYTE_SIZE : u16 = 0x8;
+const BYTE_SIZE: u16 = 0x8;
 
 /// a wrapper type for u16 to make it clear what is meant to be used
 pub type Opcode = u16;
@@ -24,14 +24,6 @@ pub type Opcode = u16;
 /// - `data` - A slice of u8 data entries used to generate the opcodes
 /// - `pointer` - Where in the data the opcode shall be extracted, so `pointer` and `pointer + 1` make
 /// the opcode up
-/// # Example
-/// ```
-/// # use chip8_lib::opcode::build_opcode;
-/// let data = &[0x00, 0xEE, 0x1E, 0xDA];
-/// let pointer = 2;
-/// let opcode = build_opcode(data, pointer);
-/// assert_eq!(opcode, 0x1EDA);
-/// ```
 pub fn build_opcode(data: &[u8], pointer: usize) -> Opcode {
     u16::from_be_bytes([data[pointer], data[pointer + 1]])
 }
@@ -134,11 +126,18 @@ impl OpcodeTrait for Opcode {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum Operation {
+    None,
+    Draw(usize, usize, usize),
+}
+
 /// These are the traits that hava to be fullfilled for a working opcode
 /// table
 pub trait ChipOpcodes {
     /// will calculate the programs step by a single step
-    fn calc(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
+        let mut operation = Operation::None;
         match opcode.t() {
             0x0000 => self.zero(opcode),
             0x1000 => self.one(opcode),
@@ -153,13 +152,20 @@ pub trait ChipOpcodes {
             0xA000 => self.a(opcode),
             0xB000 => self.b(opcode),
             0xC000 => self.c(opcode),
-            0xD000 => self.d(opcode),
+            0xD000 => match self.d(opcode) {
+                Ok(op) => {
+                    operation = op;
+                    Ok(())
+                }
+                Err(err) => Err(err),
+            },
             0xE000 => self.e(opcode),
             0xF000 => self.f(opcode),
             _ => {
                 panic!(format!("An unsupported opcode was used {:#06X}", opcode));
             }
-        }
+        }?;
+        Ok(operation)
     }
 
     /// A mutiuse opcode base for type `0NNN`
@@ -231,7 +237,7 @@ pub trait ChipOpcodes {
     /// - `DXYN` - Disp     - `draw(Vx,Vy,N)`       - Draws a sprite at coordinate `(VX, VY)` that has a width of `8` pixels and a height of `N` pixels. Each row of `8` pixels is read as bit-coded starting from memory location `I`; `I` value doesn’t change after the execution of this instruction. As described above, `VF` is set to `1` if any screen pixels are flipped from set to unset when the sprite is drawn, and to `0` if that doesn’t happen
     ///
     /// Returns any possible error
-    fn d(&mut self, opcode: Opcode) -> Result<(), String>;
+    fn d(&mut self, opcode: Opcode) -> Result<Operation, String>;
     /// A mutiuse opcode base for type `EXTT` (T is a sub obcode)
     ///
     /// - `EX9E` - KeyOp    - `if(key()==Vx)`       - Skips the next instruction if the key stored in `VX` is pressed. (Usually the next instruction is a jump to skip a code block)
@@ -258,7 +264,19 @@ pub trait ChipOpcodes {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     const BASE_OPCODE: Opcode = 0x1EDA;
+    #[test]
+    fn test_build_opcode() {
+        const OPCODES: &[Opcode] = &[0x00EE, 0x1EDA];
+        const SPLIT_OPCODE: &[u8] = &[0x00, 0xEE, 0x1E, 0xDA];
+
+        for (i, val) in OPCODES.iter().enumerate() {
+            let opcode = build_opcode(SPLIT_OPCODE, i * 2);
+            assert_eq!(opcode, *val);
+        }
+    }
+
     #[test]
     fn test_opcode_t() {
         assert_eq!(BASE_OPCODE.t(), 0x1000);
@@ -273,7 +291,7 @@ mod tests {
     fn test_opcode_xnn() {
         assert_eq!(BASE_OPCODE.xnn(), (0xE, 0xDA));
     }
- 
+
     #[test]
     fn test_opcode_xyn() {
         assert_eq!(BASE_OPCODE.xyn(), (0xE, 0xD, 0xA));
@@ -286,6 +304,6 @@ mod tests {
 
     #[test]
     fn test_opcode_xy() {
-        assert_eq!(BASE_OPCODE.xy(), (0xE,0xD));
+        assert_eq!(BASE_OPCODE.xy(), (0xE, 0xD));
     }
 }
