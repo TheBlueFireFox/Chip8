@@ -999,12 +999,12 @@ mod tests {
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        assert_eq!(curr_pc, chip.program_counter + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
 
         let curr_pc = chip.program_counter;
         chip.registers[register as usize] = solution as u8;
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        assert_eq!(curr_pc, chip.program_counter + 2 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
     }
 }
