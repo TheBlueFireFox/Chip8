@@ -25,7 +25,7 @@ pub type Opcode = u16;
 /// - `pointer` - Where in the data the opcode shall be extracted, so `pointer` and `pointer + 1` make
 /// the opcode up
 /// ```rust
-/// # use crate::chip8_lib::opcode::*;
+/// # use chip::opcode::*;
 ///  const OPCODES: &[Opcode] = &[0x00EE, 0x1EDA];
 ///  const SPLIT_OPCODE: &[u8] = &[0x00, 0xEE, 0x1E, 0xDA];
 ///  for (i, val) in OPCODES.iter().enumerate() {
@@ -81,7 +81,7 @@ impl OpcodeTrait for Opcode {
     /// - `T` is the opcode type
     /// # Example
     /// ```rust
-    /// # use crate::chip8_lib::opcode::*;
+    /// # use chip::opcode::*;
     /// const BASE_OPCODE: Opcode = 0x1EDA;
     /// assert_eq!(BASE_OPCODE.t(), 0x1000);
     /// ```
@@ -97,7 +97,7 @@ impl OpcodeTrait for Opcode {
     /// - `NNN` is a register index
     /// # Example
     /// ```rust
-    /// # use crate::chip8_lib::opcode::*;
+    /// # use chip::opcode::*;
     ///  const BASE_OPCODE: Opcode = 0x1EDA;
     ///  assert_eq!(BASE_OPCODE.nnn(), 0xEDA)
     /// ```
@@ -111,7 +111,7 @@ impl OpcodeTrait for Opcode {
     /// - `NN` is a constant
     /// # Example
     /// ```rust
-    /// # use crate::chip8_lib::opcode::*;
+    /// # use chip::opcode::*;
     ///  const BASE_OPCODE: Opcode = 0x1EDA;
     ///  assert_eq!(BASE_OPCODE.xnn(), (0xE, 0xDA));
     /// ```
@@ -127,7 +127,7 @@ impl OpcodeTrait for Opcode {
     /// - `Y` is a constant
     /// - `N` is a opcode subtype
     /// ```rust
-    /// # use crate::chip8_lib::opcode::*;
+    /// # use chip::opcode::*;
     ///  const BASE_OPCODE: Opcode = 0x1EDA;
     ///  assert_eq!(BASE_OPCODE.xyn(), (0xE, 0xD, 0xA));
     /// ```
@@ -142,7 +142,7 @@ impl OpcodeTrait for Opcode {
     /// - `X` is a register index
     /// - `Y` is a constant
     /// ```rust
-    /// # use crate::chip8_lib::opcode::*;
+    /// # use chip::opcode::*;
     ///  const BASE_OPCODE: Opcode = 0x1EDA;
     ///  assert_eq!(BASE_OPCODE.xy(), (0xE, 0xD));
     /// ```
@@ -156,7 +156,7 @@ impl OpcodeTrait for Opcode {
     /// - `T` is the opcode type
     /// - `X` is a register index
     /// ```rust
-    /// # use crate::chip8_lib::opcode::*;
+    /// # use chip::opcode::*;
     ///  const BASE_OPCODE: Opcode = 0x1EDA;
     ///  assert_eq!(BASE_OPCODE.x(), 0xE);
     /// ```

@@ -1,4 +1,4 @@
-use chip8_lib::{
+use chip::{
     chip8::ChipSet,
     devices::{DisplayCommands, KeyboardCommands},
     resources::RomArchives,
