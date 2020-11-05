@@ -24,6 +24,15 @@ pub type Opcode = u16;
 /// - `data` - A slice of u8 data entries used to generate the opcodes
 /// - `pointer` - Where in the data the opcode shall be extracted, so `pointer` and `pointer + 1` make
 /// the opcode up
+/// ```rust
+/// # use crate::chip8_lib::opcode::*;
+///  const OPCODES: &[Opcode] = &[0x00EE, 0x1EDA];
+///  const SPLIT_OPCODE: &[u8] = &[0x00, 0xEE, 0x1E, 0xDA];
+///  for (i, val) in OPCODES.iter().enumerate() {
+///      let opcode = build_opcode(SPLIT_OPCODE, i * 2);
+///      assert_eq!(opcode, *val);
+///  }
+/// ```
 pub fn build_opcode(data: &[u8], pointer: usize) -> Opcode {
     u16::from_be_bytes([data[pointer], data[pointer + 1]])
 }
@@ -72,6 +81,9 @@ impl OpcodeTrait for Opcode {
     /// - `T` is the opcode type
     /// # Example
     /// ```rust
+    /// # use crate::chip8_lib::opcode::*;
+    /// const BASE_OPCODE: Opcode = 0x1EDA;
+    /// assert_eq!(BASE_OPCODE.t(), 0x1000);
     /// ```
     fn t(&self) -> usize {
         (self & OPCODE_MASK_F000) as usize
@@ -83,6 +95,12 @@ impl OpcodeTrait for Opcode {
     /// this is an opcode extractor for the opcode type `TNNN`
     /// - `T` is the opcode type
     /// - `NNN` is a register index
+    /// # Example
+    /// ```rust
+    /// # use crate::chip8_lib::opcode::*;
+    ///  const BASE_OPCODE: Opcode = 0x1EDA;
+    ///  assert_eq!(BASE_OPCODE.nnn(), 0xEDA)
+    /// ```
     fn nnn(&self) -> usize {
         (self & OPCODE_MASK_0FFF) as usize
     }
@@ -91,6 +109,12 @@ impl OpcodeTrait for Opcode {
     /// - `T` is the opcode type
     /// - `X` is a register index
     /// - `NN` is a constant
+    /// # Example
+    /// ```rust
+    /// # use crate::chip8_lib::opcode::*;
+    ///  const BASE_OPCODE: Opcode = 0x1EDA;
+    ///  assert_eq!(BASE_OPCODE.xnn(), (0xE, 0xDA));
+    /// ```
     fn xnn(&self) -> (usize, u8) {
         let x = self.x();
         let nn = (self & OPCODE_MASK_00FF) as u8;
@@ -102,6 +126,11 @@ impl OpcodeTrait for Opcode {
     /// - `X` is a register index
     /// - `Y` is a constant
     /// - `N` is a opcode subtype
+    /// ```rust
+    /// # use crate::chip8_lib::opcode::*;
+    ///  const BASE_OPCODE: Opcode = 0x1EDA;
+    ///  assert_eq!(BASE_OPCODE.xyn(), (0xE, 0xD, 0xA));
+    /// ```
     fn xyn(&self) -> (usize, usize, usize) {
         let (x, y) = self.xy();
         let n = (self & OPCODE_MASK_000F) as usize;
@@ -112,6 +141,11 @@ impl OpcodeTrait for Opcode {
     /// - `T` is the opcode type
     /// - `X` is a register index
     /// - `Y` is a constant
+    /// ```rust
+    /// # use crate::chip8_lib::opcode::*;
+    ///  const BASE_OPCODE: Opcode = 0x1EDA;
+    ///  assert_eq!(BASE_OPCODE.xy(), (0xE, 0xD));
+    /// ```
     fn xy(&self) -> (usize, usize) {
         let x = self.x();
         let y = ((self & (OPCODE_MASK_00FF ^ OPCODE_MASK_000F)) >> BYTE_SIZE / 2) as usize;
@@ -121,6 +155,11 @@ impl OpcodeTrait for Opcode {
     /// this is an opcode extractor for the opcode type `TXTT`
     /// - `T` is the opcode type
     /// - `X` is a register index
+    /// ```rust
+    /// # use crate::chip8_lib::opcode::*;
+    ///  const BASE_OPCODE: Opcode = 0x1EDA;
+    ///  assert_eq!(BASE_OPCODE.x(), 0xE);
+    /// ```
     fn x(&self) -> usize {
         ((self & OPCODE_MASK_0FFF & OPCODE_MASK_FF00) >> BYTE_SIZE) as usize
     }
@@ -129,7 +168,7 @@ impl OpcodeTrait for Opcode {
 #[derive(Debug, PartialEq)]
 pub enum Operation {
     None,
-    Draw(usize, usize, usize),
+    Draw(usize, usize, usize, usize),
 }
 
 /// These are the traits that hava to be fullfilled for a working opcode
@@ -259,51 +298,4 @@ pub trait ChipOpcodes {
     ///
     /// Returns any possible error
     fn f(&mut self, opcode: Opcode) -> Result<(), String>;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const BASE_OPCODE: Opcode = 0x1EDA;
-    #[test]
-    fn test_build_opcode() {
-        const OPCODES: &[Opcode] = &[0x00EE, 0x1EDA];
-        const SPLIT_OPCODE: &[u8] = &[0x00, 0xEE, 0x1E, 0xDA];
-
-        for (i, val) in OPCODES.iter().enumerate() {
-            let opcode = build_opcode(SPLIT_OPCODE, i * 2);
-            assert_eq!(opcode, *val);
-        }
-    }
-
-    #[test]
-    fn test_opcode_t() {
-        assert_eq!(BASE_OPCODE.t(), 0x1000);
-    }
-
-    #[test]
-    fn test_opcode_nnn() {
-        assert_eq!(BASE_OPCODE.nnn(), 0xEDA);
-    }
-
-    #[test]
-    fn test_opcode_xnn() {
-        assert_eq!(BASE_OPCODE.xnn(), (0xE, 0xDA));
-    }
-
-    #[test]
-    fn test_opcode_xyn() {
-        assert_eq!(BASE_OPCODE.xyn(), (0xE, 0xD, 0xA));
-    }
-
-    #[test]
-    fn test_opcode_x() {
-        assert_eq!(BASE_OPCODE.x(), 0xE);
-    }
-
-    #[test]
-    fn test_opcode_xy() {
-        assert_eq!(BASE_OPCODE.xy(), (0xE, 0xD));
-    }
 }

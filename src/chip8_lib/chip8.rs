@@ -1,5 +1,3 @@
-use crate::opcode::Operation;
-
 use {
     crate::{
         definitions::{
@@ -442,9 +440,9 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // to 0 if that doesn’t happen
 
         let (x, y, n) = opcode.xyn();
-        let i = self.index_register;
+        let i = self.index_register as usize;
 
-        Ok(opcode::Operation::None)
+        Ok(opcode::Operation::Draw(x, y, n, i))
     }
 
     fn e(&mut self, opcode: Opcode) -> Result<(), String> {
@@ -812,9 +810,9 @@ mod print {
             let key = indent_helper(&key, 2);
             let sta = indent_helper(&sta, 2);
 
-            let opc = indent_helper(&opc, 2); 
-            let prc = indent_helper(&prc, 2); 
-            let stc = indent_helper(&stc, 2); 
+            let opc = indent_helper(&opc, 2);
+            let prc = indent_helper(&prc, 2);
+            let stc = indent_helper(&stc, 2);
 
             write!(
                 f,
@@ -941,7 +939,7 @@ mod tests {
         let _ = chip.move_program_counter(base);
         chip.opcode = opcode;
 
-        assert_eq!(chip.calc(opcode),Ok(Operation::None));
+        assert_eq!(chip.calc(opcode), Ok(Operation::None));
 
         assert_eq!(base, chip.program_counter);
     }
