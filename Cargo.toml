@@ -8,8 +8,8 @@ edition = "2018"
 
 [lib]
 name="chip8_lib"
-path="src/chip8_lib/lib.rs"
-doctest=true
+path="src/lib/lib.rs"
+#doctest=true
 
 [dependencies]
 zip = "0.5.8"
