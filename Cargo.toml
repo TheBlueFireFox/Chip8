@@ -14,7 +14,7 @@ doctest=true
 [dependencies]
 zip = "0.5.8"
 rand = "0.7.3"
-num = "0.3.0"
+num = "0.3.1"
 lazy_static = "1.4.0"
 
 [dev-dependencies]
