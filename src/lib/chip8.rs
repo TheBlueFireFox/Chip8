@@ -17,6 +17,7 @@ use {
 /// needed for emulating an instant on the
 /// Chip8 cpu.
 pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
+    name: String,
     /// all two bytes long and stored big-endian
     opcode: Opcode,
     /// - `0x000-0x1FF` - Chip 8 interpreter (contains font set in emu)
@@ -66,7 +67,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
 
 impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     /// will create a new chipset object
-    pub fn new(rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
+    pub fn new(name: String, rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
         // initialize all the memory with 0
 
         let mut ram = vec![0; MEMORY_SIZE].into_boxed_slice();
@@ -85,6 +86,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
         }
 
         ChipSet {
+            name,
             opcode: 0,
             memory: ram,
             registers: Box::new([0; REGISTER_SIZE]),
@@ -817,6 +819,7 @@ mod print {
             write!(
                 f,
                 "Chipset {{ \n\
+                  \tProgram Name: {}\n\
                   \tOpcode : \n{}\n\
                   \tProgram Counter: \n{}\n\
                   \tMemory :\n{}\n\
@@ -825,7 +828,7 @@ mod print {
                   \tStack :\n{}\n\
                   \tRegister :\n{}\n\
                 }}",
-                opc, prc, mem, key, stc, sta, reg
+                self.name, opc, prc, mem, key, stc, sta, reg
             )
         }
     }
@@ -856,29 +859,30 @@ mod tests {
         Rom,
         devices::MockDisplayCommands,
         devices::MockKeyboardCommands,
+        String
     ) {
         (
             BASE_ROM.clone(),
             devices::MockDisplayCommands::new(),
-            devices::MockKeyboardCommands::new(),
+            devices::MockKeyboardCommands::new(),"15PUZZLE".to_string()
         )
     }
 
     fn get_default_chip() -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
-        let (rom, dis, key) = get_base();
-        ChipSet::new(rom, dis, key)
+        let (rom, dis, key, name) = get_base();
+        ChipSet::new(name, rom, dis, key)
     }
 
     #[test]
     /// test clear display opcode
     /// `0x00E0`
     fn test_clear_display_opcode() {
-        let (rom, mut dis, key) = get_base();
+        let (rom, mut dis, key, name) = get_base();
 
         // setup mock
         dis.expect_clear_display().times(1).return_const(());
 
-        let mut chip = ChipSet::new(rom, dis, key);
+        let mut chip = ChipSet::new(name, rom, dis, key);
 
         // set opcode
         let opcode = 0x00E0;
