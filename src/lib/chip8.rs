@@ -23,12 +23,12 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     /// - `0x000-0x1FF` - Chip 8 interpreter (contains font set in emu)
     /// - `0x050-0x0A0` - Used for the built in `4x5` pixel font set (`0-F`)
     /// - `0x200-0xFFF` - Program ROM and work RAM
-    memory: Box<[u8]>,
+    memory: Vec<u8>,
     /// `8-bit` data registers named `V0` to `VF`. The `VF` register doubles as a flag for some
     /// instructions; thus, it should be avoided. In an addition operation, `VF` is the carry flag,
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction `VF` is set upon
     /// pixel collision.
-    registers: Box<[u8]>,
+    registers: Vec<u8>,
     /// The index for the register, this is a special register entry
     /// called index `I`
     index_register: u16,
@@ -37,9 +37,9 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     program_counter: usize,
     /// The stack is only used to store return addresses when subroutines are called. The original
     /// [RCA 1802](https://de.wikipedia.org/wiki/RCA1802) version allocated `48` bytes for up to
-    // 12 levels of nesting; modern implementations usually have more.
-    /// (here we are using 16)
-    stack: Box<[usize]>,
+    /// `12` levels of nesting; modern implementations usually have more.
+    /// (here we are using `16`)
+    stack: Vec<usize>,
     /// The stack pointer stores the address of the last program request in a stack.
     /// it points to `+1` of the actuall entry, so `stack_pointer = 1` means the last requests is
     /// in `stack[0]`.
@@ -54,7 +54,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     sound_timer: u8,
     /// The graphics of the Chip 8 are black and white and the screen has a total of `2048` pixels
     /// `(64 x 32)`. This can easily be implemented using an array that hold the pixel state `(1 or 0)`:
-    display: Box<[u8]>,
+    display: Vec<u8>,
     /// Input is done with a hex keyboard that has 16 keys ranging `0-F`. The `8`, `4`, `6`, and
     /// `2` keys are typically used for directional input. Three opcodes are used to detect input.
     /// One skips an instruction if a specific key is pressed, while another does the same if a
@@ -70,7 +70,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     pub fn new(name: &str, rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
         // initialize all the memory with 0
 
-        let mut ram = vec![0; MEMORY_SIZE].into_boxed_slice();
+        let mut ram = vec![0; MEMORY_SIZE];
 
         // load fonts
         let mut index = 0;
@@ -86,17 +86,17 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
         }
 
         ChipSet {
-            name : name.to_string(),
+            name: name.to_string(),
             opcode: 0,
             memory: ram,
-            registers: Box::new([0; REGISTER_SIZE]),
+            registers: vec![0; REGISTER_SIZE],
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
-            stack: Box::new([0; STACK_NESTING]),
+            stack: vec![0; STACK_NESTING],
             stack_pointer: 0,
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
-            display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
+            display: vec![0; DISPLAY_RESOLUTION],
             keyboard: keyboard_adapter,
             adapter: display_adapter,
         }
@@ -136,8 +136,8 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     }
 
     /// will return a clone of the current display configuration
-    pub fn get_display(&self) -> Box<[u8]> {
-        self.display.clone()
+    pub fn get_display(&self) -> &[u8] {
+        &self.display
     }
 
     /// Will move the internal program counter to the given location
@@ -847,7 +847,7 @@ mod tests {
         lazy_static::lazy_static,
     };
 
-    const ROM_NAME : &str = "15PUZZLE";
+    const ROM_NAME: &str = "15PUZZLE";
 
     lazy_static! {
         /// pre calculating this as it get's called multiple times per unit
@@ -856,7 +856,6 @@ mod tests {
             ra.get_file_data(ROM_NAME).unwrap()
         };
     }
-
 
     fn get_base<'a>() -> (
         Rom,
@@ -868,7 +867,7 @@ mod tests {
             BASE_ROM.clone(),
             devices::MockDisplayCommands::new(),
             devices::MockKeyboardCommands::new(),
-            ROM_NAME
+            ROM_NAME,
         )
     }
 
@@ -938,11 +937,32 @@ mod tests {
     }
 
     #[test]
+    /// test return from subrutine
+    /// `0x00EE`
+    fn test_return_subrutine() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+        // set up test
+        let base = 0x234;
+        let opcode = 0x2000 ^ base;
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+        // set opcode
+        let opcode = 0x00EE;
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(curr_pc, chip.program_counter)
+    }
+
+    #[test]
     /// test a simple jump to the next address
     /// `1NNN`
     fn test_jump_address() {
         let mut chip = get_default_chip();
-        let base = 0x234;
+        let base = 0x0234;
         let opcode = 0x1000 ^ base as Opcode;
         let _ = chip.move_program_counter(base);
         chip.opcode = opcode;
@@ -971,27 +991,6 @@ mod tests {
     }
 
     #[test]
-    /// test return from subrutine
-    /// `0x00EE`
-    fn test_return_subrutine() {
-        let mut chip = get_default_chip();
-        let curr_pc = chip.program_counter;
-        // set up test
-        let base = 0x234;
-        let opcode = 0x2000 ^ base;
-        chip.opcode = opcode;
-
-        assert_eq!(Ok(Operation::None), chip.calc(opcode));
-        // set opcode
-        let opcode = 0x00EE;
-        chip.opcode = opcode;
-
-        assert_eq!(Ok(Operation::None), chip.calc(opcode));
-
-        assert_eq!(curr_pc, chip.program_counter)
-    }
-
-    #[test]
     /// test the skip instruction if equal method
     /// `3XNN`
     fn test_skip_instruction_if_equals() {
@@ -1009,6 +1008,33 @@ mod tests {
 
         let curr_pc = chip.program_counter;
         chip.registers[register as usize] = solution as u8;
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    /// `4XNN`
+    /// Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a
+    /// jump to skip a code block)
+    fn test_skip_instruction_if_not_equals() {
+        let mut chip = get_default_chip();
+        let register = 0x1;
+        let solution = 0x3;
+        // skip register 1 if it is not equal to 03
+        let opcode = 0x4 << (3 * 4) ^ (register << (2 * 4)) ^ solution;
+
+        // will not skip next instruction
+        let curr_pc = chip.program_counter;
+        chip.registers[register as usize] = solution as u8;
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+
+        // skip next block because it's not equal
+        let curr_pc = chip.program_counter;
+        chip.registers[register as usize] = 0x66;
+
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
