@@ -1081,4 +1081,22 @@ mod tests {
 
         assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
     }
+
+    #[test]
+    fn test_set_vx_to_nn() {
+        let mut chip = get_default_chip();
+        let register = 0x1;
+        let value = 0x66 & chip.registers[register];
+        let curr_pc = chip.program_counter;
+        chip.registers[register] = value;
+        // skip register 1 if VY is not equals to VX
+        let opcode: Opcode = 0x5 << (3 * 4) ^ ((register as u16) << (2 * 4)) ^ (value as u16);
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(value, chip.registers[register]);
+
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
 }
