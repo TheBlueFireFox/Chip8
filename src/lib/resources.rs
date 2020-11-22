@@ -46,11 +46,11 @@ impl RomArchives<'_> {
         if size % 2 == 1 {
             size += 1;
         }
-        let mut data = vec![0; size];
+        let mut data = vec![0; size].into_boxed_slice();
         // this result can be ignored as the included archive
         // will definitely contain data for if the file is included
         file.read(&mut data)?;
-        Ok(Rom::new(data.into_boxed_slice()))
+        Ok(Rom::new(data))
     }
 }
 

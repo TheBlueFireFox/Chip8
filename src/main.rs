@@ -6,8 +6,8 @@ use chip::{
 };
 
 fn main() {
-    let mut rom = RomArchives::new();
-    let mut files = rom.file_names();
+    let mut ra = RomArchives::new();
+    let mut files = ra.file_names();
     files.sort();
     #[derive(Debug)]
     struct DC {
@@ -39,13 +39,9 @@ fn main() {
         *entry = true;
     }
 
-    let rom_name = files[0].to_string();
+    let rom_name = &files[0].to_string();
+    let rom = ra.get_file_data(rom_name).unwrap();
 
-    let c = ChipSet::new(
-        rom_name.to_string(),
-        rom.get_file_data(&rom_name).unwrap(),
-        t,
-        t2,
-    );
+    let c = ChipSet::new(rom_name, rom, t, t2);
     println!("{}", c);
 }

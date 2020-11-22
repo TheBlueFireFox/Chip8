@@ -67,7 +67,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
 
 impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     /// will create a new chipset object
-    pub fn new(name: String, rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
+    pub fn new(name: &str, rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
         // initialize all the memory with 0
 
         let mut ram = vec![0; MEMORY_SIZE].into_boxed_slice();
@@ -86,7 +86,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
         }
 
         ChipSet {
-            name,
+            name : name.to_string(),
             opcode: 0,
             memory: ram,
             registers: Box::new([0; REGISTER_SIZE]),
@@ -847,25 +847,28 @@ mod tests {
         lazy_static::lazy_static,
     };
 
+    const ROM_NAME : &str = "15PUZZLE";
+
     lazy_static! {
         /// pre calculating this as it get's called multiple times per unit
         static ref BASE_ROM : Rom = {
             let mut ra = RomArchives::new();
-            let file = ra.file_names()[0].to_string();
-            ra.get_file_data(&file).unwrap()
+            ra.get_file_data(ROM_NAME).unwrap()
         };
     }
 
-    fn get_base() -> (
+
+    fn get_base<'a>() -> (
         Rom,
         devices::MockDisplayCommands,
         devices::MockKeyboardCommands,
-        String
+        &'a str,
     ) {
         (
             BASE_ROM.clone(),
             devices::MockDisplayCommands::new(),
-            devices::MockKeyboardCommands::new(),"15PUZZLE".to_string()
+            devices::MockKeyboardCommands::new(),
+            ROM_NAME
         )
     }
 
