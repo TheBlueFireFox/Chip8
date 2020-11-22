@@ -837,6 +837,7 @@ mod print {
 #[cfg(test)]
 mod tests {
     use {
+        rand::prelude::*,
         super::{ChipOpcodes, ChipSet},
         crate::{
             definitions::{MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, STACK_NESTING},
@@ -873,7 +874,19 @@ mod tests {
 
     fn get_default_chip() -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
         let (rom, dis, key, name) = get_base();
-        ChipSet::new(name, rom, dis, key)
+        let mut chip = ChipSet::new(name, rom, dis, key);
+        // fill up register with random values
+        let mut rng = rand::thread_rng();
+        assert_eq!(chip.registers.len(), 16);
+        chip.registers = (0..=0xF)
+            .map(|_| {
+                // 1 (inclusive) to 21 (exclusive)
+                rng.gen_range(u8::MIN,u8::MAX)
+            })
+            .collect();
+
+        assert_eq!(chip.registers.len(), 16);
+        chip
     }
 
     #[test]
@@ -993,7 +1006,7 @@ mod tests {
     #[test]
     /// test the skip instruction if equal method
     /// `3XNN`
-    fn test_skip_instruction_if_equals() {
+    fn test_skip_instruction_if_const_equals() {
         let mut chip = get_default_chip();
         let register = 0x1;
         let solution = 0x3;
@@ -1017,7 +1030,7 @@ mod tests {
     /// `4XNN`
     /// Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a
     /// jump to skip a code block)
-    fn test_skip_instruction_if_not_equals() {
+    fn test_skip_instruction_if_const_not_equals() {
         let mut chip = get_default_chip();
         let register = 0x1;
         let solution = 0x3;
@@ -1035,6 +1048,35 @@ mod tests {
         let curr_pc = chip.program_counter;
         chip.registers[register as usize] = 0x66;
 
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    fn test_skip_instruction_if_register_equals() {
+        let mut chip = get_default_chip();
+        let registery = 0x1;
+        let registerx = 0x2;
+        // skip register 1 if VY is not equals to VX
+        let opcode = 0x5 << (3 * 4) ^ (registerx << (2 * 4)) ^ (registery << (1 * 4));
+
+        // setup register for a none skip
+        chip.registers[registerx as usize] = 0x6;
+        chip.registers[registery as usize] = 0x66;
+        // will not skip next instruction
+        let curr_pc = chip.program_counter;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+
+        // skip next block because it's not equal
+        // setup register
+        chip.registers[registerx as usize] = 0x66;
+        chip.registers[registery as usize] = 0x66;
+        // copy current state of program counter
+        let curr_pc = chip.program_counter;
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
