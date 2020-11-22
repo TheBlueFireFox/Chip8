@@ -896,6 +896,8 @@ mod tests {
         let (rom, mut dis, key, name) = get_base();
 
         // setup mock
+        // will assert to false if condition is not 
+        // met
         dis.expect_clear_display().times(1).return_const(());
 
         let mut chip = ChipSet::new(name, rom, dis, key);
