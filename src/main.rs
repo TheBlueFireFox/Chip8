@@ -1,8 +1,8 @@
 use chip::{
     chip8::ChipSet,
+    definitions::KEYBOARD_SIZE,
     devices::{DisplayCommands, KeyboardCommands},
     resources::RomArchives,
-    definitions::KEYBOARD_SIZE
 };
 
 fn main() {
@@ -39,9 +39,13 @@ fn main() {
         *entry = true;
     }
 
-    let rom_name = &files[0];
-    
-    let c = ChipSet::new(rom_name.clone(), rom.get_file_data(&rom_name).unwrap(), t, t2);
-    println!("{}", c);
+    let rom_name = files[0].to_string();
 
+    let c = ChipSet::new(
+        rom_name.to_string(),
+        rom.get_file_data(&rom_name).unwrap(),
+        t,
+        t2,
+    );
+    println!("{}", c);
 }

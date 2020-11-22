@@ -851,7 +851,8 @@ mod tests {
         /// pre calculating this as it get's called multiple times per unit
         static ref BASE_ROM : Rom = {
             let mut ra = RomArchives::new();
-            ra.get_file_data(&ra.file_names()[0]).unwrap()
+            let file = ra.file_names()[0].to_string();
+            ra.get_file_data(&file).unwrap()
         };
     }
 

@@ -30,11 +30,11 @@ impl RomArchives<'_> {
     }
 
     /// Will retuan all the rom names available to be chosen
-    pub fn file_names(&self) -> Vec<String> {
+    pub fn file_names(&self) -> Vec<&'_ str> {
         let mut data = Vec::new();
 
         for file in self.archive.file_names() {
-            data.push(file.to_string());
+            data.push(file);
         }
         data
     }
@@ -42,16 +42,15 @@ impl RomArchives<'_> {
     // Will decompress the information from the zip archive
     pub fn get_file_data(&mut self, name: &str) -> ZipResult<Rom> {
         let mut file = self.archive.by_name(name)?;
-        let size = if file.size() % 2 == 1 {
-            file.size() + 1
-        } else {
-            file.size()
-        } as usize;
-        let mut data = vec![0; size].into_boxed_slice();
+        let mut size =  file.size() as usize;
+        if size % 2 == 1 {
+            size += 1;
+        }
+        let mut data = vec![0; size];
         // this result can be ignored as the included archive
         // will definitely contain data for if the file is included
         file.read(&mut data)?;
-        Ok(Rom::new(data))
+        Ok(Rom::new(data.into_boxed_slice()))
     }
 }
 
@@ -78,7 +77,7 @@ impl Rom {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::RomArchives;
     use crate::opcode::{build_opcode, Opcode};
     const RAW_ROM_DATA: [Opcode; 192] = [
         0x00E0, 0x6C00, 0x4C00, 0x6E0F, 0xA203, 0x6020, 0xF055, 0x00E0, 0x22BE, 0x2276, 0x228E,
