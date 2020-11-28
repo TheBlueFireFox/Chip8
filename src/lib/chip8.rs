@@ -169,36 +169,38 @@ impl<T: DisplayCommands, U: KeyboardCommands> ProgramCounter for ChipSet<T, U> {
             ProgramCounterStep::Next => { self.program_counter += OPCODE_BYTE_SIZE;}
             ProgramCounterStep::Skip => {self.program_counter += 2 * OPCODE_BYTE_SIZE;}
             ProgramCounterStep::None => {}
-            ProgramCounterStep::Jump(pointer) => {
+            ProgramCounterStep::Jump(pointer) => 
             if PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
-            self.program_counter = pointer;
-        } else {
-            panic!("Memory out of bounds error!")
-        }
-        }
+                self.program_counter = pointer;
+            } else {
+                panic!("Memory out of bounds error!")
+            }
+        
     }
 }
 }
 
 impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
     fn zero(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
-        match opcode {
+        let step = match opcode {
             0x00E0 => {
                 // 00E0
                 // clear display
                 self.adapter.clear_display();
+                ProgramCounterStep::Next
             }
             0x00EE => {
                 // 00EE
                 // Return from sub routine => pop from stack
                 self.program_counter = self.pop_stack()?;
+                ProgramCounterStep::None
             }
             _ => {
                 // not needed so empty
                 return Err("Not supported command!".to_string());
             }
-        }
-        Ok(ProgramCounterStep::Next)
+        };
+        Ok(step)
     }
 
     fn one(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
@@ -791,7 +793,7 @@ mod tests {
         rand::prelude::*,
         super::{ChipOpcodes, ChipSet},
         crate::{
-            definitions::{MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, STACK_NESTING},
+            definitions::{OPCODE_BYTE_SIZE, PROGRAM_COUNTER, STACK_NESTING},
             devices,
             opcode::{Opcode, Operation, ProgramCounter},
             resources::{Rom, RomArchives},
@@ -870,21 +872,6 @@ mod tests {
         assert_eq!(0, chip.stack_pointer);
 
         let next_counter = 0x0133;
-        //// test move pc instructions
-        // positiv test
-        todo!();
-        /*let result = panic::catch_unwind(
-            || chip.move_program_counter(next_counter)
-        );
-        assert!(
-            Err("Memory out of bounds error!"),
-        );
-        // negative test
-        assert_eq!(
-            Err("Memory out of bounds error!"),
-            chip.move_program_counter(MEMORY_SIZE)
-        );*/
-
         let next_counter = next_counter + PROGRAM_COUNTER;
 
         for i in 0..STACK_NESTING {
@@ -1075,7 +1062,8 @@ mod tests {
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        assert_eq!(value, chip.registers[register]);
+        let (res,_) = value.overflowing_add(value);
+        assert_eq!(res, chip.registers[register]);
 
         assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
     }
