@@ -11,14 +11,14 @@ name="chip"
 path="src/lib/lib.rs"
 
 [dependencies]
-zip = "0.5.8"
-rand = "0.7.3"
-num = "0.3.1"
-lazy_static = "1.4.0"
-iced = "0.1.1"
+zip = "0.5"
+rand = "0.7"
+num = "0.3"
+lazy_static = "1.4"
+iced = "0.2"
 
 [dev-dependencies]
-mockall = "0.8.3"
+mockall = "0.8"
 
 [profile.release]
 panic = 'abort'

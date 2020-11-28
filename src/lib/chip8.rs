@@ -6,12 +6,11 @@ use {
         },
         devices::{DisplayCommands, KeyboardCommands},
         fontset::FONSET,
-        opcode::{self, ChipOpcodes, Opcode, OpcodeTrait},
+        opcode::{self, Operation, ChipOpcodes, Opcode, OpcodeTrait, ProgramCounterStep, ProgramCounter},
         resources::Rom,
     },
     rand,
 };
-
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
 /// needed for emulating an instant on the
@@ -113,16 +112,11 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     }
 
     /// will advance the program by a single step
-    pub fn step(&mut self) -> Result<opcode::Operation, String> {
+    pub fn next(&mut self) -> Result<opcode::Operation, String> {
         // get next opcode
         self.set_opcode();
 
         self.calc(self.opcode)
-    }
-
-    /// will move the program counter forward be an offset
-    fn program_counter_step(&mut self, offset: usize) {
-        self.program_counter += offset * OPCODE_BYTE_SIZE;
     }
 
     /// will return the sound timer
@@ -138,17 +132,6 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     /// will return a clone of the current display configuration
     pub fn get_display(&self) -> &[u8] {
         &self.display
-    }
-
-    /// Will move the internal program counter to the given location
-    ///
-    fn move_program_counter(&mut self, pointer: usize) -> Result<(), &'static str> {
-        if PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
-            self.program_counter = pointer;
-            Ok(())
-        } else {
-            Err("Memory out of bounds error!")
-        }
     }
 
     /// Will push the current pointer to the stack
@@ -180,14 +163,30 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     }
 }
 
+impl<T: DisplayCommands, U: KeyboardCommands> ProgramCounter for ChipSet<T, U> {
+    fn step(&mut self, step: ProgramCounterStep) {
+        match step {
+            ProgramCounterStep::Next => { self.program_counter += OPCODE_BYTE_SIZE;}
+            ProgramCounterStep::Skip => {self.program_counter += 2 * OPCODE_BYTE_SIZE;}
+            ProgramCounterStep::None => {}
+            ProgramCounterStep::Jump(pointer) => {
+            if PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
+            self.program_counter = pointer;
+        } else {
+            panic!("Memory out of bounds error!")
+        }
+        }
+    }
+}
+}
+
 impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
-    fn zero(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn zero(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         match opcode {
             0x00E0 => {
                 // 00E0
                 // clear display
                 self.adapter.clear_display();
-                self.program_counter_step(1);
             }
             0x00EE => {
                 // 00EE
@@ -199,91 +198,68 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
                 return Err("Not supported command!".to_string());
             }
         }
-        Ok(())
+        Ok(ProgramCounterStep::Next)
     }
 
-    fn one(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn one(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 1NNN
         // Jumps to address NNN.
-        if let Err(err) = self.move_program_counter(opcode.nnn()) {
-            Err(String::from(err))
-        } else {
-            Ok(())
-        }
+        Ok(ProgramCounterStep::Jump(opcode.nnn()))
     }
 
-    fn two(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn two(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 2NNN
         // Calls subroutine at NNN
         if let Err(err) = self.push_stack(self.program_counter) {
-            return Err(String::from(err));
+            return Err(err.to_string());
         }
 
-        if let Err(err) = self.move_program_counter(opcode.nnn()) {
-            return Err(String::from(err));
-        }
-
-        Ok(())
+        Ok(ProgramCounterStep::Jump(opcode.nnn()))
     }
 
-    fn three(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn three(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 3XNN
         // Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to
         // skip a code block)
         let (x, nn) = opcode.xnn();
-        if self.registers[x] == nn {
-            self.program_counter_step(2);
-        } else {
-            self.program_counter_step(1);
-        }
-        Ok(())
+        Ok(ProgramCounterStep::cond(self.registers[x] == nn))
     }
 
-    fn four(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn four(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 4XNN
         // Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a
         // jump to skip a code block)
         let (x, nn) = opcode.xnn();
-        if self.registers[x] != nn {
-            self.program_counter_step(2);
-        } else {
-            self.program_counter_step(1);
-        }
-        Ok(())
+        Ok(ProgramCounterStep::cond(self.registers[x] != nn))
     }
 
-    fn five(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn five(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 5XY0
         // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
         // skip a code block)
         let (x, y) = opcode.xy();
-        if self.registers[x] == self.registers[y] {
-            self.program_counter_step(2);
-        } else {
-            self.program_counter_step(1);
-        }
-        Ok(())
+        Ok(ProgramCounterStep::cond(self.registers[x] == self.registers[y]))
     }
 
-    fn six(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn six(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 6XNN
         // Sets VX to NN.
         let (x, nn) = opcode.xnn();
         self.registers[x] = nn;
-        self.program_counter_step(1);
-        Ok(())
+        Ok(ProgramCounterStep::Next)
     }
 
-    fn seven(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn seven(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 7XNN
         // Adds NN to VX. (Carry flag is not changed)
         let (x, nn) = opcode.xnn();
-        self.registers[x] += nn;
-        self.program_counter_step(1);
-        Ok(())
+        // let VX overflow, but ignore carry
+        let (res, _) = self.registers[x].overflowing_add(nn);
+        self.registers[x] = res;
+        Ok(ProgramCounterStep::Next)
     }
 
-    fn eight(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn eight(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // remove the middle 8 bits for calculations
         let (x, y, n) = opcode.xyn();
         match n {
@@ -387,53 +363,44 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
             }
         }
         // increment the program counter by one
-        self.program_counter_step(1);
-        Ok(())
+        Ok(ProgramCounterStep::Next)
     }
 
-    fn nine(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn nine(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 9XY0
         // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is
         // a jump to skip a code block)
         let (x, y) = opcode.xy();
-        if self.registers[x] != self.registers[y] {
-            self.program_counter_step(2);
-        } else {
-            self.program_counter_step(1);
-        }
-        Ok(())
+        Ok(ProgramCounterStep::cond(self.registers[x] != self.registers[y]))
     }
 
-    fn a(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn a(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // ANNN
         // Sets I to the address NNN.
         self.index_register = opcode.nnn() as u16;
-        self.program_counter_step(1);
-        Ok(())
+        Ok(ProgramCounterStep::Next)
     }
 
-    fn b(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn b(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // BNNN
         // Jumps to the address NNN plus V0.
         let nnn = opcode.nnn();
         let v0 = self.registers[0] as usize;
         self.program_counter = v0 + nnn;
-        self.program_counter_step(1);
-        Ok(())
+        Ok(ProgramCounterStep::Next)
     }
 
-    fn c(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn c(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // CXNN
         // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
         // and NN.
         let (x, nn) = opcode.xnn();
         let rand = rand::random::<u8>();
         self.registers[x] = nn & rand;
-        self.program_counter_step(1);
-        Ok(())
+        Ok(ProgramCounterStep::Next)
     }
 
-    fn d(&mut self, opcode: Opcode) -> Result<opcode::Operation, String> {
+    fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep,Operation), String> {
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
@@ -443,47 +410,37 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
 
         let (x, y, n) = opcode.xyn();
         let i = self.index_register as usize;
-
-        Ok(opcode::Operation::Draw(x, y, n, i))
+        Ok((ProgramCounterStep::Next, opcode::Operation::Draw(x, y, n, i)))
     }
 
-    fn e(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn e(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         let (x, nn) = opcode.xnn();
         let keyboard = self.keyboard.get_keyboard();
-        let inc = match nn {
+        let step = match nn {
             0x9E => {
                 // EX9E
                 // Skips the next instruction if the key stored in VX is pressed. (Usually the next
                 // instruction is a jump to skip a code block)
-                if keyboard[self.registers[x] as usize] {
-                    2
-                } else {
-                    1
-                }
+                ProgramCounterStep::cond(keyboard[self.registers[x] as usize])
             }
             0xA1 => {
                 // EXA1
                 // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
                 // next instruction is a jump to skip a code block)
-                if !keyboard[self.registers[x] as usize] {
-                    2
-                } else {
-                    1
-                }
+                ProgramCounterStep::cond(!keyboard[self.registers[x] as usize])
             }
             _ => {
+                // directly return with the given error
                 return Err(format!(
                     "An unsupported opcode was used {:#06X?}",
                     self.opcode
                 ));
             }
         };
-
-        self.program_counter_step(inc);
-        Ok(())
+        Ok(step)
     }
 
-    fn f(&mut self, opcode: Opcode) -> Result<(), String> {
+    fn f(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         let (x, nn) = opcode.xnn();
         match nn {
             0x7 => {
@@ -510,25 +467,17 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
                 // FX1E
                 // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
                 // 0 when there isn't.
+                // Adds VX to I. VF is not affected.[c]
                 let xi = self.registers[x] as u16;
-                let res = self.index_register.checked_add(xi);
-
-                self.index_register = match res {
-                    Some(res) => {
-                        // addition without issues
-                        self.registers[REGISTER_LAST] = 1;
-                        res
-                    }
-                    None => {
-                        self.registers[REGISTER_LAST] = 0;
-                        self.index_register.wrapping_add(xi)
-                    }
-                }
+                let (res, _) = self.index_register.overflowing_add(xi);
+                self.index_register = res;
             }
             0x29 => {
                 // FX29
                 // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
                 // hexadecimal) are represented by a 4x5 font.
+                // TODO: 
+                todo!();
             }
             0x33 => {
                 // FX33
@@ -565,8 +514,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
             }
             _ => {}
         }
-        self.program_counter_step(1);
-        Ok(())
+        Ok(ProgramCounterStep::Next)
     }
 }
 
@@ -836,13 +784,16 @@ mod print {
 
 #[cfg(test)]
 mod tests {
+    use crate::opcode::ProgramCounterStep;
+
     use {
+        std::panic,
         rand::prelude::*,
         super::{ChipOpcodes, ChipSet},
         crate::{
             definitions::{MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, STACK_NESTING},
             devices,
-            opcode::{Opcode, Operation},
+            opcode::{Opcode, Operation, ProgramCounter},
             resources::{Rom, RomArchives},
         },
         lazy_static::lazy_static,
@@ -921,15 +872,18 @@ mod tests {
         let next_counter = 0x0133;
         //// test move pc instructions
         // positiv test
-        assert_eq!(
+        todo!();
+        /*let result = panic::catch_unwind(
+            || chip.move_program_counter(next_counter)
+        );
+        assert!(
             Err("Memory out of bounds error!"),
-            chip.move_program_counter(next_counter)
         );
         // negative test
         assert_eq!(
             Err("Memory out of bounds error!"),
             chip.move_program_counter(MEMORY_SIZE)
-        );
+        );*/
 
         let next_counter = next_counter + PROGRAM_COUNTER;
 
@@ -979,7 +933,8 @@ mod tests {
         let mut chip = get_default_chip();
         let base = 0x0234;
         let opcode = 0x1000 ^ base as Opcode;
-        let _ = chip.move_program_counter(base);
+        // let _ = chip.move_program_counter(base);
+        chip.step(ProgramCounterStep::Jump(base));
         chip.opcode = opcode;
 
         assert_eq!(chip.calc(opcode), Ok(Operation::None));
@@ -1056,6 +1011,9 @@ mod tests {
     }
 
     #[test]
+    /// 5XY0
+    /// Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
+    /// skip a code block)
     fn test_skip_instruction_if_register_equals() {
         let mut chip = get_default_chip();
         let registery = 0x1;
@@ -1085,6 +1043,8 @@ mod tests {
     }
 
     #[test]
+    /// 6XNN
+    /// Sets VX to NN.
     fn test_set_vx_to_nn() {
         let mut chip = get_default_chip();
         let register = 0x1;
@@ -1092,7 +1052,7 @@ mod tests {
         let curr_pc = chip.program_counter;
         chip.registers[register] = value;
         // skip register 1 if VY is not equals to VX
-        let opcode: Opcode = 0x5 << (3 * 4) ^ ((register as u16) << (2 * 4)) ^ (value as u16);
+        let opcode: Opcode = 0x6 << (3 * 4) ^ ((register as u16) << (2 * 4)) ^ (value as u16);
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
@@ -1101,4 +1061,22 @@ mod tests {
         assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
     }
 
+    #[test]
+    /// 7XNN
+    /// Adds NN to VX. (Carry flag is not changed)
+    fn test_add_nn_to_vx() {
+        let mut chip = get_default_chip();
+        let register = 0x1;
+        let value = 0x66 & chip.registers[register];
+        let curr_pc = chip.program_counter;
+        chip.registers[register] = value;
+        // skip register 1 if VY is not equals to VX
+        let opcode: Opcode = 0x7 << (3 * 4) ^ ((register as u16) << (2 * 4)) ^ (value as u16);
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(value, chip.registers[register]);
+
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
 }
