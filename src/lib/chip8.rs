@@ -103,12 +103,8 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
 
     /// will get the next opcode from memory
     fn set_opcode(&mut self) {
-        self.opcode = self.opcode_builder(self.program_counter);
-    }
-
-    /// will build the opcode given from the pointer
-    fn opcode_builder(&self, pointer: usize) -> Opcode {
-        opcode::build_opcode(&self.memory, pointer)
+    // will build the opcode given from the pointer
+        self.opcode = opcode::build_opcode(&self.memory,self.program_counter);
     }
 
     /// will advance the program by a single step
@@ -843,7 +839,16 @@ mod tests {
     }
 
     #[test]
-    /// test clear display opcode
+    /// test reading of the first opcode
+    fn test_set_opcode() {
+        let mut chip = get_default_chip();
+        chip.set_opcode();
+        let opcode = chip.opcode;
+        assert_eq!(0x00e0, opcode);
+    }
+
+    #[test]
+    /// test clear display opcode and next (for coverage)
     /// `0x00E0`
     fn test_clear_display_opcode() {
         let (rom, mut dis, key, name) = get_base();
@@ -855,12 +860,11 @@ mod tests {
 
         let mut chip = ChipSet::new(name, rom, dis, key);
 
-        // set opcode
-        let opcode = 0x00E0;
-        // setup chip state
-        chip.opcode = opcode;
+        // as the first opcode used is already clear screen no
+        // modifications are needed.
+
         // run - if there was no panic it worked as intened
-        assert_eq!(chip.calc(opcode), Ok(Operation::None));
+        assert_eq!(chip.next(), Ok(Operation::None));
     }
 
     #[test]
