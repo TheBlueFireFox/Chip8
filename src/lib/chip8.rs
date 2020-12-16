@@ -210,10 +210,10 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // 2NNN
         // Calls subroutine at NNN
         if let Err(err) = self.push_stack(self.program_counter) {
-            return Err(err.to_string());
+            Err(err.to_string())
+        } else {
+            Ok(ProgramCounterStep::Jump(opcode.nnn()))
         }
-
-        Ok(ProgramCounterStep::Jump(opcode.nnn()))
     }
 
     fn three(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
@@ -1081,10 +1081,7 @@ mod tests {
         let mut chip = get_default_chip();
         let opcode = 0x00EA;
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
-        assert_eq!(
-            Err(format!("An unsupported opcode was used {:#06X?}", opcode)),
-            chip.next()
-        );
+        assert_eq!(Err("An unsupported opcode was used 0x00EA"), chip.next());
     }
 
     #[test]
