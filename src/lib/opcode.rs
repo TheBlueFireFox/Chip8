@@ -1,4 +1,4 @@
-/// the base mask used for generatring all the other sub masks
+/// the base mask used for generating all the other sub masks
 pub const OPCODE_MASK_FFFF: u16 = u16::MAX;
 /// the mask for the first twelve bytes
 pub const OPCODE_MASK_FFF0: u16 = OPCODE_MASK_FFFF << 4;
@@ -18,7 +18,7 @@ const BYTE_SIZE: u16 = 0x8;
 /// a wrapper type for u16 to make it clear what is meant to be used
 pub type Opcode = u16;
 
-/// will build an opcode from data and the given pointe
+/// will build an opcode from data and the given point
 /// # Arguments
 ///
 /// - `data` - A slice of u8 data entries used to generate the opcodes
@@ -167,7 +167,7 @@ impl OpcodeTrait for Opcode {
 
 pub enum ProgramCounterStep {
     None,
-    /// Will increment the program couner by 1
+    /// Will increment the program counter by 1
     Next,
     /// Will increment the program counter by 2
     Skip,
@@ -196,9 +196,9 @@ pub enum Operation {
     Draw(usize, usize, usize, usize),
 }
 
-/// These are the traits that hava to be fullfilled for a working opcode
+/// These are the traits that have to be full filled for a working opcode
 /// table.
-/// This required the implementation of the ProgramCounter tait
+/// This required the implementation of the ProgramCounter trait
 pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// will calculate the programs step by a single step
     fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
@@ -233,7 +233,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     }
 
      
-    /// A mutiuse opcode base for type `0NNN`
+    /// A multiuse opcode base for type `0NNN`
     ///
     /// - `0NNN` - Call     -                       - Calls machine code routine ([RCA 1802](https://en.wikipedia.org/wiki/RCA_1802) for COSMAC VIP) at address `NNN`. Not necessary for most ROMs.
     /// - `00E0` - Display  - `disp_clear()`        - Clears the screen.
@@ -303,14 +303,14 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     ///
     /// Returns any possible error
     fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
-    /// A mutiuse opcode base for type `EXTT` (T is a sub obcode)
+    /// A multiuse opcode base for type `EXTT` (T is a sub opcode)
     ///
     /// - `EX9E` - KeyOp    - `if(key()==Vx)`       - Skips the next instruction if the key stored in `VX` is pressed. (Usually the next instruction is a jump to skip a code block)
     /// - `EXA1` - KeyOp    - `if(key()!=Vx)`       - Skips the next instruction if the key stored in `VX` isn't pressed. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
     fn e(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
-    /// A mutiuse opcode base for type `FXTT` (T is a sub obcode)
+    /// A multiuse opcode base for type `FXTT` (T is a sub opcode)
     ///
     /// - `FX07` - Timer    - `Vx = get_delay()`    - Sets `VX` to the value of the delay timer.
     /// - `FX0A` - KeyOp    - `Vx = get_key()`      - A key press is awaited, and then stored in `VX`. (Blocking Operation. All instruction halted until next key event)

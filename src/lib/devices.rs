@@ -10,7 +10,7 @@ pub trait DisplayCommands {
 }
 
 #[cfg_attr(test, automock)]
-/// The trait responsible for writing the keybord data
+/// The trait responsible for writing the keyboard data
 pub trait KeyboardCommands {
     fn get_keyboard(&self) -> Box<[bool]>;
 }

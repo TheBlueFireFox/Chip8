@@ -16,7 +16,7 @@ use {
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
 /// needed for emulating an instant on the
-/// Chip8 cpu.
+/// Chip8 CPU.
 pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     name: String,
     /// all two bytes long and stored big-endian
@@ -42,7 +42,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     /// (here we are using `16`)
     stack: Vec<usize>,
     /// The stack pointer stores the address of the last program request in a stack.
-    /// it points to `+1` of the actuall entry, so `stack_pointer = 1` means the last requests is
+    /// it points to `+1` of the actual entry, so `stack_pointer = 1` means the last requests is
     /// in `stack[0]`.
     stack_pointer: usize,
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
@@ -133,7 +133,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     }
 
     /// Will push the current pointer to the stack
-    /// stack_counter is alwas one bigger then the
+    /// stack_counter is always one bigger then the
     /// entry it points to
     fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
         if self.stack.len() == self.stack_pointer {
@@ -296,7 +296,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
 
                 self.registers[x] = match res {
                     Some(res) => {
-                        // addition worked as intendet
+                        // addition worked as intended
                         // no carry
                         self.registers[REGISTER_LAST] = 0;
                         res
@@ -316,7 +316,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
 
                 self.registers[x] = match res {
                     Some(res) => {
-                        // addition worked as intendet
+                        // addition worked as intended
                         // no carry
                         self.registers[REGISTER_LAST] = 1;
                         res
@@ -343,7 +343,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
 
                 self.registers[x] = match res {
                     Some(res) => {
-                        // addition worked as intendet
+                        // addition worked as intended
                         // no carry
                         self.registers[REGISTER_LAST] = 0;
                         res
@@ -536,7 +536,7 @@ mod print {
     };
 
     /// The length of the pretty print data
-    /// as a single instruction is u16 the ocata
+    /// as a single instruction is u16 the octa
     /// size will show how often the block shall
     /// be repeated has to be bigger then 0
     const HEX_PRINT_STEP: usize = 8;
@@ -574,7 +574,7 @@ mod print {
             std::fmt,
         };
 
-        /// The internal lenght of the given data
+        /// The internal length of the given data
         /// as the data is stored as u8 and an opcode
         /// is u16 long
         const POINTER_INCREMENT: usize = HEX_PRINT_STEP * OPCODE_BYTE_SIZE;
@@ -611,7 +611,7 @@ mod print {
             only_null: bool,
         }
 
-        /// using the fmt::Display for simple printing of the data later on
+        /// using the fmt::Display` for simple printing of the data later on
         impl fmt::Display for Row {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let mut res = Vec::with_capacity(HEX_PRINT_STEP + 1);
@@ -630,7 +630,7 @@ mod print {
 
         /// will pretty print the content of the raw memory
         /// this functions assumes the full data to be passed
-        /// as the offset is calculated from the beggining of the
+        /// as the offset is calculated from the beginning of the
         /// memory block
         pub fn printer(memory: &[u8], offset: usize) -> String {
             // using the offset
@@ -726,7 +726,7 @@ mod print {
             static ref FALSE: String = formatter("false");
         }
 
-        /// a function to keep the correct format lenght
+        /// a function to keep the correct format length
         fn formatter(string: &str) -> String {
             let mut string = string.to_string();
             let formatted = integer_print::formatter(0u16);
@@ -757,7 +757,7 @@ mod print {
 
     impl<T: DisplayCommands, U: KeyboardCommands> fmt::Display for ChipSet<T, U> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            // keeping the strings mutable so that they can be indentet later on
+            // keeping the strings mutable so that they can be indented later on
             let mut mem = opcode_print::printer(&self.memory, 0);
             let mut reg = integer_print::printer(&self.registers, 0);
             let mut sta = integer_print::printer(&self.stack, 0);
@@ -812,7 +812,7 @@ mod tests {
     const ROM_NAME: &'static str = "15PUZZLE";
 
     lazy_static! {
-        /// pre calculating this as it get's called multiple times per unit
+        /// preloading this as it get's called multiple times per unit
         static ref BASE_ROM : Rom = {
             let mut ra = RomArchives::new();
             // unwrap is safe here as this never even should be able to crash
@@ -898,12 +898,12 @@ mod tests {
         // as the first opcode used is already clear screen no
         // modifications are needed.
 
-        // run - if there was no panic it worked as intened
+        // run - if there was no panic it worked as intended
         assert_eq!(chip.next(), Ok(Operation::None));
     }
 
     #[test]
-    /// tesxting internal functionality of poping and pushing into the stack
+    /// testing internal functionality of popping and pushing into the stack
     fn test_push_pop_stack() {
         let mut chip = get_default_chip();
 
@@ -931,7 +931,7 @@ mod tests {
     }
 
     #[test]
-    /// test return from subrutine
+    /// test return from subroutine
     /// `0x00EE`
     fn test_return_subrutine() {
         let mut chip = get_default_chip();
@@ -940,7 +940,7 @@ mod tests {
         let base = 0x234;
         let opcode: Opcode = 0x2000 ^ base;
 
-        // write the to subrutine to memory
+        // write the to subroutine to memory
         chip.opcode = opcode;
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));

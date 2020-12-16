@@ -1,4 +1,4 @@
-/// The fontset character to be rendert on the screen
+/// The font set character to be rendered on the screen
 pub const FONSET: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1

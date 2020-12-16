@@ -11,7 +11,7 @@ const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources\\c8games.zip")
 
 #[cfg(not(target_os = "windows"))]
 /// Contains all the available roms needed for running the games
-/// in a ZIP archive (the path used works for unix)
+/// in a ZIP archive (the path used works for UNIX)
 const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources/c8games.zip");
 
 /// Represents an archive of roms
@@ -21,15 +21,15 @@ pub struct RomArchives<'a> {
 }
 
 impl RomArchives<'_> {
-    /// Will generate a new rom archive objecz based of the given rom archive
+    /// Will generate a new rom archive object based of the given rom archive
     pub fn new() -> Self {
         RomArchives {
-            // can be directly unwraped, as the rom archive has already been manually checked
+            // can be directly unwrapped, as the rom archive has already been manually checked
             archive: ZipArchive::new(Cursor::new(ROM_ARCHIVE)).unwrap(),
         }
     }
 
-    /// Will retuan all the rom names available to be chosen
+    /// Will return all the rom names available to be chosen
     pub fn file_names(&self) -> Vec<&'_ str> {
         let mut data = Vec::new();
 
