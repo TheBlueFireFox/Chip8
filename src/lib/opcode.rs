@@ -172,12 +172,12 @@ pub enum ProgramCounterStep {
     /// Will increment the program counter by 2
     Skip,
     /// Will simply move the program counter to the given location
-    Jump(usize)
+    Jump(usize),
 }
 
 impl ProgramCounterStep {
     /// Will return Skip if the condition is true.
-    pub fn cond(cond : bool) -> Self {
+    pub fn cond(cond: bool) -> Self {
         if cond {
             ProgramCounterStep::Skip
         } else {
@@ -199,7 +199,7 @@ pub enum Operation {
 /// These are the traits that hava to be fullfilled for a working opcode
 /// table.
 /// This required the implementation of the ProgramCounter tait
-pub trait ChipOpcodes<T : ProgramCounter = Self>: ProgramCounter {
+pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// will calculate the programs step by a single step
     fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
         let mut operation = Operation::None;
@@ -226,9 +226,7 @@ pub trait ChipOpcodes<T : ProgramCounter = Self>: ProgramCounter {
             },
             0xE000 => self.e(opcode),
             0xF000 => self.f(opcode),
-            _ => 
-                Err(format!("An unsupported opcode was used {:#06X}", opcode))
-            
+            _ => Err(format!("An unsupported opcode was used {:#06X}", opcode)),
         }?;
         self.step(step);
         Ok(operation)

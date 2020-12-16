@@ -42,7 +42,7 @@ impl RomArchives<'_> {
     // Will decompress the information from the zip archive
     pub fn get_file_data(&mut self, name: &str) -> ZipResult<Rom> {
         let mut file = self.archive.by_name(name)?;
-        let mut size =  file.size() as usize;
+        let mut size = file.size() as usize;
         if size % 2 == 1 {
             size += 1;
         }

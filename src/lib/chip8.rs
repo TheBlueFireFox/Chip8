@@ -6,7 +6,9 @@ use {
         },
         devices::{DisplayCommands, KeyboardCommands},
         fontset::FONSET,
-        opcode::{self, Operation, ChipOpcodes, Opcode, OpcodeTrait, ProgramCounterStep, ProgramCounter},
+        opcode::{
+            self, ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep,
+        },
         resources::Rom,
     },
     rand,
@@ -103,8 +105,8 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
 
     /// will get the next opcode from memory
     fn set_opcode(&mut self) {
-    // will build the opcode given from the pointer
-        self.opcode = opcode::build_opcode(&self.memory,self.program_counter);
+        // will build the opcode given from the pointer
+        self.opcode = opcode::build_opcode(&self.memory, self.program_counter);
     }
 
     /// will advance the program by a single step
@@ -162,18 +164,22 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
 impl<T: DisplayCommands, U: KeyboardCommands> ProgramCounter for ChipSet<T, U> {
     fn step(&mut self, step: ProgramCounterStep) {
         match step {
-            ProgramCounterStep::Next => { self.program_counter += OPCODE_BYTE_SIZE;}
-            ProgramCounterStep::Skip => {self.program_counter += 2 * OPCODE_BYTE_SIZE;}
-            ProgramCounterStep::None => {}
-            ProgramCounterStep::Jump(pointer) => 
-            if PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
-                self.program_counter = pointer;
-            } else {
-                panic!("Memory out of bounds error!")
+            ProgramCounterStep::Next => {
+                self.program_counter += OPCODE_BYTE_SIZE;
             }
-        
+            ProgramCounterStep::Skip => {
+                self.program_counter += 2 * OPCODE_BYTE_SIZE;
+            }
+            ProgramCounterStep::None => {}
+            ProgramCounterStep::Jump(pointer) => {
+                if PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
+                    self.program_counter = pointer;
+                } else {
+                    panic!("Memory out of bounds error!")
+                }
+            }
+        }
     }
-}
 }
 
 impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
@@ -236,7 +242,9 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
         // skip a code block)
         let (x, y) = opcode.xy();
-        Ok(ProgramCounterStep::cond(self.registers[x] == self.registers[y]))
+        Ok(ProgramCounterStep::cond(
+            self.registers[x] == self.registers[y],
+        ))
     }
 
     fn six(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
@@ -369,7 +377,9 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is
         // a jump to skip a code block)
         let (x, y) = opcode.xy();
-        Ok(ProgramCounterStep::cond(self.registers[x] != self.registers[y]))
+        Ok(ProgramCounterStep::cond(
+            self.registers[x] != self.registers[y],
+        ))
     }
 
     fn a(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
@@ -398,7 +408,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(ProgramCounterStep::Next)
     }
 
-    fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep,Operation), String> {
+    fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
@@ -408,7 +418,10 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
 
         let (x, y, n) = opcode.xyn();
         let i = self.index_register as usize;
-        Ok((ProgramCounterStep::Next, opcode::Operation::Draw(x, y, n, i)))
+        Ok((
+            ProgramCounterStep::Next,
+            opcode::Operation::Draw(x, y, n, i),
+        ))
     }
 
     fn e(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
@@ -474,7 +487,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
                 // FX29
                 // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
                 // hexadecimal) are represented by a 4x5 font.
-                // TODO: 
+                // TODO:
                 todo!();
             }
             0x33 => {
@@ -782,36 +795,36 @@ mod print {
 
 #[cfg(test)]
 mod tests {
-    use crate::opcode::ProgramCounterStep;
-
     use {
-        std::panic,
-        rand::prelude::*,
         super::{ChipOpcodes, ChipSet},
         crate::{
             definitions::{OPCODE_BYTE_SIZE, PROGRAM_COUNTER, STACK_NESTING},
             devices,
-            opcode::{Opcode, Operation, ProgramCounter},
+            opcode::{Opcode, Operation, ProgramCounter, ProgramCounterStep},
             resources::{Rom, RomArchives},
         },
         lazy_static::lazy_static,
+        rand::prelude::*,
+        std::panic,
     };
 
-    const ROM_NAME: &str = "15PUZZLE";
+    const ROM_NAME: &'static str = "15PUZZLE";
 
     lazy_static! {
         /// pre calculating this as it get's called multiple times per unit
         static ref BASE_ROM : Rom = {
             let mut ra = RomArchives::new();
+            // unwrap is safe here as this never even should be able to crash
+            // and in the unlikely case that it does a panic is correct.
             ra.get_file_data(ROM_NAME).unwrap()
         };
     }
 
-    fn get_base<'a>() -> (
+    fn get_base() -> (
         Rom,
         devices::MockDisplayCommands,
         devices::MockKeyboardCommands,
-        &'a str,
+        &'static str,
     ) {
         (
             BASE_ROM.clone(),
@@ -823,6 +836,15 @@ mod tests {
 
     fn get_default_chip() -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
         let (rom, dis, key, name) = get_base();
+        setup_chip(rom, dis, key, name)
+    }
+
+    fn setup_chip(
+        rom: Rom,
+        dis: devices::MockDisplayCommands,
+        key: devices::MockKeyboardCommands,
+        name: &str,
+    ) -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
         let mut chip = ChipSet::new(name, rom, dis, key);
         // fill up register with random values
         let mut rng = rand::thread_rng();
@@ -830,7 +852,7 @@ mod tests {
         chip.registers = (0..=0xF)
             .map(|_| {
                 // 1 (inclusive) to 21 (exclusive)
-                rng.gen_range(u8::MIN,u8::MAX)
+                rng.gen_range(u8::MIN, u8::MAX)
             })
             .collect();
 
@@ -844,7 +866,7 @@ mod tests {
         let mut chip = get_default_chip();
         chip.set_opcode();
         let opcode = chip.opcode;
-        assert_eq!(0x00e0, opcode);
+        assert_eq!(0x00E0, opcode);
     }
 
     #[test]
@@ -854,11 +876,11 @@ mod tests {
         let (rom, mut dis, key, name) = get_base();
 
         // setup mock
-        // will assert to false if condition is not 
+        // will assert to __false__ if condition is not
         // met
         dis.expect_clear_display().times(1).return_const(());
 
-        let mut chip = ChipSet::new(name, rom, dis, key);
+        let mut chip = setup_chip(rom, dis, key, name);
 
         // as the first opcode used is already clear screen no
         // modifications are needed.
@@ -875,8 +897,7 @@ mod tests {
         // check empty initial stack
         assert_eq!(0, chip.stack_pointer);
 
-        let next_counter = 0x0133;
-        let next_counter = next_counter + PROGRAM_COUNTER;
+        let next_counter = 0x0133 + PROGRAM_COUNTER;
 
         for i in 0..STACK_NESTING {
             // as the stack is empty just accept the result
@@ -1066,7 +1087,7 @@ mod tests {
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        let (res,_) = value.overflowing_add(value);
+        let (res, _) = value.overflowing_add(value);
         assert_eq!(res, chip.registers[register]);
 
         assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
