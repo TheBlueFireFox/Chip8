@@ -1016,6 +1016,41 @@ mod tests {
     }
 
     #[test]
+    fn test_step() {
+        let mut chip = get_default_chip();
+        let mut pc = chip.program_counter;
+
+        pc = pc + OPCODE_BYTE_SIZE; 
+        chip.step(ProgramCounterStep::Next);
+        assert_eq!(chip.program_counter, pc);
+
+        pc = pc + 2 * OPCODE_BYTE_SIZE; 
+        chip.step(ProgramCounterStep::Skip);
+        assert_eq!(chip.program_counter, pc);
+
+        pc = pc + 8 * OPCODE_BYTE_SIZE; 
+        chip.step(ProgramCounterStep::Jump(pc));
+        assert_eq!(chip.program_counter, pc);
+
+    }
+
+    #[test]
+    #[should_panic(expected = "Memory out of bounds error!")]
+    fn test_step_panic_lower_bound() {
+        let mut chip = get_default_chip();
+        let pc = PROGRAM_COUNTER - 1;
+        chip.step(ProgramCounterStep::Jump(pc));
+    }
+
+    #[test]
+    #[should_panic(expected = "Memory out of bounds error!")]
+    fn test_step_panic_upper_bound() {
+        let mut chip = get_default_chip();
+        let pc = chip.memory.len();
+        chip.step(ProgramCounterStep::Jump(pc));
+    }
+
+    #[test]
     /// test return from subroutine
     /// `0x00EE`
     fn test_return_subrutine() {
