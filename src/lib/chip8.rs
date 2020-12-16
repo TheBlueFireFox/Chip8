@@ -164,12 +164,8 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
 impl<T: DisplayCommands, U: KeyboardCommands> ProgramCounter for ChipSet<T, U> {
     fn step(&mut self, step: ProgramCounterStep) {
         match step {
-            ProgramCounterStep::Next => {
-                self.program_counter += OPCODE_BYTE_SIZE;
-            }
-            ProgramCounterStep::Skip => {
-                self.program_counter += 2 * OPCODE_BYTE_SIZE;
-            }
+            ProgramCounterStep::Next => self.program_counter += OPCODE_BYTE_SIZE,
+            ProgramCounterStep::Skip => self.program_counter += 2 * OPCODE_BYTE_SIZE,
             ProgramCounterStep::None => {}
             ProgramCounterStep::Jump(pointer) => {
                 if PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
@@ -184,25 +180,24 @@ impl<T: DisplayCommands, U: KeyboardCommands> ProgramCounter for ChipSet<T, U> {
 
 impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
     fn zero(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
-        let step = match opcode {
+        match opcode {
             0x00E0 => {
                 // 00E0
                 // clear display
                 self.adapter.clear_display();
-                ProgramCounterStep::Next
+                Ok(ProgramCounterStep::Next)
             }
             0x00EE => {
                 // 00EE
                 // Return from sub routine => pop from stack
                 self.program_counter = self.pop_stack()?;
-                ProgramCounterStep::None
+                Ok(ProgramCounterStep::None)
             }
-            _ => {
-                // not needed so empty
-                return Err("Not supported command!".to_string());
-            }
-        };
-        Ok(step)
+            _ => Err(format!(
+                "An unsupported opcode was used {:#06X?}",
+                self.opcode
+            )),
+        }
     }
 
     fn one(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
@@ -362,7 +357,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
                 self.registers[x] = self.registers[x] << 1;
             }
             _ => {
-                panic!(format!(
+                return Err(format!(
                     "An unsupported opcode was used {:#06X?}",
                     self.opcode
                 ));
@@ -894,7 +889,7 @@ mod tests {
 
     #[test]
     /// tests if the pretty print output is as expected
-    /// this test is mainly for coverage purposes, as 
+    /// this test is mainly for coverage purposes, as
     /// the given module takes up a multitude of lines.
     fn test_full_print() {
         const OUTPUT: &str = r#"Chipset {
@@ -948,7 +943,10 @@ mod tests {
 		0x0008 - 0x000F : 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000
 }"#;
         let (rom, dis, mut key, name) = get_base();
-        let keys = (0..KEYBOARD_SIZE).map(|i| i % 2 != 0 ).collect::<Vec<bool>>().into_boxed_slice();
+        let keys = (0..KEYBOARD_SIZE)
+            .map(|i| i % 2 != 0)
+            .collect::<Vec<bool>>()
+            .into_boxed_slice();
         key.expect_get_keyboard().returning(move || keys.clone());
         let mut chip = setup_chip(rom, dis, key, name);
 
@@ -965,26 +963,6 @@ mod tests {
         chip.set_opcode();
         let opcode = chip.opcode;
         assert_eq!(0x00E0, opcode);
-    }
-
-    #[test]
-    /// test clear display opcode and next (for coverage)
-    /// `0x00E0`
-    fn test_clear_display_opcode() {
-        let (rom, mut dis, key, name) = get_base();
-
-        // setup mock
-        // will assert to __false__ if condition is not
-        // met
-        dis.expect_clear_display().times(1).return_const(());
-
-        let mut chip = setup_chip(rom, dis, key, name);
-
-        // as the first opcode used is already clear screen no
-        // modifications are needed.
-
-        // run - if there was no panic it worked as intended
-        assert_eq!(chip.next(), Ok(Operation::None));
     }
 
     #[test]
@@ -1020,18 +998,20 @@ mod tests {
         let mut chip = get_default_chip();
         let mut pc = chip.program_counter;
 
-        pc = pc + OPCODE_BYTE_SIZE; 
+        pc = pc + OPCODE_BYTE_SIZE;
         chip.step(ProgramCounterStep::Next);
         assert_eq!(chip.program_counter, pc);
 
-        pc = pc + 2 * OPCODE_BYTE_SIZE; 
+        pc = pc + 2 * OPCODE_BYTE_SIZE;
         chip.step(ProgramCounterStep::Skip);
         assert_eq!(chip.program_counter, pc);
 
-        pc = pc + 8 * OPCODE_BYTE_SIZE; 
+        pc = pc + 8 * OPCODE_BYTE_SIZE;
         chip.step(ProgramCounterStep::Jump(pc));
         assert_eq!(chip.program_counter, pc);
 
+        chip.step(ProgramCounterStep::None);
+        assert_eq!(chip.program_counter, pc);
     }
 
     #[test]
@@ -1048,6 +1028,26 @@ mod tests {
         let mut chip = get_default_chip();
         let pc = chip.memory.len();
         chip.step(ProgramCounterStep::Jump(pc));
+    }
+
+    #[test]
+    /// test clear display opcode and next (for coverage)
+    /// `0x00E0`
+    fn test_clear_display_opcode() {
+        let (rom, mut dis, key, name) = get_base();
+
+        // setup mock
+        // will assert to __false__ if condition is not
+        // met
+        dis.expect_clear_display().times(1).return_const(());
+
+        let mut chip = setup_chip(rom, dis, key, name);
+
+        // as the first opcode used is already clear screen no
+        // modifications are needed.
+
+        // run - if there was no panic it worked as intended
+        assert_eq!(chip.next(), Ok(Operation::None));
     }
 
     #[test]
@@ -1074,6 +1074,17 @@ mod tests {
         assert_eq!(Ok(Operation::None), chip.next());
 
         assert_eq!(curr_pc, chip.program_counter)
+    }
+
+    #[test]
+    fn test_illigal_zero_opcode() {
+        let mut chip = get_default_chip();
+        let opcode = 0x00EA;
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        assert_eq!(
+            Err(format!("An unsupported opcode was used {:#06X?}", opcode)),
+            chip.next()
+        );
     }
 
     #[test]
