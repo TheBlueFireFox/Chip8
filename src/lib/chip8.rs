@@ -535,7 +535,7 @@ mod print {
         std::fmt,
     };
 
-    /// The lenght of the pretty print data
+    /// The length of the pretty print data
     /// as a single instruction is u16 the ocata
     /// size will show how often the block shall
     /// be repeated has to be bigger then 0
@@ -757,23 +757,24 @@ mod print {
 
     impl<T: DisplayCommands, U: KeyboardCommands> fmt::Display for ChipSet<T, U> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            let mem = opcode_print::printer(&self.memory, 0);
-            let reg = integer_print::printer(&self.registers, 0);
-            let sta = integer_print::printer(&self.stack, 0);
-            let key = bool_print::printer(&self.keyboard.get_keyboard(), 0);
+            // keeping the strings mutable so that they can be indentet later on
+            let mut mem = opcode_print::printer(&self.memory, 0);
+            let mut reg = integer_print::printer(&self.registers, 0);
+            let mut sta = integer_print::printer(&self.stack, 0);
+            let mut key = bool_print::printer(&self.keyboard.get_keyboard(), 0);
 
-            let opc = integer_print::formatter(self.opcode);
-            let prc = integer_print::formatter(self.program_counter);
-            let stc = integer_print::formatter(self.stack_pointer);
+            let mut opc = integer_print::formatter(self.opcode);
+            let mut prc = integer_print::formatter(self.program_counter);
+            let mut stc = integer_print::formatter(self.stack_pointer);
 
-            let mem = indent_helper(&mem, 2);
-            let reg = indent_helper(&reg, 2);
-            let key = indent_helper(&key, 2);
-            let sta = indent_helper(&sta, 2);
+            // using a mutable slice here for convenient iterating
+            let mut data = [
+                &mut mem, &mut reg, &mut key, &mut sta, &mut opc, &mut prc, &mut stc,
+            ];
 
-            let opc = indent_helper(&opc, 2);
-            let prc = indent_helper(&prc, 2);
-            let stc = indent_helper(&stc, 2);
+            for string in data.iter_mut() {
+                **string = indent_helper(string, 2);
+            }
 
             write!(
                 f,
@@ -860,6 +861,18 @@ mod tests {
         chip
     }
 
+    /// Will write the opcode to the memory location specified
+    fn write_opcode_to_memory(memory: &mut [u8], from: usize, opcode: Opcode) {
+        write_slice_to_memory(memory, from, &opcode.to_be_bytes());
+    }
+
+    /// Will write the slice to the memory location specified
+    fn write_slice_to_memory(memory: &mut [u8], from: usize, data: &[u8]) {
+        for i in 0..data.len() {
+            memory[from + i] = data[i];
+        }
+    }
+
     #[test]
     /// test reading of the first opcode
     fn test_set_opcode() {
@@ -925,15 +938,20 @@ mod tests {
         let curr_pc = chip.program_counter;
         // set up test
         let base = 0x234;
-        let opcode = 0x2000 ^ base;
+        let opcode: Opcode = 0x2000 ^ base;
+
+        // write the to subrutine to memory
         chip.opcode = opcode;
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
         // set opcode
         let opcode = 0x00EE;
+
+        // write bytes to chip memory
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
         chip.opcode = opcode;
 
-        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+        assert_eq!(Ok(Operation::None), chip.next());
 
         assert_eq!(curr_pc, chip.program_counter)
     }

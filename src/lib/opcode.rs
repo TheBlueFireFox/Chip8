@@ -232,6 +232,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
         Ok(operation)
     }
 
+     
     /// A mutiuse opcode base for type `0NNN`
     ///
     /// - `0NNN` - Call     -                       - Calls machine code routine ([RCA 1802](https://en.wikipedia.org/wiki/RCA_1802) for COSMAC VIP) at address `NNN`. Not necessary for most ROMs.
