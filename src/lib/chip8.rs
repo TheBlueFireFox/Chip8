@@ -209,10 +209,9 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
     fn two(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 2NNN
         // Calls subroutine at NNN
-        if let Err(err) = self.push_stack(self.program_counter) {
-            Err(err.to_string())
-        } else {
-            Ok(ProgramCounterStep::Jump(opcode.nnn()))
+        match self.push_stack(self.program_counter) {
+            Ok(_) => Ok(ProgramCounterStep::Jump(opcode.nnn())),
+            Err(err) => Err(err.to_string()),
         }
     }
 
@@ -255,7 +254,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // Adds NN to VX. (Carry flag is not changed)
         let (x, nn) = opcode.xnn();
         // let VX overflow, but ignore carry
-        let (res, _) = self.registers[x].overflowing_add(nn);
+        let res = self.registers[x].wrapping_add(nn);
         self.registers[x] = res;
         Ok(ProgramCounterStep::Next)
     }
@@ -287,41 +286,17 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
             0x4 => {
                 // 8XY4
                 // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
-                let res = self.registers[x].checked_add(self.registers[y]);
-
-                self.registers[x] = match res {
-                    Some(res) => {
-                        // addition worked as intended
-                        // no carry
-                        self.registers[REGISTER_LAST] = 0;
-                        res
-                    }
-                    None => {
-                        // addition needs carry
-                        self.registers[REGISTER_LAST] = 0;
-                        self.registers[x].wrapping_add(self.registers[y])
-                    }
-                };
+                let (res, overflow) = self.registers[x].overflowing_add(self.registers[y]);
+                self.registers[x] = res;
+                self.registers[REGISTER_LAST] = if overflow { 1 } else { 0 };
             }
             0x5 => {
                 // 8XY5
                 // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
                 // isn't.
-                let res = self.registers[x].checked_sub(self.registers[y]);
-
-                self.registers[x] = match res {
-                    Some(res) => {
-                        // addition worked as intended
-                        // no carry
-                        self.registers[REGISTER_LAST] = 1;
-                        res
-                    }
-                    None => {
-                        // addition needs carry
-                        self.registers[REGISTER_LAST] = 0;
-                        self.registers[x].wrapping_sub(self.registers[y])
-                    }
-                };
+                let (res, overflow) = self.registers[x].overflowing_sub(self.registers[y]);
+                self.registers[x] = res;
+                self.registers[REGISTER_LAST] = if overflow { 1 } else { 0 };
             }
             0x6 => {
                 // 8XY6
@@ -819,7 +794,7 @@ mod print {
 
 #[cfg(test)]
 mod tests {
-    use crate::definitions::{KEYBOARD_SIZE, REGISTER_SIZE};
+    use crate::definitions::{KEYBOARD_SIZE, REGISTER_LAST, REGISTER_SIZE};
 
     use {
         super::{ChipOpcodes, ChipSet},
@@ -1093,7 +1068,10 @@ mod tests {
         let mut chip = get_default_chip();
         let opcode = 0x00EA;
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
-        assert_eq!(Err("An unsupported opcode was used 0x00EA"), chip.next());
+        assert_eq!(
+            Err("An unsupported opcode was used 0x00EA".to_string()),
+            chip.next()
+        );
     }
 
     #[test]
@@ -1237,17 +1215,179 @@ mod tests {
     fn test_add_nn_to_vx() {
         let mut chip = get_default_chip();
         let register = 0x1;
-        let value = 0x66 & chip.registers[register];
+        let value: u8 = 0x66;
+        let value_reg: u8 = 0xFA;
         let curr_pc = chip.program_counter;
-        chip.registers[register] = value;
+        chip.registers[register] = value_reg;
         // skip register 1 if VY is not equals to VX
         let opcode: Opcode = 0x7 << (3 * 4) ^ ((register as u16) << (2 * 4)) ^ (value as u16);
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        let (res, _) = value.overflowing_add(value);
+        let res = 0x60;
         assert_eq!(res, chip.registers[register]);
 
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    /// 8XY0
+    /// Sets VX to the value of VY.
+    fn test_move_value() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0xF;
+
+        let val_reg_x = 0x14;
+        let val_reg_y = 0xFA;
+        chip.registers[reg_x] = val_reg_x;
+        chip.registers[reg_y] = val_reg_y;
+
+        assert_eq!(chip.registers[reg_x], val_reg_x);
+        assert_eq!(chip.registers[reg_y], val_reg_y);
+
+        let command = 0x0;
+
+        let opcode: Opcode =
+            0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
+
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_ne!(chip.registers[reg_x], val_reg_x);
+        assert_eq!(chip.registers[reg_x], val_reg_y);
+
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    // 8XY1
+    // Sets VX to VX or VY. (Bitwise OR operation)
+    fn test_bitwise_or() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0xF;
+
+        let val_reg_x = 0x14;
+        let val_reg_y = 0xFA;
+        chip.registers[reg_x] = val_reg_x;
+        chip.registers[reg_y] = val_reg_y;
+
+        assert_eq!(chip.registers[reg_x], val_reg_x);
+        assert_eq!(chip.registers[reg_y], val_reg_y);
+
+        let command = 0x1;
+
+        let opcode: Opcode =
+            0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
+
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.registers[reg_x], 0xFE);
+
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    // 8XY1
+    // Sets VX to VX or VY. (Bitwise OR operation)
+    fn test_bitwise_and() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0xF;
+
+        let val_reg_x = 0x14;
+        let val_reg_y = 0xFA;
+        chip.registers[reg_x] = val_reg_x;
+        chip.registers[reg_y] = val_reg_y;
+
+        assert_eq!(chip.registers[reg_x], val_reg_x);
+        assert_eq!(chip.registers[reg_y], val_reg_y);
+
+        let command = 0x2;
+
+        let opcode: Opcode =
+            0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
+
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.registers[reg_x], 0x10);
+
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    // 8XY3
+    // Sets VX to VX xor VY.
+    fn test_bitwise_xor() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0xF;
+
+        let val_reg_x = 0x14;
+        let val_reg_y = 0xFA;
+        chip.registers[reg_x] = val_reg_x;
+        chip.registers[reg_y] = val_reg_y;
+
+        assert_eq!(chip.registers[reg_x], val_reg_x);
+        assert_eq!(chip.registers[reg_y], val_reg_y);
+
+        let command = 0x3;
+
+        let opcode: Opcode =
+            0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
+
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.registers[reg_x], 0xEE);
+
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    // 8XY4
+    // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
+    fn test_addition_with_carry() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0xF;
+
+        let val_reg_x = 0x14;
+        let val_reg_y = 0xFA;
+        chip.registers[reg_x] = val_reg_x;
+        chip.registers[reg_y] = val_reg_y;
+
+        assert_eq!(chip.registers[reg_x], val_reg_x);
+        assert_eq!(chip.registers[reg_y], val_reg_y);
+
+        let command = 0x4;
+
+        let opcode: Opcode =
+            0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
+
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.registers[reg_x], 0x0E);
+        assert_eq!(chip.registers[REGISTER_LAST], 1);
         assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
     }
 }
