@@ -415,7 +415,12 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         let i = self.index_register as usize;
         Ok((
             ProgramCounterStep::Next,
-            opcode::Operation::Draw(x, y, n, i),
+            opcode::Operation::Draw {
+                x,
+                y,
+                height: n,
+                index_register: i,
+            },
         ))
     }
 

@@ -1,17 +1,24 @@
 /// the base mask used for generating all the other sub masks
 pub const OPCODE_MASK_FFFF: u16 = u16::MAX;
+
 /// the mask for the first twelve bytes
 pub const OPCODE_MASK_FFF0: u16 = OPCODE_MASK_FFFF << 4;
+
 /// the mask for the first eight bytes
 pub const OPCODE_MASK_FF00: u16 = OPCODE_MASK_FFFF << 8;
+
 /// the mask for the first four bytes
 pub const OPCODE_MASK_F000: u16 = OPCODE_MASK_FFFF << 12;
+
 /// the mask for the last four bytes
 pub const OPCODE_MASK_000F: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FFF0;
+
 /// the mask for the last eight bytes
 pub const OPCODE_MASK_00FF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
+
 /// the mask for the last four bytes
 pub const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
+
 /// the size of a single byte
 const BYTE_SIZE: u16 = 0x8;
 
@@ -24,6 +31,8 @@ pub type Opcode = u16;
 /// - `data` - A slice of u8 data entries used to generate the opcodes
 /// - `pointer` - Where in the data the opcode shall be extracted, so `pointer` and `pointer + 1` make
 /// the opcode up
+///
+/// # Example
 /// ```rust
 /// # use chip::opcode::*;
 ///  const OPCODES: &[Opcode] = &[0x00EE, 0x1EDA];
@@ -79,6 +88,7 @@ impl OpcodeTrait for Opcode {
     /// this is an opcode extractor that will return the
     /// opcode number form any opcode
     /// - `T` is the opcode type
+    ///
     /// # Example
     /// ```rust
     /// # use chip::opcode::*;
@@ -95,6 +105,7 @@ impl OpcodeTrait for Opcode {
     /// this is an opcode extractor for the opcode type `TNNN`
     /// - `T` is the opcode type
     /// - `NNN` is a register index
+    ///
     /// # Example
     /// ```rust
     /// # use chip::opcode::*;
@@ -109,11 +120,12 @@ impl OpcodeTrait for Opcode {
     /// - `T` is the opcode type
     /// - `X` is a register index
     /// - `NN` is a constant
+    ///
     /// # Example
     /// ```rust
     /// # use chip::opcode::*;
-    ///  const BASE_OPCODE: Opcode = 0x1EDA;
-    ///  assert_eq!(BASE_OPCODE.xnn(), (0xE, 0xDA));
+    /// const BASE_OPCODE: Opcode = 0x1EDA;
+    /// assert_eq!(BASE_OPCODE.xnn(), (0xE, 0xDA));
     /// ```
     fn xnn(&self) -> (usize, u8) {
         let x = self.x();
@@ -165,18 +177,32 @@ impl OpcodeTrait for Opcode {
     }
 }
 
+#[derive(Debug, PartialEq)]
+/// Represents the program steps that the chip
+/// can take.
 pub enum ProgramCounterStep {
+    /// Will not change the program counter
     None,
     /// Will increment the program counter by 1
     Next,
     /// Will increment the program counter by 2
     Skip,
-    /// Will simply move the program counter to the given location
+    /// Will simply move the program counter to the given location.
+    ///
+    /// Attention this can __panic__ if there is an out of bound
+    /// situation.
     Jump(usize),
 }
 
 impl ProgramCounterStep {
-    /// Will return Skip if the condition is true.
+    /// Will return a Skip if the condition is true.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use chip::opcode::ProgramCounterStep;
+    /// assert_eq!(ProgramCounterStep::Next, ProgramCounterStep::cond(false));
+    /// assert_eq!(ProgramCounterStep::Skip, ProgramCounterStep::cond(true));
+    /// ```
     pub fn cond(cond: bool) -> Self {
         if cond {
             ProgramCounterStep::Skip
@@ -187,18 +213,33 @@ impl ProgramCounterStep {
 }
 
 pub trait ProgramCounter {
+    /// will move the program counter forward by a step.
     fn step(&mut self, step: ProgramCounterStep);
 }
 
 #[derive(Debug, PartialEq)]
+/// Represents a command from the interpreter up to the gui.
 pub enum Operation {
+    /// If no action has to be taken.
     None,
-    Draw(usize, usize, usize, usize),
+    /// A redraw command with the individual parameters
+    Draw {
+        /// The `x`  coordiate from which to draw from
+        x: usize,
+        /// The `y`` coordiate from which to draw from
+        y: usize,
+        /// The height of the block
+        height: usize,
+        /// The value stored in the index register at the
+        /// given time.
+        index_register: usize,
+    },
 }
 
 /// These are the traits that have to be full filled for a working opcode
 /// table.
-/// This required the implementation of the ProgramCounter trait
+/// This required the implementation of the ProgramCounter trait as
+/// the step functionality has to be implemented as well.
 pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// will calculate the programs step by a single step
     fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
@@ -217,13 +258,10 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
             0xA000 => self.a(opcode),
             0xB000 => self.b(opcode),
             0xC000 => self.c(opcode),
-            0xD000 => match self.d(opcode) {
-                Ok((step, op)) => {
-                    operation = op;
-                    Ok(step)
-                }
-                Err(err) => Err(err),
-            },
+            0xD000 => self.d(opcode).map(|(step, op)| {
+                operation = op;
+                step
+            }),
             0xE000 => self.e(opcode),
             0xF000 => self.f(opcode),
             _ => Err(format!("An unsupported opcode was used {:#06X}", opcode)),
@@ -232,7 +270,6 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
         Ok(operation)
     }
 
-     
     /// A multiuse opcode base for type `0NNN`
     ///
     /// - `0NNN` - Call     -                       - Calls machine code routine ([RCA 1802](https://en.wikipedia.org/wiki/RCA_1802) for COSMAC VIP) at address `NNN`. Not necessary for most ROMs.
@@ -241,34 +278,42 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     ///
     /// Returns any possible error
     fn zero(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `1NNN` - Flow     - `goto NNN;`           - Jumps to address `NNN`.
     ///
     /// Returns any possible error
     fn one(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `2NNN` - Flow     - `*(0xNNN)()`          - Calls subroutine at `NNN`.
     ///
     /// Returns any possible error
     fn two(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `3XNN` - Cond 	- `if(Vx==NN)`          - Skips the next instruction if `VX` equals `NN`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
     fn three(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `4XNN` - Cond     - `if(Vx!=NN)`          - Skips the next instruction if `VX` doesn' t equal `NN`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
     fn four(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `5XY0` - Cond     - `if(Vx==Vy)`          - Skips the next instruction if `VX` equals `VY`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
     fn five(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `6XNN` - Const    - `Vx = NN`             - Sets `VX` to `NN`.
     ///
     /// Returns any possible error
     fn six(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `7XNN` - Const    - `Vx += NN`            - Adds `NN` to `VX`. (Carry flag is not changed)
     ///
     /// Returns any possible error
     fn seven(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// A mutiuse opcode base for type `8NNT` (T is a sub obcode)
     ///
     /// - `8XY0` - Assign   - `Vx=Vy`               - Sets `VX` to the value of `VY`.
@@ -283,26 +328,32 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     ///
     /// Returns any possible error
     fn eight(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `9XY0` - Cond     - `if(Vx!=Vy)`          - Skips the next instruction if `VX` doesn't equal `VY`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
     fn nine(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `ANNN` - MEM      - `I = NNN`             - Sets `I` to the address `NNN`.
     ///
     /// Returns any possible error
     fn a(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `BNNN` - Flow 	- `PC=V0+NNN`           - Jumps to the address `NNN` plus `V0`.
     ///
     /// Returns any possible error
     fn b(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `CXNN` - Rand     - `Vx=rand()&NN`        - Sets `VX` to the result of a bitwise and operation on a random number (Typically: `0 to 255`) and `NN`.
     ///
     /// Returns any possible error
     fn c(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// - `DXYN` - Disp     - `draw(Vx,Vy,N)`       - Draws a sprite at coordinate `(VX, VY)` that has a width of `8` pixels and a height of `N` pixels. Each row of `8` pixels is read as bit-coded starting from memory location `I`; `I` value doesn’t change after the execution of this instruction. As described above, `VF` is set to `1` if any screen pixels are flipped from set to unset when the sprite is drawn, and to `0` if that doesn’t happen
     ///
     /// Returns any possible error
     fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
+
     /// A multiuse opcode base for type `EXTT` (T is a sub opcode)
     ///
     /// - `EX9E` - KeyOp    - `if(key()==Vx)`       - Skips the next instruction if the key stored in `VX` is pressed. (Usually the next instruction is a jump to skip a code block)
@@ -310,6 +361,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     ///
     /// Returns any possible error
     fn e(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+
     /// A multiuse opcode base for type `FXTT` (T is a sub opcode)
     ///
     /// - `FX07` - Timer    - `Vx = get_delay()`    - Sets `VX` to the value of the delay timer.
