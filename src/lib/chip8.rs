@@ -411,6 +411,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and
         // to 0 if that doesn’t happen
 
+        // TODO: finish implementation
         let (x, y, n) = opcode.xyn();
         let i = self.index_register as usize;
         Ok((
@@ -419,7 +420,8 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
                 x,
                 y,
                 height: n,
-                index_register: i,
+                width: 8, // default width this is not doing to change, but is kept in for simplicity
+                location: i,
             },
         ))
     }
@@ -487,7 +489,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
                 // FX29
                 // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
                 // hexadecimal) are represented by a 4x5 font.
-                // TODO:
+                // TODO: this needs more work, as the front end is not yet implemented
                 todo!();
             }
             0x33 => {
@@ -523,7 +525,12 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
                     self.registers[i] = self.memory[index + i];
                 }
             }
-            _ => {}
+            _ => {
+                return Err(format!(
+                    "An unsupported opcode was used {:#06X?}",
+                    self.opcode
+                ))
+            }
         }
         Ok(ProgramCounterStep::Next)
     }

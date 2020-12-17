@@ -230,9 +230,10 @@ pub enum Operation {
         y: usize,
         /// The height of the block
         height: usize,
-        /// The value stored in the index register at the
-        /// given time.
-        index_register: usize,
+        /// The height of the block defaults to 8
+        width: usize,
+        /// The memory location from which to read the data from.
+        location: usize,
     },
 }
 
