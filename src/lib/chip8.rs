@@ -309,26 +309,14 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
                 // 8XY7
                 // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there
                 // isn't.
-                let res = self.registers[y].checked_sub(self.registers[x]);
-
-                self.registers[x] = match res {
-                    Some(res) => {
-                        // addition worked as intended
-                        // no carry
-                        self.registers[REGISTER_LAST] = 0;
-                        res
-                    }
-                    None => {
-                        // addition needs carry
-                        self.registers[REGISTER_LAST] = 1;
-                        self.registers[y].wrapping_sub(self.registers[x])
-                    }
-                };
+                let (res, overflow) = self.registers[y].overflowing_sub(self.registers[x]);
+                self.registers[x] = res;
+                self.registers[REGISTER_LAST] = if overflow { 1 } else { 0 };
             }
             0xE => {
                 // 8XYE
                 // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
-                self.registers[REGISTER_LAST] = self.registers[x] & (1 << 7);
+                self.registers[REGISTER_LAST] = (self.registers[x] & (1 << 7)) >> 7;
                 self.registers[x] = self.registers[x] << 1;
             }
             _ => {
@@ -1387,6 +1375,133 @@ mod tests {
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.registers[reg_x], 0x0E);
+        assert_eq!(chip.registers[REGISTER_LAST], 1);
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    // 8XY5
+    // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
+    // isn't.
+    fn test_substraction_with_carry() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0xF;
+
+        let val_reg_x = 0x14;
+        let val_reg_y = 0xFA;
+        chip.registers[reg_x] = val_reg_x;
+        chip.registers[reg_y] = val_reg_y;
+
+        assert_eq!(chip.registers[reg_x], val_reg_x);
+        assert_eq!(chip.registers[reg_y], val_reg_y);
+
+        let command = 0x5;
+
+        let opcode: Opcode =
+            0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
+
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.registers[reg_x], 0x1A);
+        assert_eq!(chip.registers[REGISTER_LAST], 1);
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    // 8XY5
+    // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
+    // isn't.
+    fn test_least_sig_bit_and_shift_right() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0x9;
+
+        let val_reg_x = 0x11;
+
+        chip.registers[reg_x] = val_reg_x;
+
+        assert_eq!(chip.registers[reg_x], val_reg_x);
+
+        let command = 0x6;
+
+        let opcode: Opcode =
+            0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
+
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.registers[reg_x], 0x08);
+        assert_eq!(chip.registers[REGISTER_LAST], 1);
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    // 8XY7
+    // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there
+    // isn't.
+    fn test_reverse_substraction_with_carry() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0xF;
+
+        let val_reg_x = 0xFA;
+        let val_reg_y = 0x14;
+        chip.registers[reg_x] = val_reg_x;
+        chip.registers[reg_y] = val_reg_y;
+
+        assert_eq!(chip.registers[reg_x], val_reg_x);
+        assert_eq!(chip.registers[reg_y], val_reg_y);
+
+        let command = 0x7;
+
+        let opcode: Opcode =
+            0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
+
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.registers[reg_x], 0x1A);
+        assert_eq!(chip.registers[REGISTER_LAST], 1);
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    // 8XYE
+    // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
+    fn test_most_sig_bit_and_shift_left() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0x9;
+
+        let val_reg_x = 0xF1;
+
+        chip.registers[reg_x] = val_reg_x;
+
+        assert_eq!(chip.registers[reg_x], val_reg_x);
+
+        let command = 0xE;
+
+        let opcode: Opcode =
+            0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
+
+        chip.opcode = opcode;
+
+        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
+        assert_eq!(chip.registers[reg_x], 0xE2);
         assert_eq!(chip.registers[REGISTER_LAST], 1);
         assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
     }
