@@ -316,7 +316,10 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
             0xE => {
                 // 8XYE
                 // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
-                self.registers[REGISTER_LAST] = (self.registers[x] & (1 << 7)) >> 7;
+                const SHIFT_SIGNIFICANT: u8 = 7;
+                const AND_SIGNIFICANT : u8 = 1 << SHIFT_SIGNIFICANT;
+                self.registers[REGISTER_LAST] =
+                    (self.registers[x] & AND_SIGNIFICANT) >> SHIFT_SIGNIFICANT;
                 self.registers[x] = self.registers[x] << 1;
             }
             _ => {
