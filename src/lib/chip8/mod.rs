@@ -25,6 +25,7 @@ use crate::{
 /// needed for emulating an instant on the
 /// Chip8 CPU.
 pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
+    /// name of the loaded rom
     name: String,
     /// all two bytes long and stored big-endian
     opcode: Opcode,
@@ -94,7 +95,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
         }
 
         ChipSet {
-            name: rom.get_name().clone().to_string(),
+            name: rom.get_name().to_string(),
             opcode: 0,
             memory: ram,
             registers: vec![0; REGISTER_SIZE],
