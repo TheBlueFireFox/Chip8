@@ -12,7 +12,7 @@ const HEX_PRINT_STEP: usize = 8;
 /// will add an indent post processing
 ///
 /// Example
-pub fn indent_helper(text: &str, indent: usize) -> String {
+fn indent_helper(text: &str, indent: usize) -> String {
     let indent = "\t".repeat(indent);
     text.split("\n")
         .map(|x| format!("{}{}\n", indent, x))
@@ -24,7 +24,7 @@ pub fn indent_helper(text: &str, indent: usize) -> String {
 mod pointer_print {
     use super::integer_print;
     /// will formatt the pointers according to definition
-    pub fn formatter(from: usize, to: usize) -> String {
+    pub(super) fn formatter(from: usize, to: usize) -> String {
         format!(
             "{} - {} :",
             integer_print::formatter(from),
@@ -102,7 +102,7 @@ mod opcode_print {
     /// this functions assumes the full data to be passed
     /// as the offset is calculated from the beginning of the
     /// memory block
-    pub fn printer(memory: &[u8], offset: usize) -> String {
+    pub(super) fn printer(memory: &[u8], offset: usize) -> String {
         // using the offset
         let data_last_index = memory.len() - 1;
         let mut rows: Vec<Row> = Vec::with_capacity((memory.len() - offset) / HEX_PRINT_STEP);
@@ -160,12 +160,12 @@ mod integer_print {
         std::fmt,
     };
     /// will format all integer types
-    pub fn formatter<T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy>(data: T) -> String {
+    pub(super) fn formatter<T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy>(data: T) -> String {
         format!("{:#06X}", data)
     }
 
     /// will pretty print all the integer data given
-    pub fn printer<T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy>(
+    pub(super) fn printer<T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy>(
         data: &[T],
         offset: usize,
     ) -> String {
@@ -195,7 +195,7 @@ mod bool_print {
     }
 
     /// a function to keep the correct format length
-    fn formatter(string: &str) -> String {
+    pub(super) fn formatter(string: &str) -> String {
         let mut string = string.to_string();
         let formatted = integer_print::formatter(0u16);
         while string.len() < formatted.len() {
@@ -207,7 +207,7 @@ mod bool_print {
     /// will pretty print all the boolean data given
     /// the offset will be calculated automatically from
     /// the data block
-    pub fn printer(data: &[bool], offset: usize) -> String {
+    pub(super) fn printer(data: &[bool], offset: usize) -> String {
         let mut res = Vec::new();
 
         for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
@@ -329,6 +329,7 @@ mod tests {
         \t\t0x0000 - 0x0007 : 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000\n\
         \t\t0x0008 - 0x000F : 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000\n\
     }";
+
     #[test]
     /// tests if the pretty print output is as expected
     /// this test is mainly for coverage purposes, as

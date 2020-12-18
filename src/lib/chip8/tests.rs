@@ -2,8 +2,7 @@ use {
     super::{ChipOpcodes, ChipSet},
     crate::{
         definitions::{
-            OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST, REGISTER_SIZE,
-            STACK_NESTING,
+            OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST, REGISTER_SIZE, STACK_NESTING,
         },
         devices,
         opcode::{Opcode, Operation, ProgramCounter, ProgramCounterStep},
@@ -26,7 +25,7 @@ lazy_static! {
     };
 }
 
-pub fn get_base() -> (
+pub(super) fn get_base() -> (
     Rom,
     devices::MockDisplayCommands,
     devices::MockKeyboardCommands,
@@ -41,12 +40,13 @@ pub fn get_base() -> (
 }
 
 /// will setup the default configured chip
-pub fn get_default_chip() -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
+pub(super) fn get_default_chip(
+) -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
     let (rom, dis, key, name) = get_base();
     setup_chip(rom, dis, key, name)
 }
 
-pub fn setup_chip(
+pub(super) fn setup_chip(
     rom: Rom,
     dis: devices::MockDisplayCommands,
     key: devices::MockKeyboardCommands,
@@ -68,12 +68,12 @@ pub fn setup_chip(
 }
 
 /// Will write the opcode to the memory location specified
-pub fn write_opcode_to_memory(memory: &mut [u8], from: usize, opcode: Opcode) {
+pub(super) fn write_opcode_to_memory(memory: &mut [u8], from: usize, opcode: Opcode) {
     write_slice_to_memory(memory, from, &opcode.to_be_bytes());
 }
 
 /// Will write the slice to the memory location specified
-pub fn write_slice_to_memory(memory: &mut [u8], from: usize, data: &[u8]) {
+pub(super) fn write_slice_to_memory(memory: &mut [u8], from: usize, data: &[u8]) {
     for i in 0..data.len() {
         memory[from + i] = data[i];
     }
