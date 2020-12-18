@@ -167,6 +167,7 @@ impl OpcodeTrait for Opcode {
     /// this is an opcode extractor for the opcode type `TXTT`
     /// - `T` is the opcode type
     /// - `X` is a register index
+    /// # Example
     /// ```rust
     /// # use chip::opcode::*;
     ///  const BASE_OPCODE: Opcode = 0x1EDA;

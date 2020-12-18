@@ -854,3 +854,87 @@ mod c {
         assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
     }
 }
+
+mod d {
+    use {super::*, crate::definitions::KEYBOARD_SIZE};
+
+    #[test]
+    fn test_skip_key_pressed() {
+        let (rom, dis, mut key) = get_base();
+        let reg1 = 0x1;
+        let reg2 = 0x0;
+
+        let mut keyboard = vec![false; KEYBOARD_SIZE].into_boxed_slice();
+        keyboard[reg1] = true;
+        key.expect_get_keyboard()
+            .returning(move || keyboard.clone());
+
+        let mut chip = setup_chip(rom, dis, key);
+
+        for (i, reg) in [reg2, reg1].iter().enumerate() {
+            chip.registers[*reg] = *reg as u8;
+            let opcode = 0xE << (3 * 4) ^ (*reg as Opcode) << (2 * 4) ^ 0x9E;
+
+            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+            let pc = chip.program_counter;
+
+            assert_eq!(chip.next(), Ok(Operation::None));
+
+            assert_eq!(chip.program_counter, pc + (i + 1) * OPCODE_BYTE_SIZE);
+        }
+    }
+
+    #[test]
+    fn test_skip_key_not_pressed() {
+        let (rom, dis, mut key) = get_base();
+        let reg1 = 0x0;
+        let reg2 = 0x1;
+
+        let mut keyboard = vec![false; KEYBOARD_SIZE].into_boxed_slice();
+        keyboard[reg1] = true;
+        key.expect_get_keyboard()
+            .returning(move || keyboard.clone());
+
+        let mut chip = setup_chip(rom, dis, key);
+
+        for (i, reg) in [reg1, reg2].iter().enumerate() {
+            let pc = chip.program_counter;
+
+            chip.registers[*reg] = *reg as u8;
+
+            let opcode = 0xE << (3 * 4) ^ (*reg as Opcode) << (2 * 4) ^ 0xA1;
+            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+            assert_eq!(chip.next(), Ok(Operation::None));
+
+            assert_eq!(chip.program_counter, pc + (i + 1) * OPCODE_BYTE_SIZE);
+        }
+    }
+
+    #[test]
+    fn test_wrong_opcode() {
+        let (rom, dis, mut key) = get_base();
+        let reg = 0x0;
+
+        let mut keyboard = vec![false; KEYBOARD_SIZE].into_boxed_slice();
+        keyboard[reg] = true;
+        key.expect_get_keyboard()
+            .returning(move || keyboard.clone());
+        let mut chip = setup_chip(rom, dis, key);
+
+        let pc = chip.program_counter;
+
+        let opcode = 0xE << (3 * 4) ^ (reg as Opcode) << (2 * 4) ^ 0x11;
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+        assert_eq!(
+            chip.next(),
+            Err(format!("An unsupported opcode was used {:#06X?}", opcode))
+        );
+
+        assert_eq!(chip.program_counter, pc);
+    }
+}
+
+mod f {}
