@@ -278,7 +278,7 @@ mod tests {
         assert_eq!(&result, text_expected);
     }
 
-    const OUTPUT: &str = "\
+    const OUTPUT_PRINT: &str = "\
     Chipset {\n\
         \tProgram Name: 15PUZZLE\n\
         \tOpcode :\n\
@@ -346,6 +346,6 @@ mod tests {
         // override the chip register as they are generated randomly
 
         chip.registers = (0..REGISTER_SIZE).map(|_| 0 as u8).collect();
-        assert_eq!(format!("{}", chip), OUTPUT);
+        assert_eq!(format!("{}", chip), OUTPUT_PRINT);
     }
 }
