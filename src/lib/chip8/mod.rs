@@ -32,12 +32,12 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     /// - `0x000-0x1FF` - Chip 8 interpreter (contains font set in emu)
     /// - `0x050-0x0A0` - Used for the built in `4x5` pixel font set (`0-F`)
     /// - `0x200-0xFFF` - Program ROM and work RAM
-    memory: Vec<u8>,
+    memory: Box<[u8]>,
     /// `8-bit` data registers named `V0` to `VF`. The `VF` register doubles as a flag for some
     /// instructions; thus, it should be avoided. In an addition operation, `VF` is the carry flag,
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction `VF` is set upon
     /// pixel collision.
-    registers: Vec<u8>,
+    registers: Box<[u8]>,
     /// The index for the register, this is a special register entry
     /// called index `I`
     index_register: u16,
@@ -48,7 +48,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     /// [RCA 1802](https://de.wikipedia.org/wiki/RCA1802) version allocated `48` bytes for up to
     /// `12` levels of nesting; modern implementations usually have more.
     /// (here we are using `16`)
-    stack: Vec<usize>,
+    stack: Box<[usize]>,
     /// The stack pointer stores the address of the last program request in a stack.
     /// it points to `+1` of the actual entry, so `stack_pointer = 1` means the last requests is
     /// in `stack[0]`.
@@ -63,7 +63,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     sound_timer: u8,
     /// The graphics of the Chip 8 are black and white and the screen has a total of `2048` pixels
     /// `(64 x 32)`. This can easily be implemented using an array that hold the pixel state `(1 or 0)`:
-    display: Vec<u8>,
+    display: Box<[u8]>,
     /// Input is done with a hex keyboard that has 16 keys ranging `0-F`. The `8`, `4`, `6`, and
     /// `2` keys are typically used for directional input. Three opcodes are used to detect input.
     /// One skips an instruction if a specific key is pressed, while another does the same if a
@@ -97,15 +97,15 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
         ChipSet {
             name: rom.get_name().to_string(),
             opcode: 0,
-            memory: ram,
-            registers: vec![0; REGISTER_SIZE],
+            memory: ram.into_boxed_slice(),
+            registers: vec![0; REGISTER_SIZE].into_boxed_slice(),
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
-            stack: vec![0; STACK_NESTING],
+            stack: vec![0; STACK_NESTING].into_boxed_slice(),
             stack_pointer: 0,
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
-            display: vec![0; DISPLAY_RESOLUTION],
+            display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
             keyboard: keyboard_adapter,
             adapter: display_adapter,
         }
