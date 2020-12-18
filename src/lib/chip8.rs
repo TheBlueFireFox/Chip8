@@ -1,18 +1,21 @@
-use {
-    crate::{
-        definitions::{
-            DISPLAY_RESOLUTION, MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST,
-            REGISTER_SIZE, STACK_NESTING, TIMER_HERZ,
-        },
-        devices::{DisplayCommands, KeyboardCommands},
-        fontset::FONSET,
-        opcode::{
-            self, ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep,
-        },
-        resources::Rom,
+use crate::{
+    definitions::{
+        DISPLAY_RESOLUTION, MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST,
+        REGISTER_SIZE, STACK_NESTING, TIMER_HERZ,
     },
-    rand,
+    devices::{DisplayCommands, KeyboardCommands},
+    fontset::FONSET,
+    opcode::{
+        self, ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep,
+    },
+    resources::Rom,
 };
+
+// this is only used in read code and not in testing
+// to remove unneded warnings it was captured like this.
+#[cfg(not(test))]
+use rand;
+
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
 /// needed for emulating an instant on the
@@ -235,10 +238,12 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // 5XY0
         // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
         // skip a code block)
-        let (x, y) = opcode.xy();
-        Ok(ProgramCounterStep::cond(
-            self.registers[x] == self.registers[y],
-        ))
+        match opcode.xyn() {
+            (x, y, 0) => Ok(ProgramCounterStep::cond(
+                self.registers[x] == self.registers[y],
+            )),
+            _ => Err(format!("An unsupported opcode was used {:#06X?}", opcode)),
+        }
     }
 
     fn six(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
@@ -317,7 +322,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
                 // 8XYE
                 // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
                 const SHIFT_SIGNIFICANT: u8 = 7;
-                const AND_SIGNIFICANT : u8 = 1 << SHIFT_SIGNIFICANT;
+                const AND_SIGNIFICANT: u8 = 1 << SHIFT_SIGNIFICANT;
                 self.registers[REGISTER_LAST] =
                     (self.registers[x] & AND_SIGNIFICANT) >> SHIFT_SIGNIFICANT;
                 self.registers[x] = self.registers[x] << 1;
@@ -337,10 +342,12 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // 9XY0
         // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is
         // a jump to skip a code block)
-        let (x, y) = opcode.xy();
-        Ok(ProgramCounterStep::cond(
-            self.registers[x] != self.registers[y],
-        ))
+        match opcode.xyn() {
+            (x, y, 0) => Ok(ProgramCounterStep::cond(
+                self.registers[x] != self.registers[y],
+            )),
+            _ => Err(format!("An unsupported opcode was used {:#06X?}", opcode)),
+        }
     }
 
     fn a(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
@@ -355,16 +362,27 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // Jumps to the address NNN plus V0.
         let nnn = opcode.nnn();
         let v0 = self.registers[0] as usize;
-        self.program_counter = v0 + nnn;
-        Ok(ProgramCounterStep::Next)
+        Ok(ProgramCounterStep::Jump(v0 + nnn))
     }
 
     fn c(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // CXNN
         // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
         // and NN.
+
         let (x, nn) = opcode.xnn();
-        let rand = rand::random::<u8>();
+        let rand;
+
+        // using conditional compilation here
+        // so that this function is more easily testable
+        cfg_if::cfg_if! {
+            if #[cfg(test)] {
+                rand = 0x42;
+            } else {
+                rand = rand::random::<u8>();
+            }
+        }
+
         self.registers[x] = nn & rand;
         Ok(ProgramCounterStep::Next)
     }
@@ -1158,7 +1176,7 @@ mod tests {
         let registery = 0x1;
         let registerx = 0x2;
         // skip register 1 if VY is not equals to VX
-        let opcode = 0x5 << (3 * 4) ^ (registerx << (2 * 4)) ^ (registery << (1 * 4));
+        let opcode = 0x5 << (3 * 4) ^ (registerx << (2 * 4)) ^ (registery << (1 * 4) ^ 0);
 
         // setup register for a none skip
         chip.registers[registerx as usize] = 0x6;
@@ -1179,6 +1197,27 @@ mod tests {
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    /// mainly for coverage, but still simple to test
+    fn test_five_false_opcode() {
+        let mut chip = get_default_chip();
+        let registery = 0x1;
+        let registerx = 0x2;
+        let pc = chip.program_counter;
+        for i in 1..16 {
+            let opcode = 0x5 << (3 * 4) ^ (registerx << (2 * 4)) ^ (registery << (1 * 4) ^ i);
+
+            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+            assert_eq!(
+                chip.next(),
+                Err(format!("An unsupported opcode was used {:#06X?}", opcode))
+            );
+            // assert that there were no movement
+            assert_eq!(pc, chip.program_counter);
+        }
     }
 
     #[test]
@@ -1507,5 +1546,152 @@ mod tests {
         assert_eq!(chip.registers[reg_x], 0xE2);
         assert_eq!(chip.registers[REGISTER_LAST], 1);
         assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    /// This test is mainly for correct coverage.
+    fn test_eight_wrong_opcode() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let opcode: Opcode = 0x800A;
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+        assert_eq!(
+            chip.next(),
+            Err(format!("An unsupported opcode was used {:#06X?}", opcode))
+        );
+
+        assert_eq!(chip.program_counter, curr_pc);
+    }
+
+    #[test]
+    /// This test is mainly for correct coverage.
+    fn test_nine_wrong_opcode() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0xA;
+
+        let val_reg_x = 0x1;
+        let val_reg_y = 0xA;
+
+        chip.registers[reg_x] = val_reg_x;
+        chip.registers[reg_y] = val_reg_y;
+
+        for i in 1..16 {
+            let opcode: Opcode =
+                0x9 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ i;
+            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+            assert_eq!(
+                chip.next(),
+                Err(format!("An unsupported opcode was used {:#06X?}", opcode))
+            );
+
+            assert_eq!(chip.program_counter, curr_pc);
+        }
+    }
+
+    #[test]
+    /// This test is mainly for correct coverage.
+    fn test_skip_if_reg_not_equals() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let reg_x = 0x1;
+        let reg_y = 0xA;
+
+        let val_reg_x = 0x1;
+        let val_reg_y = 0x1;
+
+        let save = |reg: &mut [u8], (reg_x, val_x), (reg_y, val_y)| {
+            reg[reg_x] = val_x;
+            reg[reg_y] = val_y;
+        };
+
+        save(&mut chip.registers, (reg_x, val_reg_x), (reg_y, val_reg_y));
+
+        let opcode: Opcode =
+            0x9 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ 0;
+        {
+            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+            assert_eq!(chip.next(), Ok(Operation::None));
+
+            assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        }
+        {
+            let val_reg_y = 0x2;
+
+            save(&mut chip.registers, (reg_x, val_reg_x), (reg_y, val_reg_y));
+
+            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+            assert_eq!(chip.next(), Ok(Operation::None));
+
+            // using 3 here are the counter was moved bevore by 1
+            assert_eq!(chip.program_counter, curr_pc + 3 * OPCODE_BYTE_SIZE);
+        }
+    }
+
+    #[test]
+    fn test_set_index_reg_to_addr() {
+        let mut chip = get_default_chip();
+        let curr_pc = chip.program_counter;
+
+        let addr = 0x420;
+        let opcode: Opcode = 0xA << (3 * 4) ^ addr;
+
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+        assert_ne!(chip.index_register, addr);
+
+        assert_eq!(chip.next(), Ok(Operation::None));
+
+        assert_eq!(chip.index_register, addr);
+
+        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+    }
+
+    #[test]
+    fn test_jump_to_nnn_with_offset() {
+        let mut chip = get_default_chip();
+
+        let offset = 0x10;
+
+        chip.registers[0] = offset;
+
+        let addr = 0x420;
+        let opcode: Opcode = 0xB << (3 * 4) ^ addr;
+
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+        assert_eq!(chip.next(), Ok(Operation::None));
+
+        assert_eq!(chip.program_counter, (addr + offset as u16) as usize);
+    }
+
+    #[test]
+    /// CXNN
+    /// Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
+    /// and NN.
+    fn test_bitwise_and_random() {
+        let mut chip = get_default_chip();
+        let pc = chip.program_counter;
+
+        let base = 0x42;
+        let reg = 0x1;
+        let anded = 0x20;
+        let opcode: Opcode = 0xC << (3 * 4) ^ (reg as u16) << (2 * 4) ^ (anded as u16);
+
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+        assert_eq!(chip.next(), Ok(Operation::None));
+
+        assert_eq!(chip.registers[reg as usize], anded & base);
+
+        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
     }
 }

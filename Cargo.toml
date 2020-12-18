@@ -17,6 +17,7 @@ num = "0.3"
 lazy_static = "1.4"
 crossterm = "0.18"
 tui = { version = "0.13", default-features = false, features = ['crossterm'] }
+cfg-if = "1.0" # used for random mocks
 
 [dev-dependencies]
 mockall = "0.8"
