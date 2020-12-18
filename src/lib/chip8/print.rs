@@ -160,7 +160,9 @@ mod integer_print {
         std::fmt,
     };
     /// will format all integer types
-    pub(super) fn formatter<T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy>(data: T) -> String {
+    pub(super) fn formatter<T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy>(
+        data: T,
+    ) -> String {
         format!("{:#06X}", data)
     }
 
@@ -335,13 +337,13 @@ mod tests {
     /// this test is mainly for coverage purposes, as
     /// the given module takes up a multitude of lines.
     fn test_full_print() {
-        let (rom, dis, mut key, name) = get_base();
+        let (rom, dis, mut key) = get_base();
         let keys = (0..KEYBOARD_SIZE)
             .map(|i| i % 2 != 0)
             .collect::<Vec<bool>>()
             .into_boxed_slice();
         key.expect_get_keyboard().returning(move || keys.clone());
-        let mut chip = setup_chip(rom, dis, key, name);
+        let mut chip = setup_chip(rom, dis, key);
 
         // override the chip register as they are generated randomly
 

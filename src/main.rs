@@ -42,6 +42,6 @@ fn main() {
     let rom_name = &files[0].to_string();
     let rom = ra.get_file_data(rom_name).unwrap();
 
-    let c = ChipSet::new(rom_name, rom, t, t2);
+    let c = ChipSet::new(rom, t, t2);
     println!("{}", c);
 }

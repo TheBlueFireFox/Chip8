@@ -28,38 +28,30 @@ pub(super) fn get_base() -> (
     Rom,
     devices::MockDisplayCommands,
     devices::MockKeyboardCommands,
-    &'static str,
 ) {
     (
         BASE_ROM.clone(),
         devices::MockDisplayCommands::new(),
         devices::MockKeyboardCommands::new(),
-        ROM_NAME,
     )
 }
 
 /// will setup the default configured chip
 pub(super) fn get_default_chip(
 ) -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
-    let (rom, dis, key, name) = get_base();
-    setup_chip(rom, dis, key, name)
+    let (rom, dis, key) = get_base();
+    setup_chip(rom, dis, key)
 }
 
 pub(super) fn setup_chip(
     rom: Rom,
     dis: devices::MockDisplayCommands,
     key: devices::MockKeyboardCommands,
-    name: &str,
 ) -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
-    let mut chip = ChipSet::new(name, rom, dis, key);
+    let mut chip = ChipSet::new(rom, dis, key);
     // fill up register with random values
     assert_eq!(chip.registers.len(), 16);
-    chip.registers = (0..REGISTER_SIZE)
-        .map(|_| {
-            // 1 (inclusive) to 21 (exclusive)
-            rand::random()
-        })
-        .collect();
+    chip.registers = (0..REGISTER_SIZE).map(|_| rand::random()).collect();
 
     assert_eq!(chip.registers.len(), 16);
     chip
@@ -161,14 +153,14 @@ mod zero {
     /// test clear display opcode and next (for coverage)
     /// `0x00E0`
     fn test_clear_display_opcode() {
-        let (rom, mut dis, key, name) = get_base();
+        let (rom, mut dis, key) = get_base();
 
         // setup mock
         // will assert to __false__ if condition is not
         // met
         dis.expect_clear_display().times(1).return_const(());
 
-        let mut chip = setup_chip(rom, dis, key, name);
+        let mut chip = setup_chip(rom, dis, key);
 
         // as the first opcode used is already clear screen no
         // modifications are needed.

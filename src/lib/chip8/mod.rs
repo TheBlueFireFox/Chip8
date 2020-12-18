@@ -75,7 +75,7 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
 
 impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     /// will create a new chipset object
-    pub fn new(name: &str, rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
+    pub fn new(rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
         // initialize all the memory with 0
 
         let mut ram = vec![0; MEMORY_SIZE];
@@ -94,7 +94,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
         }
 
         ChipSet {
-            name: name.to_string(),
+            name: rom.get_name().clone().to_string(),
             opcode: 0,
             memory: ram,
             registers: vec![0; REGISTER_SIZE],

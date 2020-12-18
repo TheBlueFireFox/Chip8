@@ -50,13 +50,14 @@ impl RomArchives<'_> {
         // this result can be ignored as the included archive
         // will definitely contain data for if the file is included
         file.read(&mut data)?;
-        Ok(Rom::new(data))
+        Ok(Rom::new(name.to_string(), data))
     }
 }
 
 #[derive(Clone)]
 /// Represents a single rom with it's information
 pub struct Rom {
+    name: String,
     /// The decompressed content data of the zip file
     /// stored as a u8 slice on the heap
     /// uses a box for simple execution
@@ -65,13 +66,18 @@ pub struct Rom {
 
 impl Rom {
     /// Will generate a new rom based of the given data
-    fn new(data: Box<[u8]>) -> Self {
-        Rom { data }
+    fn new(name: String, data: Box<[u8]>) -> Self {
+        Rom { name, data }
     }
 
     /// Will return a slice internal values of the given data
     pub fn get_data(&self) -> &[u8] {
         &self.data
+    }
+
+    /// Will return the name of the rom.
+    pub fn get_name(&self) -> &str {
+        &self.name
     }
 }
 
