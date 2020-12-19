@@ -50,7 +50,7 @@ impl RomArchives<'_> {
         // this result can be ignored as the included archive
         // will definitely contain data for if the file is included
         file.read(&mut data)?;
-        Ok(Rom::new(name.to_string(), data))
+        Ok(Rom::new(name, data))
     }
 }
 
@@ -66,8 +66,8 @@ pub struct Rom {
 
 impl Rom {
     /// Will generate a new rom based of the given data
-    fn new(name: String, data: Box<[u8]>) -> Self {
-        Rom { name, data }
+    fn new(name: &str, data: Box<[u8]>) -> Self {
+        Rom { name : name.to_string(), data }
     }
 
     /// Will return a slice internal values of the given data
