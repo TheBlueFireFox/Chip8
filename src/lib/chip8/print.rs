@@ -1,5 +1,6 @@
 use {
-    super::{ChipSet, DisplayCommands, KeyboardCommands},
+    super::*,
+    crate::devices::{DisplayCommands, KeyboardCommands},
     std::fmt,
 };
 

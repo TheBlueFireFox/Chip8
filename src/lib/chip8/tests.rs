@@ -1,11 +1,11 @@
 use {
-    super::{ChipOpcodes, ChipSet},
+    super::ChipSet,
     crate::{
         definitions::{
             OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST, REGISTER_SIZE, STACK_NESTING,
         },
         devices,
-        opcode::{Opcode, Operation, ProgramCounter, ProgramCounterStep},
+        opcode::{ChipOpcodes, Opcode, Operation, ProgramCounter, ProgramCounterStep},
         resources::{Rom, RomArchives},
     },
     lazy_static::lazy_static,
