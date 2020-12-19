@@ -832,12 +832,18 @@ mod b {
 
 mod c {
     use super::*;
+    use rand::rngs::mock::StepRng;
     #[test]
     /// CXNN
     /// Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
     /// and NN.
     fn test_bitwise_and_random() {
         let mut chip = get_default_chip();
+        // creating a simple "random number generator" that will
+        // allways return 0x42 for a simple test.
+        let srng = StepRng::new(0x42, 0);
+        chip.rng = Box::new(srng);
+
         let pc = chip.program_counter;
 
         let base = 0x42;

@@ -1,19 +1,20 @@
 // this is only used in read code and not in testing
 // to remove unneded warnings it was captured like this.
-use crate::{
-    definitions::{
-        DISPLAY_RESOLUTION, MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST,
-        REGISTER_SIZE, STACK_NESTING, TIMER_HERZ,
+use {
+    crate::{
+        definitions::{
+            DISPLAY_RESOLUTION, MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST,
+            REGISTER_SIZE, STACK_NESTING, TIMER_HERZ,
+        },
+        devices::{DisplayCommands, KeyboardCommands},
+        fontset::FONSET,
+        opcode::{
+            self, ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep,
+        },
+        resources::Rom,
     },
-    devices::{DisplayCommands, KeyboardCommands},
-    fontset::FONSET,
-    opcode::{
-        self, ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep,
-    },
-    resources::Rom,
+    rand::RngCore,
 };
-#[cfg(not(test))]
-use rand;
 
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
@@ -69,6 +70,10 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     /// It is currently implemented as a placeholder, until a final implementation
     /// is build.
     pub(super) adapter: T,
+    /// This stores the random number generator, used by the chipset.
+    /// It is stored into the chipset, so as to enable simple mocking
+    /// of the given type.
+    pub(super) rng: Box<dyn RngCore>,
 }
 
 impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
@@ -105,6 +110,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
             display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
             keyboard: keyboard_adapter,
             adapter: display_adapter,
+            rng: Box::new(rand::thread_rng()),
         }
     }
 
@@ -373,19 +379,11 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         // and NN.
 
         let (x, nn) = opcode.xnn();
-        let rand;
-
-        // using conditional compilation here
-        // so that this function is more easily testable
-        cfg_if::cfg_if! {
-            if #[cfg(test)] {
-                rand = 0x42;
-            } else {
-                rand = rand::random::<u8>();
-            }
-        }
-
-        self.registers[x] = nn & rand;
+        // using a fill bytes call here, as the trait RngCore does not
+        // support random u8.
+        let mut rand: [u8; 1] = [0];
+        self.rng.fill_bytes(&mut rand);
+        self.registers[x] = nn & rand[0];
         Ok(ProgramCounterStep::Next)
     }
 
