@@ -57,6 +57,7 @@ impl RomArchives<'_> {
 #[derive(Clone)]
 /// Represents a single rom with it's information
 pub struct Rom {
+    /// The rom name
     name: String,
     /// The decompressed content data of the zip file
     /// stored as a u8 slice on the heap
@@ -67,7 +68,10 @@ pub struct Rom {
 impl Rom {
     /// Will generate a new rom based of the given data
     fn new(name: &str, data: Box<[u8]>) -> Self {
-        Rom { name : name.to_string(), data }
+        Rom {
+            name: name.to_string(),
+            data,
+        }
     }
 
     /// Will return a slice internal values of the given data
@@ -115,7 +119,7 @@ mod tests {
     #[test]
     fn test_rom_extract() {
         let mut ra = RomArchives::new();
-        let name = "15PUZZLE";
+        let name = ROM_NAMES[0];
         let rom = ra.get_file_data(name).unwrap();
         let data = rom.get_data();
 

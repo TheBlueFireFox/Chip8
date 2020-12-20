@@ -17,7 +17,7 @@ fn main() {
     impl DC {
         fn new() -> Self {
             DC {
-                keyboard: Box::new([false; KEYBOARD_SIZE]),
+                keyboard: vec![false; KEYBOARD_SIZE].into_boxed_slice(),
             }
         }
     }

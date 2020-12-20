@@ -1,23 +1,23 @@
 /// the base mask used for generating all the other sub masks
-pub const OPCODE_MASK_FFFF: u16 = u16::MAX;
+const OPCODE_MASK_FFFF: u16 = u16::MAX;
 
 /// the mask for the first twelve bytes
-pub const OPCODE_MASK_FFF0: u16 = OPCODE_MASK_FFFF << 4;
+const OPCODE_MASK_FFF0: u16 = OPCODE_MASK_FFFF << 4;
 
 /// the mask for the first eight bytes
-pub const OPCODE_MASK_FF00: u16 = OPCODE_MASK_FFFF << 8;
+const OPCODE_MASK_FF00: u16 = OPCODE_MASK_FFFF << 8;
 
 /// the mask for the first four bytes
-pub const OPCODE_MASK_F000: u16 = OPCODE_MASK_FFFF << 12;
+const OPCODE_MASK_F000: u16 = OPCODE_MASK_FFFF << 12;
 
 /// the mask for the last four bytes
-pub const OPCODE_MASK_000F: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FFF0;
+const OPCODE_MASK_000F: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FFF0;
 
 /// the mask for the last eight bytes
-pub const OPCODE_MASK_00FF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
+const OPCODE_MASK_00FF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
 
 /// the mask for the last four bytes
-pub const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
+const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
 
 /// the size of a single byte
 const BYTE_SIZE: u16 = 0x8;
@@ -41,19 +41,15 @@ pub type Opcode = u16;
 ///      let opcode = build_opcode(SPLIT_OPCODE, i * 2).expect("This will work.");
 ///      assert_eq!(opcode, *val);
 ///  }
-/// ```
-///
-/// This function will return a result, if there was an out of bound access.
-/// ```rust
-/// # use chip::opcode::*;
-///  const SPLIT_OPCODE: &[u8] = &[0x00, 0xEE, 0x1E, 0xDA];
-///  let pointer = 3;
-///  assert_eq!(
-///     Err("Pointer location invalid there can not be an opcode at 3, if data len is 4".to_string()),
-///     build_opcode(SPLIT_OPCODE, pointer)
-///  );
+/// # // comment this test out for the visible part, as it doesn't help showing the function usage.
+/// # let pointer = 3;
+/// # assert_eq!(
+/// #    Err("Pointer location invalid there can not be an opcode at 3, if data len is 4".to_string()),
+/// #    build_opcode(SPLIT_OPCODE, pointer)
+/// # );
 /// ```
 pub fn build_opcode(data: &[u8], pointer: usize) -> Result<Opcode, String> {
+    // controlling that there is no illegal access here
     if pointer + 1 < data.len() {
         Ok(Opcode::from_be_bytes([data[pointer], data[pointer + 1]]))
     } else {
@@ -232,6 +228,9 @@ impl ProgramCounterStep {
     }
 }
 
+/// Represents a step of the program counter
+/// this requires the enum ProgramCounterStep
+/// to work.
 pub trait ProgramCounter {
     /// will move the program counter forward by a step.
     fn step(&mut self, step: ProgramCounterStep);
