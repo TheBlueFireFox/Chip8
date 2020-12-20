@@ -76,7 +76,7 @@ fn test_set_opcode() {
     let opcode = 0xA00A;
     write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
 
-    chip.set_opcode();
+    assert!(chip.set_opcode().is_ok());
 
     assert_eq!(chip.opcode, opcode);
 }

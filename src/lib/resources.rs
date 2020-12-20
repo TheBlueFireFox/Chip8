@@ -120,7 +120,9 @@ mod tests {
         let data = rom.get_data();
 
         for i in (0..data.len()).step_by(2) {
-            let opcode: Opcode = build_opcode(data, i);
+            let output = build_opcode(data, i);
+            assert!(output.is_ok());
+            let opcode: Opcode = output.unwrap();
             assert_eq!(RAW_ROM_DATA[i / 2], opcode);
         }
     }

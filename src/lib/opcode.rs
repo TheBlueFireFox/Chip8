@@ -38,12 +38,31 @@ pub type Opcode = u16;
 ///  const OPCODES: &[Opcode] = &[0x00EE, 0x1EDA];
 ///  const SPLIT_OPCODE: &[u8] = &[0x00, 0xEE, 0x1E, 0xDA];
 ///  for (i, val) in OPCODES.iter().enumerate() {
-///      let opcode = build_opcode(SPLIT_OPCODE, i * 2);
+///      let opcode = build_opcode(SPLIT_OPCODE, i * 2).expect("This will work.");
 ///      assert_eq!(opcode, *val);
 ///  }
 /// ```
-pub fn build_opcode(data: &[u8], pointer: usize) -> Opcode {
-    u16::from_be_bytes([data[pointer], data[pointer + 1]])
+///
+/// This function will return a result, if there was an out of bound access.
+/// ```rust
+/// # use chip::opcode::*;
+///  const SPLIT_OPCODE: &[u8] = &[0x00, 0xEE, 0x1E, 0xDA];
+///  let pointer = 3;
+///  assert_eq!(
+///     Err("Pointer location invalid there can not be an opcode at 3, if data len is 4".to_string()),
+///     build_opcode(SPLIT_OPCODE, pointer)
+///  );
+/// ```
+pub fn build_opcode(data: &[u8], pointer: usize) -> Result<Opcode, String> {
+    if pointer + 1 < data.len() {
+        Ok(Opcode::from_be_bytes([data[pointer], data[pointer + 1]]))
+    } else {
+        Err(format!(
+            "Pointer location invalid there can not be an opcode at {}, if data len is {}",
+            pointer,
+            data.len()
+        ))
+    }
 }
 
 /// These are special traits used to filter out information

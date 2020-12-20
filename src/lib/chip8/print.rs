@@ -119,7 +119,8 @@ mod opcode_print {
             // loop over all the opcodes u8 pairs
             for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
                 // set the opcode
-                data[data_index] = opcode::build_opcode(memory, index);
+                data[data_index] = opcode::build_opcode(memory, index)
+                    .expect("Please check if memory is valid in the given Rom.");
 
                 // check if opcode is above 0, if so toggle the is null flag
                 if data[data_index] > 0 {

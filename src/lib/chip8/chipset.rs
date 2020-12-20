@@ -115,15 +115,17 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     }
 
     /// will get the next opcode from memory
-    pub(super) fn set_opcode(&mut self) {
+    pub(super) fn set_opcode(&mut self) -> Result<(), String> {
         // will build the opcode given from the pointer
-        self.opcode = opcode::build_opcode(&self.memory, self.program_counter);
+        self.opcode = opcode::build_opcode(&self.memory, self.program_counter)?;
+        Ok(())
     }
 
     /// will advance the program by a single step
     pub fn next(&mut self) -> Result<opcode::Operation, String> {
         // get next opcode
-        self.set_opcode();
+        // We don't need the `Ok(())` output here.
+        let _ = self.set_opcode()?;
 
         self.calc(self.opcode)
     }
