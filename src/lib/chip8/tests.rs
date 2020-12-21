@@ -153,20 +153,25 @@ mod zero {
     /// test clear display opcode and next (for coverage)
     /// `0x00E0`
     fn test_clear_display_opcode() {
-        let (rom, mut dis, key) = get_base();
+        let (rom, dis, key) = get_base();
+
 
         // setup mock
         // will assert to __false__ if condition is not
         // met
-        dis.expect_clear_display().times(1).return_const(());
+        //dis.expect_clear_display().times(1).return_const(());
 
         let mut chip = setup_chip(rom, dis, key);
+
+        let curr_pc = chip.program_counter;
 
         // as the first opcode used is already clear screen no
         // modifications are needed.
 
         // run - if there was no panic it worked as intended
-        assert_eq!(chip.next(), Ok(Operation::None));
+        assert_eq!(chip.next(), Ok(Operation::Clear));
+
+        assert_eq!(curr_pc + OPCODE_BYTE_SIZE, chip.program_counter);
     }
 
     #[test]
@@ -861,7 +866,9 @@ mod c {
     }
 }
 
-mod d {
+mod d{}
+
+mod e {
     use {super::*, crate::definitions::KEYBOARD_SIZE};
 
     #[test]

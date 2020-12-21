@@ -241,6 +241,8 @@ pub trait ProgramCounter {
 pub enum Operation {
     /// If no action has to be taken.
     None,
+    /// A command to clear the screen content.
+    Clear,
     /// A redraw command with the individual parameters
     Draw {
         /// The `x`  coordiate from which to draw from
@@ -264,8 +266,12 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// will calculate the programs step by a single step
     fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
         let mut operation = Operation::None;
+        let step_op = |(step, op)| {
+            operation = op;
+            step
+        };
         let step = match opcode.t() {
-            0x0000 => self.zero(opcode),
+            0x0000 => self.zero(opcode).map(step_op),
             0x1000 => self.one(opcode),
             0x2000 => self.two(opcode),
             0x3000 => self.three(opcode),
@@ -278,10 +284,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
             0xA000 => self.a(opcode),
             0xB000 => self.b(opcode),
             0xC000 => self.c(opcode),
-            0xD000 => self.d(opcode).map(|(step, op)| {
-                operation = op;
-                step
-            }),
+            0xD000 => self.d(opcode).map(step_op),
             0xE000 => self.e(opcode),
             0xF000 => self.f(opcode),
             _ => Err(format!("An unsupported opcode was used {:#06X}", opcode)),
@@ -297,12 +300,12 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// - `00EE` - Flow     - `return;`             - Returns from a subroutine.
     ///
     /// Returns any possible error
-    fn zero(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
 
     /// - `1NNN` - Flow     - `goto NNN;`           - Jumps to address `NNN`.
     ///
     /// Returns any possible error
-    fn one(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn one(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
 
     /// - `2NNN` - Flow     - `*(0xNNN)()`          - Calls subroutine at `NNN`.
     ///
@@ -312,17 +315,17 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// - `3XNN` - Cond 	- `if(Vx==NN)`          - Skips the next instruction if `VX` equals `NN`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn three(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn three(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
 
     /// - `4XNN` - Cond     - `if(Vx!=NN)`          - Skips the next instruction if `VX` doesn' t equal `NN`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn four(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn four(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
 
     /// - `5XY0` - Cond     - `if(Vx==Vy)`          - Skips the next instruction if `VX` equals `VY`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn five(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn five(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
 
     /// - `6XNN` - Const    - `Vx = NN`             - Sets `VX` to `NN`.
     ///
@@ -352,7 +355,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// - `9XY0` - Cond     - `if(Vx!=Vy)`          - Skips the next instruction if `VX` doesn't equal `VY`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn nine(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn nine(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
 
     /// - `ANNN` - MEM      - `I = NNN`             - Sets `I` to the address `NNN`.
     ///
@@ -362,7 +365,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// - `BNNN` - Flow 	- `PC=V0+NNN`           - Jumps to the address `NNN` plus `V0`.
     ///
     /// Returns any possible error
-    fn b(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn b(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
 
     /// - `CXNN` - Rand     - `Vx=rand()&NN`        - Sets `VX` to the result of a bitwise and operation on a random number (Typically: `0 to 255`) and `NN`.
     ///
@@ -372,7 +375,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// - `DXYN` - Disp     - `draw(Vx,Vy,N)`       - Draws a sprite at coordinate `(VX, VY)` that has a width of `8` pixels and a height of `N` pixels. Each row of `8` pixels is read as bit-coded starting from memory location `I`; `I` value doesn’t change after the execution of this instruction. As described above, `VF` is set to `1` if any screen pixels are flipped from set to unset when the sprite is drawn, and to `0` if that doesn’t happen
     ///
     /// Returns any possible error
-    fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
+    fn d(&self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
 
     /// A multiuse opcode base for type `EXTT` (T is a sub opcode)
     ///
@@ -380,7 +383,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// - `EXA1` - KeyOp    - `if(key()!=Vx)`       - Skips the next instruction if the key stored in `VX` isn't pressed. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn e(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn e(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
 
     /// A multiuse opcode base for type `FXTT` (T is a sub opcode)
     ///

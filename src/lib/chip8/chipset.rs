@@ -1,5 +1,3 @@
-// this is only used in read code and not in testing
-// to remove unneded warnings it was captured like this.
 use {
     crate::{
         definitions::{
@@ -125,9 +123,10 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     pub fn next(&mut self) -> Result<opcode::Operation, String> {
         // get next opcode
         // We don't need the `Ok(())` output here.
-        let _ = self.set_opcode()?;
-
-        self.calc(self.opcode)
+        match self.set_opcode() {
+            Ok(_) => self.calc(self.opcode),
+            Err(err) => Err(err)
+        }
     }
 
     /// will return the sound timer
@@ -192,19 +191,18 @@ impl<T: DisplayCommands, U: KeyboardCommands> ProgramCounter for ChipSet<T, U> {
 }
 
 impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
-    fn zero(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         match opcode {
             0x00E0 => {
                 // 00E0
                 // clear display
-                self.adapter.clear_display();
-                Ok(ProgramCounterStep::Next)
+                Ok((ProgramCounterStep::Next, Operation::Clear))
             }
             0x00EE => {
                 // 00EE
                 // Return from sub routine => pop from stack
-                self.program_counter = self.pop_stack()?;
-                Ok(ProgramCounterStep::None)
+                let pc = self.pop_stack()?;
+                Ok((ProgramCounterStep::Jump(pc), Operation::None))
             }
             _ => Err(format!(
                 "An unsupported opcode was used {:#06X?}",
@@ -213,7 +211,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         }
     }
 
-    fn one(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn one(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 1NNN
         // Jumps to address NNN.
         Ok(ProgramCounterStep::Jump(opcode.nnn()))
@@ -228,7 +226,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         }
     }
 
-    fn three(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn three(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 3XNN
         // Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to
         // skip a code block)
@@ -236,7 +234,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(ProgramCounterStep::cond(self.registers[x] == nn))
     }
 
-    fn four(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn four(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 4XNN
         // Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a
         // jump to skip a code block)
@@ -244,7 +242,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(ProgramCounterStep::cond(self.registers[x] != nn))
     }
 
-    fn five(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn five(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 5XY0
         // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
         // skip a code block)
@@ -348,7 +346,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(ProgramCounterStep::Next)
     }
 
-    fn nine(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn nine(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 9XY0
         // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is
         // a jump to skip a code block)
@@ -367,7 +365,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(ProgramCounterStep::Next)
     }
 
-    fn b(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn b(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // BNNN
         // Jumps to the address NNN plus V0.
         let nnn = opcode.nnn();
@@ -389,7 +387,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         Ok(ProgramCounterStep::Next)
     }
 
-    fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
+    fn d(&self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
@@ -412,7 +410,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
         ))
     }
 
-    fn e(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn e(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         let (x, nn) = opcode.xnn();
         let keyboard = self.keyboard.get_keyboard();
         let step = match nn {
