@@ -121,7 +121,7 @@ impl ChipSet {
         // We don't need the `Ok(())` output here.
         match self.set_opcode() {
             Ok(_) => self.calc(self.opcode),
-            Err(err) => Err(err)
+            Err(err) => Err(err),
         }
     }
 
@@ -195,7 +195,7 @@ impl ProgramCounter for ChipSet {
     }
 }
 
-impl ChipOpcodes for ChipSet{
+impl ChipOpcodes for ChipSet {
     fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         match opcode {
             0x00E0 => {

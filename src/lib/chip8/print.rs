@@ -1,7 +1,4 @@
-use {
-    super::*,
-    std::fmt,
-};
+use {super::*, std::fmt};
 
 /// The length of the pretty print data
 /// as a single instruction is u16 the octa

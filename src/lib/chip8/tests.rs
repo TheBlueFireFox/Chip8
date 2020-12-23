@@ -15,18 +15,18 @@ const ROM_NAME: &'static str = "15PUZZLE";
 
 lazy_static! {
     /// preloading this as it get's called multiple times per unit
-    static ref BASE_ROM : Rom = {
-        let mut ra = RomArchives::new();
-        // unwrap is safe here as this never even should be able to crash
-        // and in the unlikely case that it does a panic is correct.
-        ra.get_file_data(ROM_NAME).unwrap()
-    };
+    static ref BASE_ROM : Rom = RomArchives::new()
+        .get_file_data(ROM_NAME)
+        .expect("A panic happend during extraction of the Rom archive.");
+
 }
 
+#[inline]
 pub(super) fn get_base() -> Rom {
     BASE_ROM.clone()
 }
 
+#[inline]
 /// will setup the default configured chip
 pub(super) fn get_default_chip() -> ChipSet {
     let rom = get_base();
@@ -43,16 +43,16 @@ pub(super) fn setup_chip(rom: Rom) -> ChipSet {
     chip
 }
 
+#[inline]
 /// Will write the opcode to the memory location specified
 pub(super) fn write_opcode_to_memory(memory: &mut [u8], from: usize, opcode: Opcode) {
     write_slice_to_memory(memory, from, &opcode.to_be_bytes());
 }
 
+#[inline]
 /// Will write the slice to the memory location specified
 pub(super) fn write_slice_to_memory(memory: &mut [u8], from: usize, data: &[u8]) {
-    for i in 0..data.len() {
-        memory[from + i] = data[i];
-    }
+    memory[from..(from + data.len())].copy_from_slice(&data);
 }
 
 #[test]
@@ -100,19 +100,20 @@ fn test_step() {
     let mut chip = get_default_chip();
     let mut pc = chip.program_counter;
 
-    pc += OPCODE_BYTE_SIZE;
-    chip.step(ProgramCounterStep::Next);
-    assert_eq!(chip.program_counter, pc);
+    let data = &[
+        (ProgramCounterStep::Next, 1),
+        (ProgramCounterStep::Skip, 2),
+        (ProgramCounterStep::None, 0),
+    ];
 
-    pc += 2 * OPCODE_BYTE_SIZE;
-    chip.step(ProgramCounterStep::Skip);
-    assert_eq!(chip.program_counter, pc);
+    for (pcs, by) in data.iter() {
+        pc += by * OPCODE_BYTE_SIZE;
+        chip.step(*pcs);
+        assert_eq!(chip.program_counter, pc);
+    }
 
     pc += 8 * OPCODE_BYTE_SIZE;
     chip.step(ProgramCounterStep::Jump(pc));
-    assert_eq!(chip.program_counter, pc);
-
-    chip.step(ProgramCounterStep::None);
     assert_eq!(chip.program_counter, pc);
 }
 
@@ -139,13 +140,12 @@ mod zero {
     /// test clear display opcode and next (for coverage)
     /// `0x00E0`
     fn test_clear_display_opcode() {
-
         let mut chip = get_default_chip();
 
         let curr_pc = chip.program_counter;
 
-        // as the first opcode used is already clear screen no
-        // modifications are needed.
+        let opcode = 0x00E0;
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
 
         // run - if there was no panic it worked as intended
         assert_eq!(chip.next(), Ok(Operation::Clear));
@@ -164,15 +164,14 @@ mod zero {
         let opcode: Opcode = 0x2000 ^ base;
 
         // write the to subroutine to memory
-        chip.opcode = opcode;
-
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
+
         // set opcode
         let opcode = 0x00EE;
 
         // write bytes to chip memory
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
-        chip.opcode = opcode;
 
         assert_eq!(Ok(Operation::None), chip.next());
 

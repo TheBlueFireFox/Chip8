@@ -45,7 +45,7 @@ mod tests {
 
     #[derive(Copy, Clone, Default)]
     struct AnObserver<T: Copy> {
-        pub data: T
+        pub data: T,
     }
 
     impl<D> Observer<ObserverEvents<D>> for AnObserver<ObserverEvents<D>>

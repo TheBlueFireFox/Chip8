@@ -193,7 +193,7 @@ impl OpcodeTrait for Opcode {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 /// Represents the program steps that the chip
 /// can take.
 pub enum ProgramCounterStep {
