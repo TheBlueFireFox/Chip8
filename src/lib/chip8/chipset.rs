@@ -1,10 +1,11 @@
+use crate::definitions::KEYBOARD_SIZE;
+
 use {
     crate::{
         definitions::{
             DISPLAY_RESOLUTION, MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST,
             REGISTER_SIZE, STACK_NESTING, TIMER_HERZ,
         },
-        devices::{DisplayCommands, KeyboardCommands},
         fontset::FONSET,
         opcode::{
             self, ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep,
@@ -18,7 +19,7 @@ use {
 /// of the system, it contains all the structures
 /// needed for emulating an instant on the
 /// Chip8 CPU.
-pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
+pub struct ChipSet {
     /// name of the loaded rom
     pub(super) name: String,
     /// all two bytes long and stored big-endian
@@ -63,20 +64,16 @@ pub struct ChipSet<T: DisplayCommands, U: KeyboardCommands> {
     /// One skips an instruction if a specific key is pressed, while another does the same if a
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
-    pub(super) keyboard: U,
-    /// The display adapter used to comunicate with the print instructiions.
-    /// It is currently implemented as a placeholder, until a final implementation
-    /// is build.
-    pub(super) adapter: T,
+    pub(super) keyboard: Box<[bool]>,
     /// This stores the random number generator, used by the chipset.
     /// It is stored into the chipset, so as to enable simple mocking
     /// of the given type.
     pub(super) rng: Box<dyn RngCore>,
 }
 
-impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
+impl ChipSet {
     /// will create a new chipset object
-    pub fn new(rom: Rom, display_adapter: T, keyboard_adapter: U) -> Self {
+    pub fn new(rom: Rom) -> Self {
         // initialize all the memory with 0
 
         let mut ram = vec![0; MEMORY_SIZE];
@@ -106,8 +103,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
             display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
-            keyboard: keyboard_adapter,
-            adapter: display_adapter,
+            keyboard: vec![false; KEYBOARD_SIZE].into_boxed_slice(),
             rng: Box::new(rand::thread_rng()),
         }
     }
@@ -126,6 +122,15 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
         match self.set_opcode() {
             Ok(_) => self.calc(self.opcode),
             Err(err) => Err(err)
+        }
+    }
+
+    /// Will write keyboard data into interncal keyboard representation.
+    pub fn set_keyboard(&mut self, keys: &[bool]) {
+        assert!(keys.len() == KEYBOARD_SIZE);
+
+        for i in 0..keys.len() {
+            self.keyboard[i] = keys[i];
         }
     }
 
@@ -173,7 +178,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipSet<T, U> {
     }
 }
 
-impl<T: DisplayCommands, U: KeyboardCommands> ProgramCounter for ChipSet<T, U> {
+impl ProgramCounter for ChipSet {
     fn step(&mut self, step: ProgramCounterStep) {
         match step {
             ProgramCounterStep::Next => self.program_counter += OPCODE_BYTE_SIZE,
@@ -190,7 +195,7 @@ impl<T: DisplayCommands, U: KeyboardCommands> ProgramCounter for ChipSet<T, U> {
     }
 }
 
-impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
+impl ChipOpcodes for ChipSet{
     fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         match opcode {
             0x00E0 => {
@@ -412,19 +417,18 @@ impl<T: DisplayCommands, U: KeyboardCommands> ChipOpcodes for ChipSet<T, U> {
 
     fn e(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         let (x, nn) = opcode.xnn();
-        let keyboard = self.keyboard.get_keyboard();
         let step = match nn {
             0x9E => {
                 // EX9E
                 // Skips the next instruction if the key stored in VX is pressed. (Usually the next
                 // instruction is a jump to skip a code block)
-                ProgramCounterStep::cond(keyboard[self.registers[x] as usize])
+                ProgramCounterStep::cond(self.keyboard[self.registers[x] as usize])
             }
             0xA1 => {
                 // EXA1
                 // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
                 // next instruction is a jump to skip a code block)
-                ProgramCounterStep::cond(!keyboard[self.registers[x] as usize])
+                ProgramCounterStep::cond(!self.keyboard[self.registers[x] as usize])
             }
             _ => {
                 // directly return with the given error

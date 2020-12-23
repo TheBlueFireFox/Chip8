@@ -4,7 +4,6 @@ use {
         definitions::{
             OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST, REGISTER_SIZE, STACK_NESTING,
         },
-        devices,
         opcode::{ChipOpcodes, Opcode, Operation, ProgramCounter, ProgramCounterStep},
         resources::{Rom, RomArchives},
     },
@@ -24,31 +23,18 @@ lazy_static! {
     };
 }
 
-pub(super) fn get_base() -> (
-    Rom,
-    devices::MockDisplayCommands,
-    devices::MockKeyboardCommands,
-) {
-    (
-        BASE_ROM.clone(),
-        devices::MockDisplayCommands::new(),
-        devices::MockKeyboardCommands::new(),
-    )
+pub(super) fn get_base() -> Rom {
+    BASE_ROM.clone()
 }
 
 /// will setup the default configured chip
-pub(super) fn get_default_chip(
-) -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
-    let (rom, dis, key) = get_base();
-    setup_chip(rom, dis, key)
+pub(super) fn get_default_chip() -> ChipSet {
+    let rom = get_base();
+    setup_chip(rom)
 }
 
-pub(super) fn setup_chip(
-    rom: Rom,
-    dis: devices::MockDisplayCommands,
-    key: devices::MockKeyboardCommands,
-) -> ChipSet<devices::MockDisplayCommands, devices::MockKeyboardCommands> {
-    let mut chip = ChipSet::new(rom, dis, key);
+pub(super) fn setup_chip(rom: Rom) -> ChipSet {
+    let mut chip = ChipSet::new(rom);
     // fill up register with random values
     assert_eq!(chip.registers.len(), 16);
     chip.registers = (0..REGISTER_SIZE).map(|_| rand::random()).collect();
@@ -153,15 +139,8 @@ mod zero {
     /// test clear display opcode and next (for coverage)
     /// `0x00E0`
     fn test_clear_display_opcode() {
-        let (rom, dis, key) = get_base();
 
-
-        // setup mock
-        // will assert to __false__ if condition is not
-        // met
-        //dis.expect_clear_display().times(1).return_const(());
-
-        let mut chip = setup_chip(rom, dis, key);
+        let mut chip = get_default_chip();
 
         let curr_pc = chip.program_counter;
 
@@ -866,23 +845,22 @@ mod c {
     }
 }
 
-mod d{}
+mod d {}
 
 mod e {
     use {super::*, crate::definitions::KEYBOARD_SIZE};
 
     #[test]
     fn test_skip_key_pressed() {
-        let (rom, dis, mut key) = get_base();
+        let rom = get_base();
         let reg1 = 0x1;
         let reg2 = 0x0;
 
         let mut keyboard = vec![false; KEYBOARD_SIZE].into_boxed_slice();
         keyboard[reg1] = true;
-        key.expect_get_keyboard()
-            .returning(move || keyboard.clone());
 
-        let mut chip = setup_chip(rom, dis, key);
+        let mut chip = setup_chip(rom);
+        chip.set_keyboard(&keyboard);
 
         for (i, reg) in [reg2, reg1].iter().enumerate() {
             chip.registers[*reg] = *reg as u8;
@@ -900,16 +878,16 @@ mod e {
 
     #[test]
     fn test_skip_key_not_pressed() {
-        let (rom, dis, mut key) = get_base();
+        let rom = get_base();
         let reg1 = 0x0;
         let reg2 = 0x1;
 
         let mut keyboard = vec![false; KEYBOARD_SIZE].into_boxed_slice();
         keyboard[reg1] = true;
-        key.expect_get_keyboard()
-            .returning(move || keyboard.clone());
 
-        let mut chip = setup_chip(rom, dis, key);
+        let mut chip = setup_chip(rom);
+
+        chip.set_keyboard(&keyboard);
 
         for (i, reg) in [reg1, reg2].iter().enumerate() {
             let pc = chip.program_counter;
@@ -927,14 +905,14 @@ mod e {
 
     #[test]
     fn test_wrong_opcode() {
-        let (rom, dis, mut key) = get_base();
+        let rom = get_base();
         let reg = 0x0;
 
         let mut keyboard = vec![false; KEYBOARD_SIZE].into_boxed_slice();
         keyboard[reg] = true;
-        key.expect_get_keyboard()
-            .returning(move || keyboard.clone());
-        let mut chip = setup_chip(rom, dis, key);
+
+        let mut chip = setup_chip(rom);
+        chip.set_keyboard(&keyboard);
 
         let pc = chip.program_counter;
 

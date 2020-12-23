@@ -4,7 +4,7 @@ use chip::{chip8, devices::{DisplayCommands, KeyboardCommands}};
 pub struct Controller<T: DisplayCommands, U: KeyboardCommands>{
     pub display: T,
     pub keyboard: U,
-    pub chipset: Option<chip8::ChipSet<T, U>>
+    pub chipset: Option<chip8::ChipSet>
 }
 
 impl<T: DisplayCommands, U: KeyboardCommands> Controller<T, U>{

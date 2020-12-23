@@ -1,6 +1,5 @@
 use {
     super::*,
-    crate::devices::{DisplayCommands, KeyboardCommands},
     std::fmt,
 };
 
@@ -227,13 +226,13 @@ mod bool_print {
     }
 }
 
-impl<T: DisplayCommands, U: KeyboardCommands> fmt::Display for ChipSet<T, U> {
+impl fmt::Display for ChipSet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // keeping the strings mutable so that they can be indented later on
         let mut mem = opcode_print::printer(&self.memory, 0);
         let mut reg = integer_print::printer(&self.registers, 0);
         let mut sta = integer_print::printer(&self.stack, 0);
-        let mut key = bool_print::printer(&self.keyboard.get_keyboard(), 0);
+        let mut key = bool_print::printer(&self.keyboard, 0);
 
         let mut opc = integer_print::formatter(self.opcode);
         let mut prc = integer_print::formatter(self.program_counter);
@@ -339,13 +338,14 @@ mod tests {
     /// this test is mainly for coverage purposes, as
     /// the given module takes up a multitude of lines.
     fn test_full_print() {
-        let (rom, dis, mut key) = get_base();
+        let rom = get_base();
         let keys = (0..KEYBOARD_SIZE)
             .map(|i| i % 2 != 0)
-            .collect::<Vec<bool>>()
-            .into_boxed_slice();
-        key.expect_get_keyboard().returning(move || keys.clone());
-        let mut chip = setup_chip(rom, dis, key);
+            .collect::<Vec<bool>>();
+
+        let mut chip = setup_chip(rom);
+
+        chip.set_keyboard(&keys);
 
         // override the chip register as they are generated randomly
 
