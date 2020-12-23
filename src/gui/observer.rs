@@ -55,7 +55,7 @@ mod tests {
         }
     }
 
-    fn setup_observer<T>() -> Rc<RefCell<AnObserver<T>>> where T: Copy + 'static {
+    fn setup_observer<'a, T>() -> Rc<RefCell<AnObserver<T>>> where T: Copy + 'a  {
         let observer = AnObserver{
             data : None
         }; 
