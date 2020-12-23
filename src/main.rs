@@ -1,3 +1,5 @@
+mod gui;
+
 use chip::{
     chip8::ChipSet,
     definitions::KEYBOARD_SIZE,
