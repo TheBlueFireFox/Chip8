@@ -190,6 +190,7 @@ mod zero {
         );
     }
 }
+
 mod one {
     use super::*;
 
@@ -230,6 +231,7 @@ mod two {
         assert_eq!(curr_pc, chip.stack[0]);
     }
 }
+
 mod three {
     use super::*;
 
@@ -256,6 +258,7 @@ mod three {
         assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
     }
 }
+
 mod four {
     use super::*;
     #[test]
@@ -285,6 +288,7 @@ mod four {
         assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
     }
 }
+
 mod five {
     use super::*;
 
@@ -341,6 +345,7 @@ mod five {
         }
     }
 }
+
 mod six {
     use super::*;
 
@@ -388,6 +393,7 @@ mod seven {
         assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
     }
 }
+
 mod eight {
     use super::*;
 
@@ -696,6 +702,7 @@ mod eight {
         assert_eq!(chip.program_counter, curr_pc);
     }
 }
+
 mod nine {
     use super::*;
 
@@ -770,6 +777,7 @@ mod nine {
         }
     }
 }
+
 mod a {
     use super::*;
     #[test]

@@ -4,15 +4,9 @@ use std::{
 };
 use zip::{read::ZipArchive, result::ZipResult};
 
-#[cfg(target_os = "windows")]
 /// Contains all the available roms needed for running the games
-/// in a ZIP archive (the path used works for windows)
-const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources\\c8games.zip");
-
-#[cfg(not(target_os = "windows"))]
-/// Contains all the available roms needed for running the games
-/// in a ZIP archive (the path used works for UNIX)
-const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("resources/c8games.zip");
+/// in a ZIP archive.
+const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("c8games.zip");
 
 /// Represents an archive of roms
 /// it contains all kind of information about the information of the archives
@@ -31,21 +25,13 @@ impl RomArchives<'_> {
 
     /// Will return all the rom names available to be chosen
     pub fn file_names(&self) -> Vec<&'_ str> {
-        let mut data = Vec::new();
-
-        for file in self.archive.file_names() {
-            data.push(file);
-        }
-        data
+        self.archive.file_names().collect()
     }
 
     // Will decompress the information from the zip archive
     pub fn get_file_data(&mut self, name: &str) -> ZipResult<Rom> {
         let mut file = self.archive.by_name(name)?;
-        let mut size = file.size() as usize;
-        if size % 2 == 1 {
-            size += 1;
-        }
+        let size = (file.size() + file.size() % 2) as usize;
         let mut data = vec![0; size].into_boxed_slice();
         // this result can be ignored as the included archive
         // will definitely contain data for if the file is included

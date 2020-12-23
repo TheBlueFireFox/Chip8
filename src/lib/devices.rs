@@ -1,6 +1,4 @@
-#[cfg(test)]
-use mockall::automock;
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 /// The traits responsible for the display based code
 pub trait DisplayCommands {
     /// Will clear the display
@@ -9,7 +7,7 @@ pub trait DisplayCommands {
     fn display(&self, pixels: &[u8]);
 }
 
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 /// The trait responsible for writing the keyboard data
 pub trait KeyboardCommands {
     fn get_keyboard(&self) -> Box<[bool]>;
