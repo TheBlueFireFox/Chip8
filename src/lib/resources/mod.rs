@@ -31,6 +31,8 @@ impl RomArchives<'_> {
     // Will decompress the information from the zip archive
     pub fn get_file_data(&mut self, name: &str) -> ZipResult<Rom> {
         let mut file = self.archive.by_name(name)?;
+        // there might be a case where there is an uneven amount of
+        // data entries adding one for simplicty.
         let size = (file.size() + file.size() % 2) as usize;
         let mut data = vec![0; size].into_boxed_slice();
         // this result can be ignored as the included archive
@@ -122,10 +124,9 @@ mod tests {
         let ra = RomArchives::new();
         let mut files = ra.file_names();
         files.sort();
+
         assert_eq!(ROM_NAMES.len(), files.len());
 
-        for i in 0..(files.len()) {
-            assert_eq!(ROM_NAMES[i], files[i]);
-        }
+        assert_eq!(&ROM_NAMES, &files[..]);
     }
 }

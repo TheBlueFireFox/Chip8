@@ -233,12 +233,9 @@ impl fmt::Display for ChipSet {
 
         let mut opc = integer_print::formatter(self.opcode);
         let mut prc = integer_print::formatter(self.program_counter);
-        let mut stc = integer_print::formatter(self.stack_pointer);
 
         // using a mutable slice here for convenient iterating
-        let mut data = [
-            &mut mem, &mut reg, &mut key, &mut sta, &mut opc, &mut prc, &mut stc,
-        ];
+        let mut data = [&mut mem, &mut reg, &mut key, &mut sta, &mut opc, &mut prc];
 
         for string in data.iter_mut() {
             **string = indent_helper(string, 2);
@@ -252,17 +249,18 @@ impl fmt::Display for ChipSet {
                 \tProgram Counter:\n{}\n\
                 \tMemory :\n{}\n\
                 \tKeybord :\n{}\n\
-                \tStack Pointer :\n{}\n\
                 \tStack :\n{}\n\
                 \tRegister :\n{}\n\
                 }}",
-            self.name, opc, prc, mem, key, stc, sta, reg
+            self.name, opc, prc, mem, key, sta, reg
         )
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::definitions::STACK_NESTING;
+
     use {
         super::super::super::definitions::{KEYBOARD_SIZE, REGISTER_SIZE},
         super::super::tests::*,
@@ -320,8 +318,6 @@ mod tests {
         \tKeybord :\n\
         \t\t0x0000 - 0x0007 : false  true   false  true   false  true   false  true\n\
         \t\t0x0008 - 0x000F : false  true   false  true   false  true   false  true\n\
-        \tStack Pointer :\n\
-            \t\t0x0000\n\
         \tStack :\n\
             \t\t0x0000 - 0x0007 : 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000\n\
             \t\t0x0008 - 0x000F : 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000 0x0000\n\
@@ -343,6 +339,11 @@ mod tests {
         let mut chip = setup_chip(rom);
 
         chip.set_keyboard(&keys);
+
+        // fill up the stack for the comparison
+        for _ in 0..STACK_NESTING {
+            chip.stack.push(0);
+        }
 
         // override the chip register as they are generated randomly
 

@@ -43,11 +43,8 @@ pub struct ChipSet {
     /// [RCA 1802](https://de.wikipedia.org/wiki/RCA1802) version allocated `48` bytes for up to
     /// `12` levels of nesting; modern implementations usually have more.
     /// (here we are using `16`)
-    pub(super) stack: Box<[usize]>,
-    /// The stack pointer stores the address of the last program request in a stack.
-    /// it points to `+1` of the actual entry, so `stack_pointer = 1` means the last requests is
-    /// in `stack[0]`.
-    pub(super) stack_pointer: usize,
+    /// Addition: We are using the stack capability of the std::vec::Vec.
+    pub(super) stack: Vec<usize>,
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
     /// Counts down at 60 hertz, until it reaches 0.
@@ -79,17 +76,11 @@ impl ChipSet {
         let mut ram = vec![0; MEMORY_SIZE];
 
         // load fonts
-        let mut index = 0;
-        for i in FONSET.iter() {
-            ram[index] = *i;
-            index += 1;
-        }
-        index = PROGRAM_COUNTER;
-        // load rom data into memory
-        for i in rom.get_data() {
-            ram[index] = *i;
-            index += 1;
-        }
+        ram[0..FONSET.len()].copy_from_slice(&FONSET);
+
+        // write the rom data into memory
+        ram[PROGRAM_COUNTER..(PROGRAM_COUNTER + rom.get_data().len())]
+            .copy_from_slice(&rom.get_data());
 
         ChipSet {
             name: rom.get_name().to_string(),
@@ -98,8 +89,7 @@ impl ChipSet {
             registers: vec![0; REGISTER_SIZE].into_boxed_slice(),
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
-            stack: vec![0; STACK_NESTING].into_boxed_slice(),
-            stack_pointer: 0,
+            stack: Vec::with_capacity(STACK_NESTING),
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
             display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
@@ -119,19 +109,14 @@ impl ChipSet {
     pub fn next(&mut self) -> Result<opcode::Operation, String> {
         // get next opcode
         // We don't need the `Ok(())` output here.
-        match self.set_opcode() {
-            Ok(_) => self.calc(self.opcode),
-            Err(err) => Err(err),
-        }
+        self.set_opcode()?;
+        self.calc(self.opcode)
     }
 
     /// Will write keyboard data into interncal keyboard representation.
     pub fn set_keyboard(&mut self, keys: &[bool]) {
-        assert!(keys.len() == KEYBOARD_SIZE);
-
-        for i in 0..keys.len() {
-            self.keyboard[i] = keys[i];
-        }
+        // copy_from_slice checks the keys lenght during copy
+        self.keyboard.copy_from_slice(keys);
     }
 
     /// will return the sound timer
@@ -153,13 +138,11 @@ impl ChipSet {
     /// stack_counter is always one bigger then the
     /// entry it points to
     pub(super) fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
-        if self.stack.len() == self.stack_pointer {
+        if self.stack.len() == self.stack.capacity() {
             Err("Stack is full!")
         } else {
             // push to stack
-            self.stack[self.stack_pointer] = pointer;
-            // increment stack counter
-            self.stack_pointer += 1;
+            self.stack.push(pointer);
             Ok(())
         }
     }
@@ -168,11 +151,13 @@ impl ChipSet {
     /// stack_counter is always one bigger then the entry
     /// it points to
     pub(super) fn pop_stack(&mut self) -> Result<usize, &'static str> {
-        if self.stack_pointer == 0 {
+        if self.stack.is_empty() {
             Err("Stack is empty!")
         } else {
-            self.stack_pointer -= 1;
-            let pointer = self.stack[self.stack_pointer];
+            let pointer = self
+                .stack
+                .pop()
+                .expect("During poping of the stack an unusual error occured.");
             Ok(pointer)
         }
     }

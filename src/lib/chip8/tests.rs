@@ -73,7 +73,7 @@ fn test_push_pop_stack() {
     let mut chip = get_default_chip();
 
     // check empty initial stack
-    assert_eq!(0, chip.stack_pointer);
+    assert!(chip.stack.is_empty());
 
     let next_counter = 0x0133 + PROGRAM_COUNTER;
 
@@ -85,12 +85,12 @@ fn test_push_pop_stack() {
     assert_eq!(Err("Stack is full!"), chip.push_stack(next_counter));
 
     // check if the stack counter moved as expected
-    assert_eq!(STACK_NESTING, chip.stack_pointer);
+    assert_eq!(STACK_NESTING, chip.stack.len());
     // pop the stack
     for i in (0..STACK_NESTING).rev() {
         assert_eq!(Ok(next_counter + i * 8), chip.pop_stack());
     }
-    assert_eq!(0, chip.stack_pointer);
+    assert!(chip.stack.is_empty());
     // test if stack is now empty
     assert_eq!(Err("Stack is empty!"), chip.pop_stack());
 }
