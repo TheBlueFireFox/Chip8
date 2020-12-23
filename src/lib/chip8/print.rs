@@ -1,3 +1,5 @@
+use crate::definitions::STACK_NESTING;
+
 use {super::*, std::fmt};
 
 /// The length of the pretty print data
@@ -228,7 +230,12 @@ impl fmt::Display for ChipSet {
         // keeping the strings mutable so that they can be indented later on
         let mut mem = opcode_print::printer(&self.memory, 0);
         let mut reg = integer_print::printer(&self.registers, 0);
-        let mut sta = integer_print::printer(&self.stack, 0);
+
+        // handle stack specially as it needes to be filled up if empty
+        let mut stack = [0; STACK_NESTING];
+        stack[0..self.stack.len()].copy_from_slice(&self.stack);
+
+        let mut sta = integer_print::printer(&stack, 0);
         let mut key = bool_print::printer(&self.keyboard, 0);
 
         let mut opc = integer_print::formatter(self.opcode);
@@ -259,8 +266,6 @@ impl fmt::Display for ChipSet {
 
 #[cfg(test)]
 mod tests {
-    use crate::definitions::STACK_NESTING;
-
     use {
         super::super::super::definitions::{KEYBOARD_SIZE, REGISTER_SIZE},
         super::super::tests::*,
@@ -340,13 +345,7 @@ mod tests {
 
         chip.set_keyboard(&keys);
 
-        // fill up the stack for the comparison
-        for _ in 0..STACK_NESTING {
-            chip.stack.push(0);
-        }
-
         // override the chip register as they are generated randomly
-
         chip.registers = (0..REGISTER_SIZE).map(|_| 0 as u8).collect();
         assert_eq!(format!("{}", chip), OUTPUT_PRINT);
     }

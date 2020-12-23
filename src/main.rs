@@ -12,7 +12,8 @@ fn main() {
     let rom_name = &files[0].to_string();
     let rom = ra.get_file_data(rom_name).unwrap();
 
-    let mut c = ChipSet::new(rom);
-    c.set_keyboard(&keyboard);
-    println!("{}", c);
+    let mut chip = ChipSet::new(rom);
+    chip.set_keyboard(&keyboard);
+
+    println!("{}", chip);
 }
