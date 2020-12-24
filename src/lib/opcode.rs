@@ -270,6 +270,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
             operation = op;
             step
         };
+
         let step = match opcode.t() {
             0x0000 => self.zero(opcode).map(step_op),
             0x1000 => self.one(opcode),
@@ -289,6 +290,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
             0xF000 => self.f(opcode),
             _ => Err(format!("An unsupported opcode was used {:#06X}", opcode)),
         }?;
+
         self.step(step);
         Ok(operation)
     }

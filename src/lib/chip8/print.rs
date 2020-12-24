@@ -147,9 +147,15 @@ mod opcode_print {
         }
         // create the end structure to be used for calculations
         rows.iter()
-            .map(|x| format!("{}", x))
-            .collect::<Vec<_>>()
-            .join("\n")
+            .enumerate()
+            .map(|(i, x)| {
+                if i < rows.len() {
+                    format!("{}\n", x)
+                } else {
+                    format!("{}", x)
+                }
+            })
+            .collect()
     }
 }
 
