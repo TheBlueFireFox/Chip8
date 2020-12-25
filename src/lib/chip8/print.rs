@@ -367,6 +367,12 @@ mod tests {
 
         // override the chip register as they are generated randomly
         chip.registers = (0..REGISTER_SIZE).map(|_| 0 as u8).collect();
-        assert_eq!(format!("{}", chip), OUTPUT_PRINT);
+        let actual_full = format!("{}", chip);
+        let actual_split= actual_full.split("\n");
+        let expected = OUTPUT_PRINT.split("\n");
+        
+        for (exp, act) in expected.zip(actual_split) {
+            assert_eq!(exp, act);
+        }
     }
 }
