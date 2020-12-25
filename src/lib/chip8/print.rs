@@ -12,12 +12,20 @@ const HEX_PRINT_STEP: usize = 8;
 ///
 /// Example
 fn indent_helper(text: &str, indent: usize) -> String {
+    const END_OF_LINE: &str = "\n";
     let indent = "\t".repeat(indent);
-    text.split("\n")
-        .map(|x| format!("{}{}\n", indent, x))
+    let parts = text.split(END_OF_LINE).count();
+
+    text.split(END_OF_LINE)
+        .enumerate()
+        .map(|(i, x)| {
+            if i < parts - 1 {
+                format!("{}{}\n", indent, x)
+            } else {
+                format!("{}{}", indent, x)
+            }
+        })
         .collect::<String>()
-        .trim_end()
-        .to_string()
 }
 
 mod pointer_print {
@@ -47,7 +55,7 @@ mod opcode_print {
     /// as the data is stored as u8 and an opcode
     /// is u16 long
     const POINTER_INCREMENT: usize = HEX_PRINT_STEP * OPCODE_BYTE_SIZE;
-    const FILLER_BASE : &str = "...";
+    const FILLER_BASE: &str = "...";
 
     lazy_static::lazy_static! {
         // preparing for the 0 block fillers
@@ -147,10 +155,11 @@ mod opcode_print {
             rows.push(row)
         }
         // create the end structure to be used for calculations
+        let max = rows.len() - 1;
         rows.iter()
             .enumerate()
             .map(|(i, x)| {
-                if i < rows.len() {
+                if i < max {
                     format!("{}\n", x)
                 } else {
                     format!("{}", x)
@@ -234,6 +243,7 @@ mod bool_print {
 
 impl fmt::Display for ChipSet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut nam = self.name.clone();
         // keeping the strings mutable so that they can be indented later on
         let mut mem = opcode_print::printer(&self.memory, 0);
         let mut reg = integer_print::printer(&self.registers, 0);
@@ -249,7 +259,9 @@ impl fmt::Display for ChipSet {
         let mut prc = integer_print::formatter(self.program_counter);
 
         // using a mutable slice here for convenient iterating
-        let mut data = [&mut mem, &mut reg, &mut key, &mut sta, &mut opc, &mut prc];
+        let mut data = [
+            &mut nam, &mut mem, &mut reg, &mut key, &mut sta, &mut opc, &mut prc,
+        ];
 
         for string in data.iter_mut() {
             **string = indent_helper(string, 2);
@@ -258,15 +270,15 @@ impl fmt::Display for ChipSet {
         write!(
             f,
             "Chipset {{\n\
-                \tProgram Name: {}\n\
+                \tProgram Name :\n{}\n\
                 \tOpcode :\n{}\n\
-                \tProgram Counter:\n{}\n\
+                \tProgram Counter :\n{}\n\
                 \tMemory :\n{}\n\
                 \tKeybord :\n{}\n\
                 \tStack :\n{}\n\
                 \tRegister :\n{}\n\
                 }}",
-            self.name, opc, prc, mem, key, sta, reg
+            nam, opc, prc, mem, key, sta, reg
         )
     }
 }
@@ -288,13 +300,14 @@ mod tests {
         assert_eq!(&result, text_expected);
     }
 
-    const OUTPUT_PRINT: &str = "\
+    const OUTPUT_PRINT: &'static str = "\
     Chipset {\n\
-        \tProgram Name: 15PUZZLE\n\
+        \tProgram Name :\n\
+            \t\t15PUZZLE\n\
         \tOpcode :\n\
-        \t\t0x0000\n\
-        \tProgram Counter:\n\
-        \t\t0x0200\n\
+            \t\t0x0000\n\
+        \tProgram Counter :\n\
+            \t\t0x0200\n\
         \tMemory :\n\
             \t\t0x0000 - 0x000F : 0xF090 0x9090 0xF020 0x6020 0x2070 0xF010 0xF080 0xF0F0\n\
             \t\t0x0010 - 0x001F : 0x10F0 0x10F0 0x9090 0xF010 0x10F0 0x80F0 0x10F0 0xF080\n\
