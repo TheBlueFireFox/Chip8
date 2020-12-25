@@ -1,3 +1,5 @@
+use opcode::{ChipCodesSpecial, OPCODE_MASK_00FF, OPCODE_MASK_F000};
+
 use crate::definitions::KEYBOARD_SIZE;
 
 use {
@@ -160,6 +162,17 @@ impl ChipSet {
                 .expect("During poping of the stack an unusual error occured.");
             Ok(pointer)
         }
+    }
+}
+
+impl ChipCodesSpecial for ChipSet {
+    fn resume_after_key(&mut self, key: usize) {
+        // FX07
+        // Sets VX to the value of the delay timer.
+        debug_assert_eq!(self.opcode & (OPCODE_MASK_00FF ^ OPCODE_MASK_F000), 0xF00A, "Incorrect opcode while calling this function.");
+        let x = self.opcode.x();
+        self.registers[x] = self.keyboard[key] as u8;
+        self.step(ProgramCounterStep::Next); 
     }
 }
 
@@ -426,18 +439,22 @@ impl ChipOpcodes for ChipSet {
         Ok(step)
     }
 
-    fn f(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn f(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         let (x, nn) = opcode.xnn();
+        let mut op = Operation::None;
+        let mut pcs = ProgramCounterStep::Next;
         match nn {
-            0x7 => {
+            0x07 => {
                 // FX07
                 // Sets VX to the value of the delay timer.
                 self.registers[x] = self.delay_timer;
             }
-            0xA => {
+            0x0A => {
                 // FX0A
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
+                op = Operation::Wait;
+                pcs = ProgramCounterStep::None;
             }
             0x15 => {
                 // FX15
@@ -505,6 +522,6 @@ impl ChipOpcodes for ChipSet {
                 ))
             }
         }
-        Ok(ProgramCounterStep::Next)
+        Ok((pcs, op))
     }
 }

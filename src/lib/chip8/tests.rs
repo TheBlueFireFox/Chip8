@@ -935,4 +935,29 @@ mod e {
     }
 }
 
-mod f {}
+mod f {
+    use crate::opcode::Operation;
+
+    use super::{get_default_chip, write_opcode_to_memory};
+
+    #[test]
+    // FX07
+    // Sets VX to the value of the delay timer.
+    fn test_reg_to_delay_timer() {
+        let mut chip = get_default_chip();
+        let dt = 0x42;
+        let reg = 0xA;
+        let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x07;
+
+        chip.delay_timer = dt;
+        chip.registers[reg] = 0x44;
+
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+        assert_ne!(chip.registers[reg], dt);
+
+        assert_eq!(Ok(Operation::None), chip.next());
+
+        assert_eq!(chip.registers[reg], dt);
+    }
+}

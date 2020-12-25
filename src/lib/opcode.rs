@@ -1,23 +1,23 @@
 /// the base mask used for generating all the other sub masks
-const OPCODE_MASK_FFFF: u16 = u16::MAX;
+pub(crate) const OPCODE_MASK_FFFF: u16 = u16::MAX;
 
 /// the mask for the first twelve bytes
-const OPCODE_MASK_FFF0: u16 = OPCODE_MASK_FFFF << 4;
+pub(crate) const OPCODE_MASK_FFF0: u16 = OPCODE_MASK_FFFF << 4;
 
 /// the mask for the first eight bytes
-const OPCODE_MASK_FF00: u16 = OPCODE_MASK_FFFF << 8;
+pub(crate) const OPCODE_MASK_FF00: u16 = OPCODE_MASK_FFFF << 8;
 
 /// the mask for the first four bytes
-const OPCODE_MASK_F000: u16 = OPCODE_MASK_FFFF << 12;
+pub(crate) const OPCODE_MASK_F000: u16 = OPCODE_MASK_FFFF << 12;
 
 /// the mask for the last four bytes
-const OPCODE_MASK_000F: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FFF0;
+pub(crate) const OPCODE_MASK_000F: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FFF0;
 
 /// the mask for the last eight bytes
-const OPCODE_MASK_00FF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
+pub(crate) const OPCODE_MASK_00FF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
 
 /// the mask for the last four bytes
-const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
+pub(crate) const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
 
 /// the size of a single byte
 const BYTE_SIZE: u16 = 0x8;
@@ -241,6 +241,8 @@ pub trait ProgramCounter {
 pub enum Operation {
     /// If no action has to be taken.
     None,
+    //// Will wait until keypress
+    Wait,
     /// A command to clear the screen content.
     Clear,
     /// A redraw command with the individual parameters
@@ -258,11 +260,24 @@ pub enum Operation {
     },
 }
 
+/// A collection of functions needed for resuming a blocking
+/// operation or other functions that have to be called by
+/// the main chip loop instead.
+pub trait ChipCodesSpecial: ProgramCounter {
+    /// This function will have to be called once the
+    /// key press event has happend.
+    ///
+    /// # Argument
+    ///
+    /// * `key` the key that has been changed (in ralation to the keys array)
+    fn resume_after_key(&mut self, key: usize);
+}
+
 /// These are the traits that have to be full filled for a working opcode
 /// table.
 /// This required the implementation of the ProgramCounter trait as
 /// the step functionality has to be implemented as well.
-pub trait ChipOpcodes: ProgramCounter {
+pub trait ChipOpcodes: ProgramCounter + ChipCodesSpecial {
     /// will calculate the programs step by a single step
     fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
         let mut operation = Operation::None;
@@ -287,7 +302,7 @@ pub trait ChipOpcodes: ProgramCounter {
             0xC000 => self.c(opcode),
             0xD000 => self.d(opcode).map(step_op),
             0xE000 => self.e(opcode),
-            0xF000 => self.f(opcode),
+            0xF000 => self.f(opcode).map(step_op),
             _ => Err(format!("An unsupported opcode was used {:#06X}", opcode)),
         }?;
 
@@ -400,5 +415,5 @@ pub trait ChipOpcodes: ProgramCounter {
     /// - `FX65` - MEM      - `reg_load(Vx,&I)`     - Fills `V0` to `VX` (including `VX`) with values from memory starting at address `I`. The offset from `I` is increased by `1` for each value written, but `I` itself is left unmodified.
     ///
     /// Returns any possible error
-    fn f(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn f(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
 }
