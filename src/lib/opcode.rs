@@ -262,7 +262,7 @@ pub enum Operation {
 /// table.
 /// This required the implementation of the ProgramCounter trait as
 /// the step functionality has to be implemented as well.
-pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
+pub trait ChipOpcodes: ProgramCounter {
     /// will calculate the programs step by a single step
     fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
         let mut operation = Operation::None;

@@ -47,6 +47,7 @@ mod opcode_print {
     /// as the data is stored as u8 and an opcode
     /// is u16 long
     const POINTER_INCREMENT: usize = HEX_PRINT_STEP * OPCODE_BYTE_SIZE;
+    const FILLER_BASE : &str = "...";
 
     lazy_static::lazy_static! {
         // preparing for the 0 block fillers
@@ -56,14 +57,14 @@ mod opcode_print {
                 1 => formatted,
                 2 => vec![formatted; 2].join(" "),
                 _ => {
-                    let filler_base = "...";
                     let lenght = formatted.len() * (HEX_PRINT_STEP - 2) + (HEX_PRINT_STEP - 1)
-                         - filler_base.len();
+                         - FILLER_BASE.len();
                     let filler = " ".repeat(lenght / 2);
+
                     format!("{}{}{}{}{}",
                         formatted.clone(),
                         filler.clone(),
-                        filler_base,
+                        FILLER_BASE,
                         filler,
                         formatted
                     )
