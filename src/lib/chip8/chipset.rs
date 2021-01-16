@@ -1,5 +1,3 @@
-use opcode::ChipOpcodePreProcessHandler;
-
 use {
     crate::{
         definitions::{
@@ -9,7 +7,8 @@ use {
         devices::Keyboard,
         fontset::FONSET,
         opcode::{
-            self, ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep,
+            self, ChipOpcodePreProcessHandler, ChipOpcodes, Opcode, OpcodeTrait, Operation,
+            ProgramCounter, ProgramCounterStep,
         },
         resources::Rom,
     },
@@ -449,13 +448,14 @@ impl ChipOpcodes for ChipSet {
     fn f(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         let (x, nn) = opcode.xnn();
         let mut op = Operation::None;
+        let mut pcs = ProgramCounterStep::Next;
         match nn {
-            0x7 => {
+            0x07 => {
                 // FX07
                 // Sets VX to the value of the delay timer.
                 self.registers[x] = self.delay_timer;
             }
-            0xA => {
+            0x0A => {
                 // FX0A
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
@@ -529,6 +529,6 @@ impl ChipOpcodes for ChipSet {
                 ))
             }
         }
-        Ok((ProgramCounterStep::Next, op))
+        Ok((pcs, op))
     }
 }

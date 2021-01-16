@@ -1,23 +1,23 @@
 /// the base mask used for generating all the other sub masks
-const OPCODE_MASK_FFFF: u16 = u16::MAX;
+pub(crate) const OPCODE_MASK_FFFF: u16 = u16::MAX;
 
 /// the mask for the first twelve bytes
-const OPCODE_MASK_FFF0: u16 = OPCODE_MASK_FFFF << 4;
+pub(crate) const OPCODE_MASK_FFF0: u16 = OPCODE_MASK_FFFF << 4;
 
 /// the mask for the first eight bytes
-const OPCODE_MASK_FF00: u16 = OPCODE_MASK_FFFF << 8;
+pub(crate) const OPCODE_MASK_FF00: u16 = OPCODE_MASK_FFFF << 8;
 
 /// the mask for the first four bytes
-const OPCODE_MASK_F000: u16 = OPCODE_MASK_FFFF << 12;
+pub(crate) const OPCODE_MASK_F000: u16 = OPCODE_MASK_FFFF << 12;
 
 /// the mask for the last four bytes
-const OPCODE_MASK_000F: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FFF0;
+pub(crate) const OPCODE_MASK_000F: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FFF0;
 
 /// the mask for the last eight bytes
-const OPCODE_MASK_00FF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
+pub(crate) const OPCODE_MASK_00FF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_FF00;
 
 /// the mask for the last four bytes
-const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
+pub(crate) const OPCODE_MASK_0FFF: u16 = OPCODE_MASK_FFFF ^ OPCODE_MASK_F000;
 
 /// the size of a single byte
 const BYTE_SIZE: u16 = 0x8;
@@ -283,6 +283,7 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
             operation = op;
             step
         };
+
         let step = match opcode.t() {
             0x0000 => self.zero(opcode).map(step_op),
             0x1000 => self.one(opcode),
@@ -302,6 +303,7 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
             0xF000 => self.f(opcode).map(step_op),
             _ => Err(format!("An unsupported opcode was used {:#06X}", opcode)),
         }?;
+
         self.step(step);
         Ok(operation)
     }
