@@ -241,6 +241,9 @@ pub trait ProgramCounter {
 pub enum Operation {
     /// If no action has to be taken.
     None,
+    /// If the gui shall, wait
+    /// for the next key press
+    Wait,
     /// A command to clear the screen content.
     Clear,
     /// A redraw command with the individual parameters
@@ -258,13 +261,23 @@ pub enum Operation {
     },
 }
 
+
+pub trait ChipOpcodePreProcessHandler {
+    fn get_preprocessor(&mut self) -> Option<Box<dyn FnMut()>>;
+}
+
 /// These are the traits that have to be full filled for a working opcode
 /// table.
 /// This required the implementation of the ProgramCounter trait as
 /// the step functionality has to be implemented as well.
-pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
+pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// will calculate the programs step by a single step
     fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
+        // run the preprocessure closures 
+        if let Some(mut preprocessor) = self.get_preprocessor() {
+            preprocessor();
+        } 
+
         let mut operation = Operation::None;
         let step_op = |(step, op)| {
             operation = op;
@@ -286,7 +299,7 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
             0xC000 => self.c(opcode),
             0xD000 => self.d(opcode).map(step_op),
             0xE000 => self.e(opcode),
-            0xF000 => self.f(opcode),
+            0xF000 => self.f(opcode).map(step_op),
             _ => Err(format!("An unsupported opcode was used {:#06X}", opcode)),
         }?;
         self.step(step);
@@ -398,5 +411,5 @@ pub trait ChipOpcodes<T: ProgramCounter = Self>: ProgramCounter {
     /// - `FX65` - MEM      - `reg_load(Vx,&I)`     - Fills `V0` to `VX` (including `VX`) with values from memory starting at address `I`. The offset from `I` is increased by `1` for each value written, but `I` itself is left unmodified.
     ///
     /// Returns any possible error
-    fn f(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn f(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
 }

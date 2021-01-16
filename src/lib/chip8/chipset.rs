@@ -1,4 +1,4 @@
-use crate::definitions::KEYBOARD_SIZE;
+use opcode::ChipOpcodePreProcessHandler;
 
 use {
     crate::{
@@ -6,6 +6,7 @@ use {
             DISPLAY_RESOLUTION, MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST,
             REGISTER_SIZE, STACK_NESTING, TIMER_HERZ,
         },
+        devices::Keyboard,
         fontset::FONSET,
         opcode::{
             self, ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep,
@@ -61,11 +62,15 @@ pub struct ChipSet {
     /// One skips an instruction if a specific key is pressed, while another does the same if a
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
-    pub(super) keyboard: Box<[bool]>,
+    pub(super) keyboard: Keyboard,
     /// This stores the random number generator, used by the chipset.
     /// It is stored into the chipset, so as to enable simple mocking
     /// of the given type.
     pub(super) rng: Box<dyn RngCore>,
+    /// Will store the callbacks needed for certain tasks
+    /// example, running special code after the main caller
+    /// did his. (Do work after wait etc.)
+    pub(super) preprocessor: Option<Box<dyn FnMut()>>,
 }
 
 impl ChipSet {
@@ -93,8 +98,9 @@ impl ChipSet {
             delay_timer: TIMER_HERZ,
             sound_timer: TIMER_HERZ,
             display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
-            keyboard: vec![false; KEYBOARD_SIZE].into_boxed_slice(),
+            keyboard: Keyboard::new(),
             rng: Box::new(rand::thread_rng()),
+            preprocessor: None,
         }
     }
 
@@ -116,7 +122,15 @@ impl ChipSet {
     /// Will write keyboard data into interncal keyboard representation.
     pub fn set_keyboard(&mut self, keys: &[bool]) {
         // copy_from_slice checks the keys lenght during copy
-        self.keyboard.copy_from_slice(keys);
+        self.keyboard.set_mult(keys);
+    }
+
+    pub fn set_key(&mut self, key: usize, to: bool) {
+        self.keyboard.set_key(key, to)
+    }
+
+    pub fn toggle_key(&mut self, key: usize) {
+        self.keyboard.toggle_key(key)
     }
 
     /// will return the sound timer
@@ -177,6 +191,12 @@ impl ProgramCounter for ChipSet {
                 }
             }
         }
+    }
+}
+
+impl ChipOpcodePreProcessHandler for ChipSet {
+    fn get_preprocessor(&mut self) -> Option<Box<dyn FnMut()>> {
+        self.preprocessor.take()
     }
 }
 
@@ -407,13 +427,13 @@ impl ChipOpcodes for ChipSet {
                 // EX9E
                 // Skips the next instruction if the key stored in VX is pressed. (Usually the next
                 // instruction is a jump to skip a code block)
-                ProgramCounterStep::cond(self.keyboard[self.registers[x] as usize])
+                ProgramCounterStep::cond(self.keyboard.get_keys()[self.registers[x] as usize])
             }
             0xA1 => {
                 // EXA1
                 // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
                 // next instruction is a jump to skip a code block)
-                ProgramCounterStep::cond(!self.keyboard[self.registers[x] as usize])
+                ProgramCounterStep::cond(!self.keyboard.get_keys()[self.registers[x] as usize])
             }
             _ => {
                 // directly return with the given error
@@ -426,8 +446,9 @@ impl ChipOpcodes for ChipSet {
         Ok(step)
     }
 
-    fn f(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn f(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         let (x, nn) = opcode.xnn();
+        let mut op = Operation::None;
         match nn {
             0x7 => {
                 // FX07
@@ -438,6 +459,9 @@ impl ChipOpcodes for ChipSet {
                 // FX0A
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
+                op = Operation::Wait;
+                let callback_on_keypress = || {};
+                self.preprocessor = Some(Box::new(callback_on_keypress));
             }
             0x15 => {
                 // FX15
@@ -505,6 +529,6 @@ impl ChipOpcodes for ChipSet {
                 ))
             }
         }
-        Ok(ProgramCounterStep::Next)
+        Ok((ProgramCounterStep::Next, op))
     }
 }

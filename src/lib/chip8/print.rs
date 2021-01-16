@@ -192,6 +192,8 @@ mod bool_print {
     };
 
     lazy_static::lazy_static! {
+        /// is used internally for lenght adjustment
+        static ref INTEGER_LEN : usize = integer_print::formatter(0u16).len();
         static ref TRUE : String = formatter("true");
         static ref FALSE: String = formatter("false");
     }
@@ -199,8 +201,7 @@ mod bool_print {
     /// a function to keep the correct format length
     pub(super) fn formatter(string: &str) -> String {
         let mut string = string.to_string();
-        let formatted = integer_print::formatter(0u16);
-        while string.len() < formatted.len() {
+        while string.len() < *INTEGER_LEN {
             string.push(' ');
         }
         string
@@ -236,7 +237,7 @@ impl fmt::Display for ChipSet {
         stack[0..self.stack.len()].copy_from_slice(&self.stack);
 
         let mut sta = integer_print::printer(&stack, 0);
-        let mut key = bool_print::printer(&self.keyboard, 0);
+        let mut key = bool_print::printer(self.keyboard.get_keys(), 0);
 
         let mut opc = integer_print::formatter(self.opcode);
         let mut prc = integer_print::formatter(self.program_counter);
