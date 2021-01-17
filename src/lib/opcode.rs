@@ -263,7 +263,7 @@ pub enum Operation {
 
 
 pub trait ChipOpcodePreProcessHandler {
-    fn get_preprocessor(&mut self) -> Option<Box<dyn FnMut()>>;
+    fn preprocess(&mut self);
 }
 
 /// These are the traits that have to be full filled for a working opcode
@@ -273,10 +273,8 @@ pub trait ChipOpcodePreProcessHandler {
 pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// will calculate the programs step by a single step
     fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
-        // run the preprocessure closures 
-        if let Some(mut preprocessor) = self.get_preprocessor() {
-            preprocessor();
-        } 
+        // preprocess 
+        self.preprocess();
 
         let mut operation = Operation::None;
         let step_op = |(step, op)| {

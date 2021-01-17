@@ -27,6 +27,18 @@ impl Key {
             current
         }
     }
+
+    pub fn get_index(&self) -> usize {
+        self.index
+    }
+
+    pub fn get_last(&self) -> bool {
+        self.last
+    }
+
+    pub fn get_current(&self) -> bool {
+        self.current
+    }
 }
 /// Will store the last change to the given keybord
 /// and represent the internal keyboard as well

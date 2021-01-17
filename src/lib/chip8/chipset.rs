@@ -1,3 +1,5 @@
+use std::todo;
+
 use {
     crate::{
         definitions::{
@@ -69,7 +71,7 @@ pub struct ChipSet {
     /// Will store the callbacks needed for certain tasks
     /// example, running special code after the main caller
     /// did his. (Do work after wait etc.)
-    pub(super) preprocessor: Option<Box<dyn FnMut()>>,
+    pub(super) preprocessor: Option<Box<dyn FnOnce(&mut Self)>>,
 }
 
 impl ChipSet {
@@ -194,8 +196,10 @@ impl ProgramCounter for ChipSet {
 }
 
 impl ChipOpcodePreProcessHandler for ChipSet {
-    fn get_preprocessor(&mut self) -> Option<Box<dyn FnMut()>> {
-        self.preprocessor.take()
+    fn preprocess(&mut self){
+        if let Some(func) = self.preprocessor.take() {
+            func(self);
+        }
     }
 }
 
@@ -460,7 +464,16 @@ impl ChipOpcodes for ChipSet {
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
                 op = Operation::Wait;
-                let callback_on_keypress = || {};
+                // don't change the counter until the rest of the function is called.
+                pcs = ProgramCounterStep::None;
+
+                let callback_on_keypress = move |chip: &mut Self| {
+                    let last = chip.keyboard.get_last().expect("The contract that states a last key has to be set was not fullfilled.");
+                    chip.registers[x] = last.get_index() as u8;
+                    // move the counter to the next instruction
+                    chip.step(ProgramCounterStep::Next);
+                };
+
                 self.preprocessor = Some(Box::new(callback_on_keypress));
             }
             0x15 => {
