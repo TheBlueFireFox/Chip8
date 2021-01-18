@@ -196,7 +196,7 @@ impl ProgramCounter for ChipSet {
 }
 
 impl ChipOpcodePreProcessHandler for ChipSet {
-    fn preprocess(&mut self){
+    fn preprocess(&mut self) {
         if let Some(func) = self.preprocessor.take() {
             func(self);
         }
@@ -464,7 +464,9 @@ impl ChipOpcodes for ChipSet {
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
                 let callback_after_keypress = move |chip: &mut Self| {
-                    let last = chip.keyboard.get_last().expect("The contract that states a last key has to be set was not fullfilled.");
+                    let last = chip.keyboard.get_last().expect(
+                        "The contract that states a last key has to be set was not fullfilled.",
+                    );
                     chip.registers[x] = last.get_index() as u8;
                     // move the counter to the next instruction
                     chip.step(ProgramCounterStep::Next);

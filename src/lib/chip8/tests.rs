@@ -936,7 +936,10 @@ mod e {
 }
 
 mod f {
-    use crate::{definitions::{KEYBOARD_SIZE, OPCODE_BYTE_SIZE}, opcode::Operation};
+    use crate::{
+        definitions::{KEYBOARD_SIZE, OPCODE_BYTE_SIZE},
+        opcode::Operation,
+    };
 
     use super::{get_default_chip, write_opcode_to_memory};
 
@@ -972,9 +975,13 @@ mod f {
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x0A;
 
         let pc = chip.program_counter;
-        
+
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter + OPCODE_BYTE_SIZE, opcode);
+        write_opcode_to_memory(
+            &mut chip.memory,
+            chip.program_counter + OPCODE_BYTE_SIZE,
+            opcode,
+        );
 
         assert_eq!(Ok(Operation::Wait), chip.next());
         assert_eq!(chip.program_counter, pc);
