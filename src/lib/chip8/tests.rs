@@ -936,7 +936,7 @@ mod e {
 }
 
 mod f {
-    use crate::opcode::Operation;
+    use crate::{definitions::{KEYBOARD_SIZE, OPCODE_BYTE_SIZE}, opcode::Operation};
 
     use super::{get_default_chip, write_opcode_to_memory};
 
@@ -959,5 +959,40 @@ mod f {
         assert_eq!(Ok(Operation::None), chip.next());
 
         assert_eq!(chip.registers[reg], dt);
+    }
+
+    #[test]
+    // FX0A
+    // A key press is awaited, and then stored in VX. (Blocking Operation. All
+    // instruction halted until next key event)
+    fn test_await_key_press() {
+        let mut chip = get_default_chip();
+        let key = 4;
+        let reg = 0xA;
+        let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x0A;
+
+        let pc = chip.program_counter;
+        
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter + OPCODE_BYTE_SIZE, opcode);
+
+        assert_eq!(Ok(Operation::Wait), chip.next());
+        assert_eq!(chip.program_counter, pc);
+
+        assert!(chip.keyboard.get_last().is_none());
+        assert_eq!(&[false; KEYBOARD_SIZE], chip.keyboard.get_keys());
+        assert!(chip.keyboard.get_last().is_none());
+
+        chip.toggle_key(key);
+
+        assert!(chip.keyboard.get_last().is_some());
+        assert!(!chip.keyboard.get_last().unwrap().get_last());
+        assert!(chip.keyboard.get_last().unwrap().get_current());
+
+        assert_ne!(chip.registers[reg] as usize, key);
+        assert_eq!(Ok(Operation::Wait), chip.next());
+
+        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+        assert_eq!(chip.registers[reg] as usize, key);
     }
 }

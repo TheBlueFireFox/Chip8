@@ -463,18 +463,18 @@ impl ChipOpcodes for ChipSet {
                 // FX0A
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
-                op = Operation::Wait;
-                // don't change the counter until the rest of the function is called.
-                pcs = ProgramCounterStep::None;
-
-                let callback_on_keypress = move |chip: &mut Self| {
+                let callback_after_keypress = move |chip: &mut Self| {
                     let last = chip.keyboard.get_last().expect("The contract that states a last key has to be set was not fullfilled.");
                     chip.registers[x] = last.get_index() as u8;
                     // move the counter to the next instruction
                     chip.step(ProgramCounterStep::Next);
                 };
 
-                self.preprocessor = Some(Box::new(callback_on_keypress));
+                op = Operation::Wait;
+                // don't change the counter until the rest of the function is called.
+                pcs = ProgramCounterStep::None;
+
+                self.preprocessor = Some(Box::new(callback_after_keypress));
             }
             0x15 => {
                 // FX15
