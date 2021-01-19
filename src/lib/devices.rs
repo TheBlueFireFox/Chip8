@@ -9,14 +9,13 @@ pub trait DisplayCommands {
     fn display(&self, pixels: &[u8]);
 }
 
-
-/// Will represent the last set key with the previous 
+/// Will represent the last set key with the previous
 /// value.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct Key {
+pub struct Key {
     index: usize,
     last: bool,
-    current: bool
+    current: bool,
 }
 
 impl Key {
@@ -24,7 +23,7 @@ impl Key {
         Key {
             index,
             last,
-            current
+            current,
         }
     }
 
@@ -50,14 +49,14 @@ impl Key {
 /// specific key is not pressed. The third waits for a key press, and then stores it in one of
 /// the data registers.
 #[derive(Default, Debug)]
-pub(super) struct Keyboard {
+pub struct Keyboard {
     /// Input is done with a hex keyboard that has 16 keys ranging `0-F`. The `8`, `4`, `6`, and
     /// `2` keys are typically used for directional input. Three opcodes are used to detect input.
     /// One skips an instruction if a specific key is pressed, while another does the same if a
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
     keys: Box<[bool; KEYBOARD_SIZE]>,
-    last: Option<Key>
+    last: Option<Key>,
 }
 
 impl Keyboard {
@@ -79,7 +78,7 @@ impl Keyboard {
 
         // setup last
         self.last = Some(Key::new(key, self.keys[key], to));
-        
+
         // write back solution
         self.keys[key] = to;
     }
