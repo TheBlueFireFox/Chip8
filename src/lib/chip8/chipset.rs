@@ -1,5 +1,3 @@
-use std::todo;
-
 use {
     crate::{
         definitions::{
@@ -88,7 +86,7 @@ impl ChipSet {
         ram[PROGRAM_COUNTER..(PROGRAM_COUNTER + rom.get_data().len())]
             .copy_from_slice(&rom.get_data());
 
-        ChipSet {
+        Self {
             name: rom.get_name().to_string(),
             opcode: 0,
             memory: ram.into_boxed_slice(),

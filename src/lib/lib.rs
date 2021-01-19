@@ -4,3 +4,4 @@ pub mod devices;
 pub mod fontset;
 pub mod opcode;
 pub mod resources;
+pub mod timer;
