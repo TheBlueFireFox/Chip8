@@ -100,7 +100,7 @@ impl Worker {
     }
 
     fn is_alive(&self) -> bool {
-        Arc::strong_count(&self.alive) == 1
+        Arc::strong_count(&self.alive) > 1
     }
 }
 
