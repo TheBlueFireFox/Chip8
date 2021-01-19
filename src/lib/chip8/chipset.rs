@@ -1,3 +1,5 @@
+use crate::timer::Timer;
+
 use {
     crate::{
         definitions::{
@@ -48,11 +50,11 @@ pub struct ChipSet {
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub(super) delay_timer: u8,
+    pub(super) delay_timer: Timer,
     /// Sound timer: This timer is used for sound effects. When its value is nonzero, a beeping
     /// sound is made.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub(super) sound_timer: u8,
+    pub(super) sound_timer: Timer,
     /// The graphics of the Chip 8 are black and white and the screen has a total of `2048` pixels
     /// `(64 x 32)`. This can easily be implemented using an array that hold the pixel state `(1 or 0)`:
     pub(super) display: Box<[u8]>,
@@ -94,8 +96,8 @@ impl ChipSet {
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
             stack: Vec::with_capacity(STACK_NESTING),
-            delay_timer: TIMER_HERZ,
-            sound_timer: TIMER_HERZ,
+            delay_timer: Timer::new(TIMER_HERZ),
+            sound_timer: Timer::new(TIMER_HERZ),
             display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
             keyboard: Keyboard::new(),
             rng: Box::new(rand::thread_rng()),
@@ -134,12 +136,12 @@ impl ChipSet {
 
     /// will return the sound timer
     pub fn get_sound_timer(&self) -> u8 {
-        self.sound_timer
+        self.sound_timer.get_value()
     }
 
     /// will return the delay timer
     pub fn get_delay_timer(&self) -> u8 {
-        self.delay_timer
+        self.delay_timer.get_value()
     }
 
     /// will return a clone of the current display configuration
@@ -455,7 +457,7 @@ impl ChipOpcodes for ChipSet {
             0x07 => {
                 // FX07
                 // Sets VX to the value of the delay timer.
-                self.registers[x] = self.delay_timer;
+                self.registers[x] = self.get_delay_timer();
             }
             0x0A => {
                 // FX0A
@@ -479,12 +481,12 @@ impl ChipOpcodes for ChipSet {
             0x15 => {
                 // FX15
                 // Sets the delay timer to VX.
-                self.delay_timer = self.registers[x];
+                self.delay_timer.set_value(self.registers[x]);
             }
             0x18 => {
                 // FX18
                 // Sets the sound timer to VX.
-                self.sound_timer = self.registers[x];
+                self.sound_timer.set_value(self.registers[x]);
             }
             0x1E => {
                 // FX1E

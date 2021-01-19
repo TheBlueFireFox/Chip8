@@ -13,7 +13,7 @@ pub const STACK_NESTING: usize = 16;
 /// The amount of hertz the clocks run at in milliseconds
 pub const TIMER_HERZ: u8 = 60;
 /// The amount of hertz the clocks run at in milliseconds
-pub const TIMER_INTERVAL: u32 = 1000 / TIMER_HERZ as u32;
+pub const TIMER_INTERVAL: u64 = 1000 / TIMER_HERZ as u64;
 /// The amount of pixels the display has
 pub const DISPLAY_RESOLUTION: usize = 64 * 23;
 /// all the different keyboards
