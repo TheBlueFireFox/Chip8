@@ -92,6 +92,8 @@ impl Worker {
 
     /// Will start the worker that will run the callback function
     /// all duration.
+    /// Attention the timer assumes the callback will finish 
+    /// calculation faster then the callback.
     fn start<T>(&mut self, mut callback: T, interval: Duration)
     where
         T: Send + FnMut() + 'static,
@@ -102,11 +104,16 @@ impl Worker {
             // this is to count the references, as it will not actually
             // be used ```_``` is used in front of the name.
             let _alive = alive;
+            let mut timeout = interval;
             loop {
-                match recv.recv_timeout(interval) {
+                match recv.recv_timeout(timeout) {
                     Err(RecvTimeoutError::Timeout) => {
                         // set the duration to the correct interval
+                        let start = std::time::SystemTime::now();
                         callback();
+                        let duration = start.elapsed().unwrap();
+                        // make sure there the system will at least wait the interval
+                        timeout = interval.min(interval - duration);
                     }
                     Ok(_) | Err(_) => break, // shutdown
                 }
