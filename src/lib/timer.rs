@@ -15,7 +15,7 @@ use {
 /// infrastruture, it will count down to
 /// zero from what ever number given in
 /// the speck requireds 60Hz.
-pub struct Timer {
+pub(crate) struct Timer {
     /// This is the main worker
     /// it is intended to be a part
     /// of the timer, but have no actuall
@@ -100,11 +100,12 @@ impl Worker {
         let alive = self.alive.clone();
         let thread = thread::spawn(move || {
             // this is to count the references, as it will not actually
-            // used _ is used in front of the name.
+            // be used ```_``` is used in front of the name.
             let _alive = alive;
             loop {
                 match recv.recv_timeout(interval) {
                     Err(RecvTimeoutError::Timeout) => {
+                        // set the duration to the correct interval
                         callback();
                     }
                     Ok(_) | Err(_) => break, // shutdown

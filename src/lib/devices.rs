@@ -20,7 +20,7 @@ pub struct Key {
 
 impl Key {
     fn new(index: usize, last: bool, current: bool) -> Self {
-        Key {
+        Self {
             index,
             last,
             current,

@@ -1,5 +1,3 @@
-use crate::timer::Timer;
-
 use {
     crate::{
         definitions::{
@@ -13,6 +11,7 @@ use {
             ProgramCounter, ProgramCounterStep,
         },
         resources::Rom,
+        timer::Timer,
     },
     rand::RngCore,
 };
@@ -96,8 +95,8 @@ impl ChipSet {
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
             stack: Vec::with_capacity(STACK_NESTING),
-            delay_timer: Timer::new(TIMER_HERZ),
-            sound_timer: Timer::new(TIMER_HERZ),
+            delay_timer: Timer::new(0),
+            sound_timer: Timer::new(0),
             display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
             keyboard: Keyboard::new(),
             rng: Box::new(rand::thread_rng()),
@@ -491,10 +490,11 @@ impl ChipOpcodes for ChipSet {
             0x1E => {
                 // FX1E
                 // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
-                // 0 when there isn't.
+                // 0 when there isn't. (not used in this system)
+                // 
                 // Adds VX to I. VF is not affected.[c]
                 let xi = self.registers[x] as u16;
-                let (res, _) = self.index_register.overflowing_add(xi);
+                let res = self.index_register.wrapping_add(xi);
                 self.index_register = res;
             }
             0x29 => {
@@ -523,9 +523,7 @@ impl ChipOpcodes for ChipSet {
                 // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
                 // is increased by 1 for each value written, but I itself is left unmodified.
                 let index = self.index_register as usize;
-                for i in 0..=x {
-                    self.memory[index + i] = self.registers[i];
-                }
+                self.memory[index..(index + x)].copy_from_slice(&self.registers[..=x]);
             }
             0x65 => {
                 // FX65
@@ -533,9 +531,8 @@ impl ChipOpcodes for ChipSet {
                 // offset from I is increased by 1 for each value written, but I itself is left
                 // unmodified.
                 let index = self.index_register as usize;
-                for i in 0..=x {
-                    self.registers[i] = self.memory[index + i];
-                }
+                self.registers
+                    .copy_from_slice(&self.memory[index..(index + x)]);
             }
             _ => {
                 return Err(format!(

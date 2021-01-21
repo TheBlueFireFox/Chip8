@@ -1004,4 +1004,52 @@ mod f {
         assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
         assert_eq!(chip.registers[reg] as usize, key);
     }
+
+    #[test]
+    fn test_set_delay_timer() {
+        let mut chip = get_default_chip();
+        let key = 44;
+        let reg = 0xB;
+        let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x15;
+
+        let pc = chip.program_counter;
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+        chip.registers[reg] = key;
+
+        assert_eq!(chip.get_delay_timer(), 0);
+
+        assert_eq!(Ok(Operation::None), chip.next());
+
+        assert!(chip.get_delay_timer() > 0);
+
+        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+
+        std::thread::sleep(Duration::from_secs(1));
+
+        assert_eq!(chip.get_delay_timer(), 0);
+    }
+
+    #[test]
+    fn test_set_sound_timer() {
+        let mut chip = get_default_chip();
+        let key = 44;
+        let reg = 0xB;
+        let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x18;
+
+        let pc = chip.program_counter;
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
+        chip.registers[reg] = key;
+
+        assert_eq!(Ok(Operation::None), chip.next());
+
+        assert!(chip.get_sound_timer() > 0);
+
+        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+
+        std::thread::sleep(Duration::from_secs(1));
+
+        assert_eq!(chip.get_sound_timer(), 0);
+    }
 }
