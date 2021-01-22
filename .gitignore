@@ -14,3 +14,4 @@ Cargo.lock
 ## Custom
 # vscode
 .vscode
+tarpaulin-report.html

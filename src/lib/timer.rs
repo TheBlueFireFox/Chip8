@@ -101,11 +101,27 @@ impl Worker {
         let (send, recv) = mpsc::sync_channel::<()>(1);
         let alive = self.alive.clone();
         let thread = thread::spawn(move || {
+            enum State {
+                Ran,
+                Last,
+                Not,
+            }
+
             // this is to count the references, as it will not actually
             // be used ```_``` is used in front of the name.
             let _alive = alive;
             let mut timeout = interval;
+            let mut ran = State::Not;
             loop {
+                ran = match ran {
+                    State::Ran => State::Last,
+                    State::Last => {
+                        timeout = interval;
+                        State::Not
+                    }
+                    State::Not => State::Not,
+                };
+
                 match recv.recv_timeout(timeout) {
                     Err(RecvTimeoutError::Timeout) => {
                         // set the duration to the correct interval
@@ -118,11 +134,13 @@ impl Worker {
                         let duration = start
                             .elapsed()
                             .expect("For unknown reasons time moved back in time...");
+
                         timeout = if interval <= duration {
                             Duration::from_secs(0)
                         } else {
                             interval - duration
                         };
+                        ran = State::Ran;
                     }
                     Ok(_) | Err(_) => break, // shutdown
                 }
@@ -135,8 +153,8 @@ impl Worker {
 
     /// Will stop the worker.
     fn stop(&mut self) {
-        // Will stop the worker, in two steps one by sending an empty message 
-        // and second by droping the only sender for the given receiver. 
+        // Will stop the worker, in two steps one by sending an empty message
+        // and second by droping the only sender for the given receiver.
         if let Some(sender) = self.shutdown.take() {
             sender
                 .send(())
