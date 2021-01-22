@@ -936,11 +936,14 @@ mod e {
 }
 
 mod f {
-    use std::time::Duration;
-
-    use crate::{definitions::{KEYBOARD_SIZE, OPCODE_BYTE_SIZE, TIMER_HERZ}, opcode::Operation};
-
-    use super::{get_default_chip, write_opcode_to_memory};
+    use {
+        super::*,
+        crate::{
+            definitions::{KEYBOARD_SIZE, OPCODE_BYTE_SIZE, TIMER_HERZ},
+            opcode::Operation,
+        },
+        std::time::Duration,
+    };
 
     #[test]
     // FX07

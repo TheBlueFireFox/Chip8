@@ -2,7 +2,7 @@ use {
     crate::{
         definitions::{
             DISPLAY_RESOLUTION, MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST,
-            REGISTER_SIZE, STACK_NESTING, TIMER_HERZ,
+            REGISTER_SIZE, STACK_NESTING,
         },
         devices::Keyboard,
         fontset::FONSET,
@@ -491,7 +491,7 @@ impl ChipOpcodes for ChipSet {
                 // FX1E
                 // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
                 // 0 when there isn't. (not used in this system)
-                // 
+                //
                 // Adds VX to I. VF is not affected.[c]
                 let xi = self.registers[x] as u16;
                 let res = self.index_register.wrapping_add(xi);

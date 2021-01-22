@@ -92,7 +92,7 @@ impl Worker {
 
     /// Will start the worker that will run the callback function
     /// all duration.
-    /// Attention the timer assumes the callback will finish 
+    /// Attention the timer assumes the callback will finish
     /// calculation faster then the callback.
     fn start<T>(&mut self, mut callback: T, interval: Duration)
     where
@@ -110,10 +110,19 @@ impl Worker {
                     Err(RecvTimeoutError::Timeout) => {
                         // set the duration to the correct interval
                         let start = std::time::SystemTime::now();
+
+                        // run the callback function
                         callback();
-                        let duration = start.elapsed().unwrap();
-                        // make sure there the system will at least wait the interval
-                        timeout = interval.min(interval - duration);
+
+                        // make sure there the system will at most wait the interval
+                        let duration = start
+                            .elapsed()
+                            .expect("For unknown reasons time moved back in time...");
+                        timeout = if interval <= duration {
+                            Duration::from_secs(0)
+                        } else {
+                            interval - duration
+                        };
                     }
                     Ok(_) | Err(_) => break, // shutdown
                 }
@@ -126,6 +135,8 @@ impl Worker {
 
     /// Will stop the worker.
     fn stop(&mut self) {
+        // Will stop the worker, in two steps one by sending an empty message 
+        // and second by droping the only sender for the given receiver. 
         if let Some(sender) = self.shutdown.take() {
             sender
                 .send(())
