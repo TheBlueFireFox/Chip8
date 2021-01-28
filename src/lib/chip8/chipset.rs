@@ -316,7 +316,7 @@ impl ChipOpcodes for ChipSet {
                 let left = self.registers[x] as u16;
                 let right = self.registers[y] as u16;
                 let res = left + right;
-                let carry = res & 0x0100 == 0x0100; 
+                let carry = res & 0x0100 == 0x0100;
                 self.registers[x] = res as u8;
                 self.registers[REGISTER_LAST] = if carry { 1 } else { 0 };
             }
@@ -327,7 +327,7 @@ impl ChipOpcodes for ChipSet {
                 let left = self.registers[x] as u16;
                 let right = ((!self.registers[y]).wrapping_add(1)) as u16;
                 let res = left + right;
-                let carry = (res & 0x0100) == 0x0100; 
+                let carry = (res & 0x0100) == 0x0100;
                 self.registers[x] = res as u8;
                 self.registers[REGISTER_LAST] = if carry { 1 } else { 0 };
             }
@@ -342,9 +342,12 @@ impl ChipOpcodes for ChipSet {
                 // 8XY7
                 // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there
                 // isn't.
-                let (res, overflow) = self.registers[y].overflowing_sub(self.registers[x]);
-                self.registers[x] = res;
-                self.registers[REGISTER_LAST] = if overflow { 1 } else { 0 };
+                let left = self.registers[y] as u16;
+                let right = ((!self.registers[x]).wrapping_add(1)) as u16;
+                let res = left + right;
+                let carry = (res & 0x0100) == 0x0100;
+                self.registers[x] = res as u8;
+                self.registers[REGISTER_LAST] = if carry { 1 } else { 0 };
             }
             0xE => {
                 // 8XYE

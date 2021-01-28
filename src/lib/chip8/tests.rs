@@ -650,7 +650,7 @@ mod eight {
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.registers[reg_x], 0x1A);
-        assert_eq!(chip.registers[REGISTER_LAST], 1);
+        assert_eq!(chip.registers[REGISTER_LAST], 0);
         assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
     }
 
