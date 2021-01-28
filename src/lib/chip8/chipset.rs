@@ -1,3 +1,5 @@
+use std::u16;
+
 use {
     crate::{
         definitions::{
@@ -311,17 +313,23 @@ impl ChipOpcodes for ChipSet {
             0x4 => {
                 // 8XY4
                 // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
-                let (res, overflow) = self.registers[x].overflowing_add(self.registers[y]);
-                self.registers[x] = res;
-                self.registers[REGISTER_LAST] = if overflow { 1 } else { 0 };
+                let left = self.registers[x] as u16;
+                let right = self.registers[y] as u16;
+                let res = left + right;
+                let carry = res & 0x0100 == 0x0100; 
+                self.registers[x] = res as u8;
+                self.registers[REGISTER_LAST] = if carry { 1 } else { 0 };
             }
             0x5 => {
                 // 8XY5
                 // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
                 // isn't.
-                let (res, overflow) = self.registers[x].overflowing_sub(self.registers[y]);
-                self.registers[x] = res;
-                self.registers[REGISTER_LAST] = if overflow { 1 } else { 0 };
+                let left = self.registers[x] as u16;
+                let right = ((!self.registers[y]).wrapping_add(1)) as u16;
+                let res = left + right;
+                let carry = (res & 0x0100) == 0x0100; 
+                self.registers[x] = res as u8;
+                self.registers[REGISTER_LAST] = if carry { 1 } else { 0 };
             }
             0x6 => {
                 // 8XY6
