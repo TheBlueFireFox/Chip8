@@ -101,27 +101,11 @@ impl Worker {
         let (send, recv) = mpsc::sync_channel::<()>(1);
         let alive = self.alive.clone();
         let thread = thread::spawn(move || {
-            enum State {
-                Ran,
-                Last,
-                Not,
-            }
-
             // this is to count the references, as it will not actually
             // be used ```_``` is used in front of the name.
             let _alive = alive;
             let mut timeout = interval;
-            let mut ran = State::Not;
             loop {
-                ran = match ran {
-                    State::Ran => State::Last,
-                    State::Last => {
-                        timeout = interval;
-                        State::Not
-                    }
-                    State::Not => State::Not,
-                };
-
                 match recv.recv_timeout(timeout) {
                     Err(RecvTimeoutError::Timeout) => {
                         // set the duration to the correct interval
@@ -140,7 +124,6 @@ impl Worker {
                         } else {
                             interval - duration
                         };
-                        ran = State::Ran;
                     }
                     Ok(_) | Err(_) => break, // shutdown
                 }

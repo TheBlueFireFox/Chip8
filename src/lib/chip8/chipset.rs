@@ -1,5 +1,7 @@
 use std::u16;
 
+use crate::definitions::FONTSET_LOCATION;
+
 use {
     crate::{
         definitions::{
@@ -83,7 +85,7 @@ impl ChipSet {
         let mut ram = vec![0; MEMORY_SIZE];
 
         // load fonts
-        ram[0..FONSET.len()].copy_from_slice(&FONSET);
+        ram[FONTSET_LOCATION..(FONTSET_LOCATION + FONSET.len())].copy_from_slice(&FONSET);
 
         // write the rom data into memory
         ram[PROGRAM_COUNTER..(PROGRAM_COUNTER + rom.get_data().len())]
@@ -133,6 +135,10 @@ impl ChipSet {
 
     pub fn toggle_key(&mut self, key: usize) {
         self.keyboard.toggle_key(key)
+    }
+
+    pub fn get_keyboard(&self) -> &[bool] {
+        self.keyboard.get_keys()
     }
 
     /// will return the sound timer
@@ -512,8 +518,15 @@ impl ChipOpcodes for ChipSet {
                 // FX29
                 // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
                 // hexadecimal) are represented by a 4x5 font.
-                // TODO: this needs more work, as the front end is not yet implemented
-                todo!();
+                // TODO: implement sprite offset
+                let val = self.registers[x] as u16;
+                if val > 0xF {
+                    return Err(format!(
+                        "The value {} has no hexadecimal representation",
+                        val
+                    ));
+                }
+                self.index_register = (FONTSET_LOCATION + 5 * (self.registers[x] as usize)) as u16;
             }
             0x33 => {
                 // FX33
