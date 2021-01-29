@@ -1009,6 +1009,8 @@ mod f {
     }
 
     #[test]
+    /// FX15
+    /// Sets the delay timer to VX.   
     fn test_set_delay_timer() {
         let mut chip = get_default_chip();
         let key = 44;
@@ -1034,6 +1036,8 @@ mod f {
     }
 
     #[test]
+    /// FX18
+    /// Sets the sound timer to VX.
     fn test_set_sound_timer() {
         let mut chip = get_default_chip();
         let key = 44;
@@ -1054,5 +1058,126 @@ mod f {
         std::thread::sleep(Duration::from_secs(1));
 
         assert_eq!(chip.get_sound_timer(), 0);
+    }
+
+    /// Adds VX to I. VF is not affected.
+    #[test]
+    fn test_add_vx_to_i() {
+        let mut chip = get_default_chip();
+
+        let key = 0x44;
+        let reg = 0xB;
+        let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x1E;
+
+        let pc = chip.program_counter;
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        chip.registers[reg] = key;
+        chip.index_register = 0x44;
+
+        assert_eq!(Ok(Operation::None), chip.next());
+        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+
+        assert_eq!(0x88, chip.index_register);
+    }
+
+    /// FX33
+    /// Stores the binary-coded decimal representation of VX, with the most significant
+    /// of three digits at the address in I, the middle digit at I plus 1, and the least
+    /// significant digit at I plus 2. (In other words, take the decimal representation
+    /// of VX, place the hundreds digit in memory at location in I, the tens digit at
+    /// location I+1, and the ones digit at location I+2.)
+    #[test]
+    fn test_binary_coding() {
+        let mut chip = get_default_chip();
+        chip.index_register = 0x1000;
+        let mut test = |register, number, hundered, ten, one| {
+            let key = number;
+            let reg = register;
+            let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x33;
+
+            let pc = chip.program_counter;
+            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+            chip.registers[reg] = key;
+            chip.index_register = 0x44;
+
+            assert_eq!(Ok(Operation::None), chip.next());
+            assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+
+            let i = chip.index_register as usize;
+            for (index, num) in [hundered, ten, one].iter().enumerate() {
+                assert_eq!(chip.memory[i + index], *num);
+            }
+        };
+
+        test(4, 197, 1, 9, 7);
+        test(7, 97, 0, 9, 7);
+        test(4, 22, 0, 2, 2);
+        test(0, 0, 0, 0, 0);
+    }
+
+    /// FX55
+    /// Stores V0 to VX (including VX) in memory starting at address I. The offset from I
+    /// is increased by 1 for each value written, but I itself is left unmodified.
+    #[test]
+    fn test_store_register_into_memory() {
+        let mut chip = get_default_chip();
+
+        const REG: usize = 0xB;
+        const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x55;
+        let rand_data = rand::random::<[u8; REG + 1]>();
+        chip.registers[..=REG].copy_from_slice(&rand_data);
+
+        assert_eq!(&rand_data[..], &chip.registers[..=REG]);
+
+        let pc = chip.program_counter;
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, OPCODE);
+
+        assert_eq!(Ok(Operation::None), chip.next());
+        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+
+        let index = chip.index_register as usize;
+        assert_eq!(&rand_data[..], &chip.memory[index..=(index + REG)]);
+    }
+
+    /// FX65
+    /// Fills V0 to VX (including VX) with values from memory starting at address I. The
+    /// offset from I is increased by 1 for each value written, but I itself is left
+    /// unmodified.
+    #[test]
+    fn test_load_register_from_memory() {
+        let mut chip = get_default_chip();
+
+        const REG: usize = 0xB;
+        const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x65;
+        let rand_data = rand::random::<[u8; REG + 1]>();
+        let from = 0x510;
+        chip.index_register = from as u16;
+        chip.memory[from..=(from + REG)].copy_from_slice(&rand_data);
+
+        let pc = chip.program_counter;
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, OPCODE);
+
+        assert_eq!(Ok(Operation::None), chip.next());
+        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+
+        assert_eq!(&rand_data[..], &chip.registers[..=REG]);
+    }
+
+    #[test]
+    fn test_wrong_opcode() {
+        let mut chip = get_default_chip();
+
+        const REG: usize = 0xB;
+        const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x45;
+
+        let pc = chip.program_counter;
+        write_opcode_to_memory(&mut chip.memory, chip.program_counter, OPCODE);
+
+        assert_eq!(
+            Err(format!("An unsupported opcode was used {:#06X?}", OPCODE)),
+            chip.next()
+        );
+
+        assert_eq!(chip.program_counter, pc);
     }
 }

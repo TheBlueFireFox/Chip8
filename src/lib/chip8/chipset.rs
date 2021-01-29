@@ -534,7 +534,7 @@ impl ChipOpcodes for ChipSet {
                 // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
                 // is increased by 1 for each value written, but I itself is left unmodified.
                 let index = self.index_register as usize;
-                self.memory[index..(index + x)].copy_from_slice(&self.registers[..=x]);
+                self.memory[index..=(index + x)].copy_from_slice(&self.registers[..=x]);
             }
             0x65 => {
                 // FX65
@@ -542,8 +542,7 @@ impl ChipOpcodes for ChipSet {
                 // offset from I is increased by 1 for each value written, but I itself is left
                 // unmodified.
                 let index = self.index_register as usize;
-                self.registers
-                    .copy_from_slice(&self.memory[index..(index + x)]);
+                self.registers[..=x].copy_from_slice(&self.memory[index..=(index + x)]);
             }
             _ => {
                 return Err(format!(
