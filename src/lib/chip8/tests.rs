@@ -1080,6 +1080,29 @@ mod f {
         assert_eq!(0x88, chip.index_register);
     }
 
+    /// FX29
+    /// Sets I to the location of the sprite for the character in VX. Characters 0-F (in
+    /// hexadecimal) are represented by a 4x5 font.
+    #[test]
+    fn test_set_i_to_given_font() {
+        let mut chip = get_default_chip();
+        let mut test = |reg, val, loc| {
+            let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x29;
+
+            let pc = chip.program_counter;
+            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+            chip.registers[reg] = val;
+            chip.index_register = 0x44;
+
+            assert_eq!(Ok(Operation::None), chip.next());
+            assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+
+            assert_eq!(loc, chip.index_register);
+        };
+
+        test(0xA, 4, 20);
+    }
+
     /// FX33
     /// Stores the binary-coded decimal representation of VX, with the most significant
     /// of three digits at the address in I, the middle digit at I plus 1, and the least

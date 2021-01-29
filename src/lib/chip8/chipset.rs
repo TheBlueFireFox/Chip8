@@ -519,14 +519,13 @@ impl ChipOpcodes for ChipSet {
                 // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
                 // hexadecimal) are represented by a 4x5 font.
                 // TODO: implement sprite offset
-                let val = self.registers[x] as u16;
-                if val > 0xF {
-                    return Err(format!(
-                        "The value {} has no hexadecimal representation",
-                        val
-                    ));
-                }
-                self.index_register = (FONTSET_LOCATION + 5 * (self.registers[x] as usize)) as u16;
+                let val = self.registers[x] as usize;
+                assert!(
+                    val <= 0xF,
+                    "There was a too large number in register <{:#X}> for hex representation.",
+                    x
+                );
+                self.index_register = (FONTSET_LOCATION + 5 * val) as u16;
             }
             0x33 => {
                 // FX33
