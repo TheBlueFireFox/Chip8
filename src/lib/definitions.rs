@@ -14,9 +14,13 @@ pub(super) const STACK_NESTING: usize = 16;
 pub(super) const TIMER_HERZ: u8 = 60;
 /// The amount of hertz the clocks run at in milliseconds
 pub(super) const TIMER_INTERVAL: u64 = 1000 / TIMER_HERZ as u64;
+/// The amount of pixels height
+pub(super) const DISPLAY_HEIGHT: usize = 64;
+/// The amount of pixels width
+pub(super) const DISPLAY_WIDTH: usize = 23;
 /// The amount of pixels the display has
-pub(super) const DISPLAY_RESOLUTION: usize = 64 * 23;
+pub(super) const DISPLAY_RESOLUTION: usize = DISPLAY_HEIGHT * DISPLAY_WIDTH;
 /// all the different keyboards
 pub(super) const KEYBOARD_SIZE: usize = 16;
 /// Is the location of the beginning to the font in memory
-pub(super) const FONTSET_LOCATION : usize = 0;
+pub(super) const FONTSET_LOCATION: usize = 0;

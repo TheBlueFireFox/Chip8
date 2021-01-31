@@ -22,8 +22,8 @@ impl<E> EventSystem<E> {
     }
 }
 
-pub trait Observer<D> {
-    fn on_notify(&mut self, event: &D);
+pub trait Observer<E> {
+    fn on_notify(&mut self, event: &E);
 }
 
 #[cfg(test)]
@@ -45,7 +45,7 @@ mod tests {
 
     #[derive(Copy, Clone, Default)]
     struct AnObserver<T: Copy> {
-        pub data: T,
+        pub data: Option<T>,
     }
 
     impl<D> Observer<ObserverEvents<D>> for AnObserver<ObserverEvents<D>>
@@ -55,7 +55,7 @@ mod tests {
         fn on_notify(&mut self, event: &ObserverEvents<D>) {
             match event {
                 ObserverEvents::Event(_) => {
-                    self.data = *event;
+                    self.data = Some(*event);
                 }
                 ObserverEvents::None => {}
             }
@@ -87,17 +87,21 @@ mod tests {
 
         let mut es = EventSystem::new();
         let observed = setup_observer();
+        assert_eq!(None, observed.borrow().data);
         es.register_observer(observed.clone());
         let expected = Event::Event(42);
         let event = ObserverEvents::Event(expected);
         es.handle_event(&event);
 
-        assert_ne!(ObserverEvents::None, observed.borrow().data);
-        assert_eq!(ObserverEvents::Event(expected), observed.borrow().data);
+        assert_ne!(Some(ObserverEvents::None), observed.borrow().data);
+        assert_eq!(
+            Some(ObserverEvents::Event(expected)),
+            observed.borrow().data
+        );
 
         let event = ObserverEvents::Event(Event::None);
         es.handle_event(&event);
 
-        assert_eq!(event, observed.borrow().data);
+        assert_eq!(Some(event), observed.borrow().data);
     }
 }

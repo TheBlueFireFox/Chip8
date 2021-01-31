@@ -1,6 +1,6 @@
 use std::u16;
 
-use crate::definitions::FONTSET_LOCATION;
+use crate::definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH, FONTSET_LOCATION};
 
 use {
     crate::{
@@ -60,7 +60,7 @@ pub struct ChipSet {
     pub(super) sound_timer: Timer,
     /// The graphics of the Chip 8 are black and white and the screen has a total of `2048` pixels
     /// `(64 x 32)`. This can easily be implemented using an array that hold the pixel state `(1 or 0)`:
-    pub(super) display: Box<[u8]>,
+    pub(super) display: Box<[Box<[bool]>]>,
     /// Input is done with a hex keyboard that has 16 keys ranging `0-F`. The `8`, `4`, `6`, and
     /// `2` keys are typically used for directional input. Three opcodes are used to detect input.
     /// One skips an instruction if a specific key is pressed, while another does the same if a
@@ -101,7 +101,8 @@ impl ChipSet {
             stack: Vec::with_capacity(STACK_NESTING),
             delay_timer: Timer::new(0),
             sound_timer: Timer::new(0),
-            display: vec![0; DISPLAY_RESOLUTION].into_boxed_slice(),
+            display: vec![vec![false; DISPLAY_HEIGHT].into_boxed_slice(); DISPLAY_RESOLUTION]
+                .into_boxed_slice(),
             keyboard: Keyboard::new(),
             rng: Box::new(rand::thread_rng()),
             preprocessor: None,
@@ -152,8 +153,8 @@ impl ChipSet {
     }
 
     /// will return a clone of the current display configuration
-    pub fn get_display(&self) -> &[u8] {
-        &self.display
+    pub fn get_display(&self) -> Vec<&[bool]> {
+        self.display.iter().map(|row| &row[..]).collect()
     }
 
     /// Will push the current pointer to the stack
@@ -416,7 +417,7 @@ impl ChipOpcodes for ChipSet {
         Ok(ProgramCounterStep::Next)
     }
 
-    fn d(&self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
+    fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
@@ -426,17 +427,44 @@ impl ChipOpcodes for ChipSet {
 
         // TODO: finish implementation
         let (x, y, n) = opcode.xyn();
-        let i = self.index_register as usize;
-        Ok((
-            ProgramCounterStep::Next,
-            opcode::Operation::Draw {
-                x,
-                y,
-                height: n,
-                width: 8, // default width this is not doing to change, but is kept in for simplicity
-                location: i,
-            },
-        ))
+        let index = self.index_register as usize;
+        let coorx = self.registers[x] as usize;
+        let coory = self.registers[y] as usize;
+
+        let coorx = coorx % DISPLAY_WIDTH;
+        let coory = coory % DISPLAY_HEIGHT;
+
+        self.registers[REGISTER_LAST] = 0;
+
+        const BYTE: u8 = 8;
+
+        let mut y = coory;
+        for i in 0..=n {
+            let mut x = coorx;
+
+            let row = self.memory[index + i];
+            for j in 0..BYTE {
+                let state = ((row >> j) & 1) == 1;
+                let on = state == self.display[y][x];
+                if on {
+                    self.registers[REGISTER_LAST] = 1;
+                }
+                self.display[coory][coorx] = state;
+
+                if x + 1 >= DISPLAY_WIDTH {
+                    break;
+                }
+                x += 1;
+            }
+
+            if y + 1 >= DISPLAY_HEIGHT {
+                break;
+            }
+
+            y += 1;
+        }
+
+        Ok((ProgramCounterStep::Next, opcode::Operation::Draw))
     }
 
     fn e(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {

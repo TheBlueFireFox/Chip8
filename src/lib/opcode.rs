@@ -247,20 +247,8 @@ pub enum Operation {
     /// A command to clear the screen content.
     Clear,
     /// A redraw command with the individual parameters
-    Draw {
-        /// The `x`  coordiate from which to draw from
-        x: usize,
-        /// The `y`` coordiate from which to draw from
-        y: usize,
-        /// The height of the block
-        height: usize,
-        /// The height of the block defaults to 8
-        width: usize,
-        /// The memory location from which to read the data from.
-        location: usize,
-    },
+    Draw,
 }
-
 
 pub trait ChipOpcodePreProcessHandler {
     fn preprocess(&mut self);
@@ -273,7 +261,7 @@ pub trait ChipOpcodePreProcessHandler {
 pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// will calculate the programs step by a single step
     fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
-        // preprocess 
+        // preprocess
         self.preprocess();
 
         let mut operation = Operation::None;
@@ -388,7 +376,7 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `DXYN` - Disp     - `draw(Vx,Vy,N)`       - Draws a sprite at coordinate `(VX, VY)` that has a width of `8` pixels and a height of `N` pixels. Each row of `8` pixels is read as bit-coded starting from memory location `I`; `I` value doesn’t change after the execution of this instruction. As described above, `VF` is set to `1` if any screen pixels are flipped from set to unset when the sprite is drawn, and to `0` if that doesn’t happen
     ///
     /// Returns any possible error
-    fn d(&self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
+    fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
 
     /// A multiuse opcode base for type `EXTT` (T is a sub opcode)
     ///
