@@ -21,3 +21,6 @@ tarpaulin-report.html
 # already existing elements were commented out
 
 #/target
+
+www/node_modules
+www/dist

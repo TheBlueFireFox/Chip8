@@ -22,5 +22,15 @@ pub fn main() -> Result<(), JsValue> {
 
     // println!("{}", chip);
 
+    let window = web_sys::window().expect("no global `window` exists.");
+    let document = window.document().expect("no document awailable");
+    let body = document.body().expect("document should have a valid body");
+
+    // create elements
+    let val = document.create_element("p")?;
+    val.set_inner_html("Hello from Rust");
+
+    body.append_child(&val)?;
+
     Ok(())
 }
