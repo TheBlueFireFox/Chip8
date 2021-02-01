@@ -15,8 +15,6 @@ zip = "0.5"
 rand = "0.8"
 num = "0.3"
 lazy_static = "1.4"
-crossterm = "0.19"
-tui = { version = "0.14", default-features = false, features = ['crossterm'] }
 
 [dev-dependencies]
 mockall = "0.9"
