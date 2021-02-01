@@ -1,20 +1,21 @@
 [package]
-name = "chip8"
-version = "0.1.0"
 authors = ["TheBlueFireFox <adrian.hornung@yahoo.de>"]
 edition = "2018"
+name = "chip8"
+version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-name="chip"
-path="src/lib.rs"
+name = "chip"
+path = "src/lib.rs"
 
 [dependencies]
-zip = "0.5"
-rand = "0.8"
-num = "0.3"
+getrandom = {version = "0.2", features = ["js"]}
 lazy_static = "1.4"
+num = "0.3"
+rand = {version = "0.8", features = ["getrandom"]}
+zip = { version = "0.5", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]
 mockall = "0.9"

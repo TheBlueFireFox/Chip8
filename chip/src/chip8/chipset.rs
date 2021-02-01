@@ -104,7 +104,7 @@ impl ChipSet {
             display: vec![vec![false; DISPLAY_HEIGHT].into_boxed_slice(); DISPLAY_RESOLUTION]
                 .into_boxed_slice(),
             keyboard: Keyboard::new(),
-            rng: Box::new(rand::thread_rng()),
+            rng: Box::new(rand::rngs::OsRng{}),
             preprocessor: None,
         }
     }
