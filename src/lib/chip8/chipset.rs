@@ -425,7 +425,6 @@ impl ChipOpcodes for ChipSet {
         // set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and
         // to 0 if that doesn’t happen
 
-        // TODO: finish implementation
         let (x, y, n) = opcode.xyn();
         let index = self.index_register as usize;
         let coorx = self.registers[x] as usize;
@@ -451,17 +450,18 @@ impl ChipOpcodes for ChipSet {
                 }
                 self.display[coory][coorx] = state;
 
-                if x + 1 >= DISPLAY_WIDTH {
+                x += 1;
+
+                if x >= DISPLAY_WIDTH {
                     break;
                 }
-                x += 1;
-            }
-
-            if y + 1 >= DISPLAY_HEIGHT {
-                break;
             }
 
             y += 1;
+            if y >= DISPLAY_HEIGHT {
+                break;
+            }
+
         }
 
         Ok((ProgramCounterStep::Next, opcode::Operation::Draw))
