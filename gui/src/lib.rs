@@ -1,13 +1,15 @@
 mod gui;
 
 // use chip::{chip8::ChipSet, resources::RomArchives};
+use wasm_bindgen::prelude::*;
 
-fn main() {
+#[wasm_bindgen(start)]
+pub fn main() -> Result<(), JsValue> {
     // let mut ra = RomArchives::new();
     // let mut files = ra.file_names();
     // files.sort();
 
-    // let chip = chip::ChipSet::new(); 
+    // let chip = chip::ChipSet::new();
 
     // let rom_name = &files[0].to_string();
     // let rom = ra.get_file_data(rom_name).unwrap();
@@ -20,5 +22,5 @@ fn main() {
 
     // println!("{}", chip);
 
-    
+    Ok(())
 }

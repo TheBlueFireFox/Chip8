@@ -104,7 +104,7 @@ impl ChipSet {
             display: vec![vec![false; DISPLAY_HEIGHT].into_boxed_slice(); DISPLAY_RESOLUTION]
                 .into_boxed_slice(),
             keyboard: Keyboard::new(),
-            rng: Box::new(rand::rngs::OsRng{}),
+            rng: Box::new(rand::rngs::OsRng {}),
             preprocessor: None,
         }
     }
@@ -461,7 +461,6 @@ impl ChipOpcodes for ChipSet {
             if y >= DISPLAY_HEIGHT {
                 break;
             }
-
         }
 
         Ok((ProgramCounterStep::Next, opcode::Operation::Draw))
