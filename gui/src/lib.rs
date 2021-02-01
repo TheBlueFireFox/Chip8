@@ -3,7 +3,7 @@ mod gui;
 // use chip::{chip8::ChipSet, resources::RomArchives};
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen(start)]
+#[wasm_bindgen]
 pub fn main() -> Result<(), JsValue> {
     // let mut ra = RomArchives::new();
     // let mut files = ra.file_names();
