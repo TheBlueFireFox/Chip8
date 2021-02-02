@@ -1,7 +1,9 @@
 mod gui;
 
+use chip::definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 // use chip::{chip8::ChipSet, resources::RomArchives};
 use wasm_bindgen::prelude::*;
+use web_sys::{Document, Element, HtmlElement, Window};
 
 #[wasm_bindgen]
 pub fn main() -> Result<(), JsValue> {
@@ -22,15 +24,36 @@ pub fn main() -> Result<(), JsValue> {
 
     // println!("{}", chip);
 
-    let window = web_sys::window().expect("no global `window` exists.");
-    let document = window.document().expect("no document awailable");
-    let body = document.body().expect("document should have a valid body");
+    let window: Window = web_sys::window().expect("no global `window` exists.");
+    let document: Document = window.document().expect("no document awailable");
+    let body: HtmlElement = document.body().expect("document should have a valid body");
 
     // create elements
     let val = document.create_element("p")?;
     val.set_inner_html("Hello from Rust");
-
     body.append_child(&val)?;
+    let board = init_board(&document)?;
+    body.append_child(&board)?;
 
     Ok(())
+}
+
+fn init_board(document: &Document) -> Result<Element, JsValue> {
+    let table = document.create_element("table")?;
+    for i in 0..DISPLAY_HEIGHT {
+        let tr = document.create_element("tr")?;
+        for j in 0..DISPLAY_WIDTH {
+            let td = document.create_element("td")?;
+
+            if (i + j) % 2 == 0 {
+                td.set_class_name("alive");
+            }
+
+
+            tr.append_child(&td)?;
+        }
+        table.append_child(&tr)?;
+    }
+
+    Ok(table)
 }
