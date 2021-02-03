@@ -1,4 +1,6 @@
-mod gui;
+mod controller;
+mod observer;
+mod timer;
 
 use chip::definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 // use chip::{chip8::ChipSet, resources::RomArchives};
@@ -25,7 +27,7 @@ pub fn main() -> Result<(), JsValue> {
     // println!("{}", chip);
 
     let window: Window = web_sys::window().expect("no global `window` exists.");
-    let document: Document = window.document().expect("no document awailable");
+    let document: Document = window.document().expect("no document available");
     let body: HtmlElement = document.body().expect("document should have a valid body");
 
     // create elements

@@ -1,4 +1,4 @@
-use crate::definitions::STACK_NESTING;
+use crate::{definitions::STACK_NESTING, timer::Timed};
 
 use {super::*, std::fmt};
 
@@ -243,7 +243,7 @@ mod bool_print {
     }
 }
 
-impl fmt::Display for ChipSet {
+impl<T: Timed> fmt::Display for ChipSet<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut nam = self.name.clone();
         // keeping the strings mutable so that they can be indented later on

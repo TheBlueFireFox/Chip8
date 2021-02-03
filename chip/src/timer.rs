@@ -11,11 +11,22 @@ use {
     },
 };
 
+pub trait Timed {
+    /// Will create a new timer with the given value.
+    fn new(value: u8) -> Self;
+
+    /// Will set the value from which the timer shall count down from.
+    fn set_value(&mut self, value: u8);
+
+    /// Will get the value that the counter is currently at.
+    fn get_value(&self) -> u8;
+}
+
 /// Represents a timer inside of the chip
 /// infrastruture, it will count down to
 /// zero from what ever number given in
 /// the speck requireds 60Hz.
-pub(crate) struct Timer {
+pub struct Timer {
     /// This is the main worker
     /// it is intended to be a part
     /// of the timer, but have no actuall
@@ -25,9 +36,9 @@ pub(crate) struct Timer {
     value: Arc<AtomicU8>,
 }
 
-impl Timer {
+impl Timed for Timer {
     /// Will create a new timer with the given value.
-    pub fn new(value: u8) -> Self {
+    fn new(value: u8) -> Self {
         let counter = Arc::new(AtomicU8::new(value));
         // used to move into the callback
         let ccounter = counter.clone();
@@ -57,12 +68,12 @@ impl Timer {
     }
 
     /// Will set the value from which the timer shall count down from.
-    pub fn set_value(&self, value: u8) {
+    fn set_value(&mut self, value: u8) {
         self.value.swap(value, Ordering::Release);
     }
 
     /// Will get the value that the counter is currently at.
-    pub fn get_value(&self) -> u8 {
+    fn get_value(&self) -> u8 {
         self.value.load(Ordering::Relaxed)
     }
 }
@@ -80,7 +91,16 @@ struct Worker {
     alive: Arc<()>,
 }
 
-impl Worker {
+pub trait Working {
+    fn new() -> Self;
+    fn start<T>(&mut self, callback: T, interval: Duration)
+    where
+        T: Send + FnMut() + 'static;
+    fn stop(&mut self);
+    fn is_alive(&self) -> bool;
+}
+
+impl Working for Worker {
     /// Will initialize the new worker.
     fn new() -> Self {
         Self {

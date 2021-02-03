@@ -1,13 +1,13 @@
-mod observer;
-
 use chip::{
     chip8,
     devices::{DisplayCommands, KeyboardCommands},
 };
+
+use crate::timer::Timer;
 pub struct Controller<T: DisplayCommands, U: KeyboardCommands> {
-    pub display: T,
-    pub keyboard: U,
-    pub chipset: Option<chip8::ChipSet>,
+    display: T,
+    keyboard: U,
+    chipset: Option<chip8::ChipSet<Timer>>,
 }
 
 impl<T: DisplayCommands, U: KeyboardCommands> Controller<T, U> {
