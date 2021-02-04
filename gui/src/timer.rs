@@ -1,6 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, RwLock}, time::Duration};
 
-use chip::timer::{Timed, Working};
+use chip::{
+    definitions::TIMER_INTERVAL,
+    timer::{Timed, Working},
+};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -10,13 +13,27 @@ extern "C" {
 }
 
 pub(crate) struct Timer {
-    value: u8,
+    value: Arc<RwLock<u8>>,
     _worker: Worker,
 }
 
 impl Timed for Timer {
     fn new(value: u8) -> Self {
-        let worker = Worker::new();
+        let mut worker = Worker::new();
+        let value = Arc::new(RwLock::new(value));
+        let rw_value = value.clone();
+
+        let func = move || {
+            let mut cvalue = rw_value
+                .write()
+                .expect("something went wrong while unlocking the RW-Value");
+            if *cvalue > 0 {
+                *cvalue -= 1;
+            }
+        };
+
+        worker.start(func, Duration::from_millis(TIMER_INTERVAL));
+
         Self {
             value,
             _worker: worker,
@@ -24,23 +41,26 @@ impl Timed for Timer {
     }
 
     fn set_value(&mut self, value: u8) {
-        self.value = value;
+        let mut val = self
+            .value
+            .write()
+            .expect("something went wrong with the read write lock, while setting the value");
+
+        *val = value;
     }
 
     fn get_value(&self) -> u8 {
-        self.value
+        *self
+            .value
+            .read()
+            .expect("something went wrong, while returning from the RW-Lock.")
     }
 }
+
 /// see here https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/closure/struct.Closure.html#using-the-setinterval-api
 struct Worker {
     interval_id: Option<i32>,
     function: Option<Closure<dyn FnMut()>>,
-}
-
-impl Drop for Worker {
-    fn drop(&mut self) {
-        self.stop();
-    }
 }
 
 impl Working for Worker {
@@ -76,5 +96,11 @@ impl Working for Worker {
 
     fn is_alive(&self) -> bool {
         self.interval_id.is_some() && self.function.is_some()
+    }
+}
+
+impl Drop for Worker {
+    fn drop(&mut self) {
+        self.stop();
     }
 }

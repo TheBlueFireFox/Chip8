@@ -11,9 +11,9 @@ pub(super) const REGISTER_LAST: usize = REGISTER_SIZE - 1;
 /// The count of nesting entries
 pub(super) const STACK_NESTING: usize = 16;
 /// The amount of hertz the clocks run at in milliseconds
-pub(super) const TIMER_HERZ: u8 = 60;
+pub const TIMER_HERZ: u8 = 60;
 /// The amount of hertz the clocks run at in milliseconds
-pub(super) const TIMER_INTERVAL: u64 = 1000 / TIMER_HERZ as u64;
+pub const TIMER_INTERVAL: u64 = 1000 / TIMER_HERZ as u64;
 /// The amount of pixels height
 pub const DISPLAY_HEIGHT: usize = 64;
 /// The amount of pixels width
