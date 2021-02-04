@@ -118,7 +118,9 @@ impl Working for Worker {
     where
         T: Send + FnMut() + 'static,
     {
+        // stop any action around
         self.stop();
+        
         let (send, recv) = mpsc::sync_channel::<()>(1);
         let alive = self.alive.clone();
         let thread = thread::spawn(move || {
