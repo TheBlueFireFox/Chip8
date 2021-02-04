@@ -77,6 +77,7 @@ impl Working for Worker {
     {
         // stop any action around
         self.stop();
+
         let function = Closure::wrap(Box::new(callback) as Box<dyn FnMut()>);
 
         // SAFETY: unwrap is safe here, as it is set a line above.
