@@ -214,7 +214,12 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
             0x00E0 => {
                 // 00E0
                 // clear display
-                Ok((ProgramCounterStep::Next, Operation::Clear))
+                for row in self.display.iter_mut() {
+                    for coloumn in row.iter_mut() {
+                        *coloumn = false;
+                    }
+                }
+                Ok((ProgramCounterStep::Next, Operation::Draw))
             }
             0x00EE => {
                 // 00EE

@@ -244,8 +244,6 @@ pub enum Operation {
     /// If the gui shall, wait
     /// for the next key press
     Wait,
-    /// A command to clear the screen content.
-    Clear,
     /// A redraw command with the individual parameters
     Draw,
 }

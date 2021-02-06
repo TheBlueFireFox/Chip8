@@ -148,7 +148,7 @@ mod zero {
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
 
         // run - if there was no panic it worked as intended
-        assert_eq!(chip.next(), Ok(Operation::Clear));
+        assert_eq!(chip.next(), Ok(Operation::Draw));
 
         assert_eq!(curr_pc + OPCODE_BYTE_SIZE, chip.program_counter);
     }

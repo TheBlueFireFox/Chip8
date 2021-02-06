@@ -2,17 +2,15 @@ use crate::definitions::KEYBOARD_SIZE;
 
 #[cfg_attr(test, mockall::automock)]
 /// The traits responsible for the display based code
-pub trait DisplayCommands {
-    /// Will clear the display
-    fn clear_display(&mut self);
+pub trait DisplayCommands: Send {
     /// Will display all from the pixels
     fn display<'a>(&'a mut self, pixels: &'a[&'a [bool]]);
 }
 
 #[cfg_attr(test, mockall::automock)]
 /// The trait responsible for writing the keyboard data
-pub trait KeyboardCommands {
-    
+pub trait KeyboardCommands: Send {
+    fn was_pressed(&self) -> bool;
     fn get_keyboard(&self) -> &[bool];
 }
 
