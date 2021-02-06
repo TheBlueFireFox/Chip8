@@ -1,70 +1,11 @@
 mod controller;
 mod timer;
+mod wrappers;
 
-use std::fmt::Display;
-
-use chip::{
-    chip8::ChipSet,
-    definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH},
-    opcode::Operation,
-    resources::{Rom, RomArchives},
-};
-use timer::Worker;
 use wasm_bindgen::prelude::*;
-use web_sys::{Document, Element, HtmlElement, Window};
 
-#[wasm_bindgen]
-pub struct ChipSetWrapper {
-    chipset: ChipSet<Worker>,
-}
-
-impl ChipSetWrapper {
-    fn new(rom: Rom) -> Self {
-        Self {
-            chipset: ChipSet::new(rom),
-        }
-    }
-}
-
-impl Display for ChipSetWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.chipset)
-    }
-}
-
-#[wasm_bindgen]
-#[derive(Clone, Copy)]
-pub enum OperationWrapper {
-    None,
-    Wait,
-    Draw,
-}
-
-impl From<Operation> for OperationWrapper {
-    fn from(op: Operation) -> Self {
-        match op {
-            Operation::None => Self::None,
-            Operation::Wait => Self::Wait,
-            Operation::Draw => Self::Draw,
-        }
-    }
-}
-
-impl Into<Operation> for OperationWrapper {
-    fn into(self) -> Operation {
-        match self {
-            OperationWrapper::None => Operation::None,
-            OperationWrapper::Wait => Operation::Wait,
-            OperationWrapper::Draw => Operation::Draw,
-        }
-    }
-}
-
-fn run_wrapper(chip_wrapper: &mut ChipSetWrapper, last_op: &mut OperationWrapper) {
-    let mut last_inner_op: Operation = OperationWrapper::into(*last_op);
-    // chip::run(&mut chip_wrapper.chipset, &mut last_inner_op);
-    *last_op = OperationWrapper::from(last_inner_op);
-}
+use chip::{devices::DisplayCommands, resources::RomArchives};
+use wrappers::{body, document, window, ChipSetWrapper, DisplayWrapper};
 
 #[wasm_bindgen]
 pub fn main() -> Result<(), JsValue> {
@@ -81,39 +22,18 @@ pub fn main() -> Result<(), JsValue> {
         chip.chipset.set_key(i, i % 2 == 1);
     }
 
-    let window: Window = web_sys::window().expect("no global `window` exists.");
-    let document: Document = window.document().expect("no document available");
-    let body: HtmlElement = document.body().expect("document should have a valid body");
+    let document = document(&window());
+    let body = body(&document);
 
     // create elements
     let val = document.create_element("p")?;
     val.set_inner_html("Hello from Rust");
     body.append_child(&val)?;
-    let board = init_board(&document)?;
-    body.append_child(&board)?;
+    DisplayWrapper {}.display(&chip.chipset.get_display());
 
     let val = document.create_element("pre")?;
     val.set_inner_html(&format!("{}", chip));
     body.append_child(&val)?;
 
     Ok(())
-}
-
-fn init_board(document: &Document) -> Result<Element, JsValue> {
-    let table = document.create_element("table")?;
-    for i in 0..DISPLAY_HEIGHT {
-        let tr = document.create_element("tr")?;
-        for j in 0..DISPLAY_WIDTH {
-            let td = document.create_element("td")?;
-
-            if (i + j) % 2 == 0 {
-                td.set_class_name("alive");
-            }
-
-            tr.append_child(&td)?;
-        }
-        table.append_child(&tr)?;
-    }
-
-    Ok(table)
 }
