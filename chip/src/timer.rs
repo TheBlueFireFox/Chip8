@@ -89,7 +89,7 @@ pub(super) struct Worker {
     alive: Arc<()>,
 }
 
-pub trait TimedWorker {
+pub trait TimedWorker: Send {
     fn new() -> Self;
     fn start<T>(&mut self, callback: T, interval: Duration)
     where

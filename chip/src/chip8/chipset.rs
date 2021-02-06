@@ -67,11 +67,11 @@ pub struct ChipSet<W: TimedWorker> {
     /// This stores the random number generator, used by the chipset.
     /// It is stored into the chipset, so as to enable simple mocking
     /// of the given type.
-    pub(super) rng: Box<dyn RngCore>,
+    pub(super) rng: Box<dyn RngCore + Send>,
     /// Will store the callbacks needed for certain tasks
     /// example, running special code after the main caller
     /// did his. (Do work after wait etc.)
-    pub(super) preprocessor: Option<Box<dyn FnOnce(&mut Self)>>,
+    pub(super) preprocessor: Option<Box<dyn FnOnce(&mut Self) + Send>>,
 }
 
 impl<W: TimedWorker> ChipSet<W> {

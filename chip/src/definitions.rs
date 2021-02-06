@@ -10,6 +10,10 @@ pub(super) const REGISTER_SIZE: usize = 16;
 pub(super) const REGISTER_LAST: usize = REGISTER_SIZE - 1;
 /// The count of nesting entries
 pub(super) const STACK_NESTING: usize = 16;
+/// The amound of hertz the emulation shall run at.
+pub const CPU_HERTZ: u64 = 500;
+/// The amount of times the cpu shall run per second
+pub const CPU_INTERVAL: u64 = 1000 / CPU_HERTZ;
 /// The amount of hertz the clocks run at in milliseconds
 pub const TIMER_HERZ: u8 = 60;
 /// The amount of hertz the clocks run at in milliseconds

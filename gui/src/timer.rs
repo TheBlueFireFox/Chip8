@@ -1,6 +1,4 @@
-use chip::{
-    timer::{TimedWorker},
-};
+use chip::timer::TimedWorker;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -12,15 +10,11 @@ extern "C" {
 /// see here https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/closure/struct.Closure.html#using-the-setinterval-api
 pub(super) struct Worker {
     interval_id: Option<i32>,
-    function: Option<Closure<dyn FnMut()>>,
 }
 
 impl TimedWorker for Worker {
     fn new() -> Self {
-        Self {
-            interval_id: None,
-            function: None,
-        }
+        Self { interval_id: None }
     }
 
     fn start<T>(&mut self, callback: T, interval: std::time::Duration)
@@ -35,7 +29,6 @@ impl TimedWorker for Worker {
         // SAFETY: unwrap is safe here, as it is set a line above.
         let interval_id = setInterval(&function, interval.as_millis() as u32);
 
-        self.function = Some(function);
         self.interval_id = Some(interval_id);
     }
 
@@ -43,12 +36,10 @@ impl TimedWorker for Worker {
         if let Some(id) = self.interval_id.take() {
             clearInterval(id);
         }
-
-        let _ = self.function.take();
     }
 
     fn is_alive(&self) -> bool {
-        self.interval_id.is_some() && self.function.is_some()
+        self.interval_id.is_some()
     }
 }
 
