@@ -3,20 +3,25 @@ mod timer;
 
 use std::fmt::Display;
 
-use chip::{chip8::ChipSet, definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH}, resources::{Rom, RomArchives}};
+use chip::{
+    chip8::ChipSet,
+    definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH},
+    opcode::Operation,
+    resources::{Rom, RomArchives},
+};
 use timer::Worker;
 use wasm_bindgen::prelude::*;
 use web_sys::{Document, Element, HtmlElement, Window};
 
 #[wasm_bindgen]
 pub struct ChipSetWrapper {
-    chipset : ChipSet<Worker>
+    chipset: ChipSet<Worker>,
 }
 
 impl ChipSetWrapper {
     fn new(rom: Rom) -> Self {
         Self {
-            chipset: ChipSet::new(rom)
+            chipset: ChipSet::new(rom),
         }
     }
 }
@@ -25,6 +30,40 @@ impl Display for ChipSetWrapper {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.chipset)
     }
+}
+
+#[wasm_bindgen]
+#[derive(Clone, Copy)]
+pub enum OperationWrapper {
+    None,
+    Wait,
+    Draw,
+}
+
+impl From<Operation> for OperationWrapper {
+    fn from(op: Operation) -> Self {
+        match op {
+            Operation::None => Self::None,
+            Operation::Wait => Self::Wait,
+            Operation::Draw => Self::Draw,
+        }
+    }
+}
+
+impl Into<Operation> for OperationWrapper {
+    fn into(self) -> Operation {
+        match self {
+            OperationWrapper::None => Operation::None,
+            OperationWrapper::Wait => Operation::Wait,
+            OperationWrapper::Draw => Operation::Draw,
+        }
+    }
+}
+
+fn run_wrapper(chip_wrapper: &mut ChipSetWrapper, last_op: &mut OperationWrapper) {
+    let mut last_inner_op: Operation = OperationWrapper::into(*last_op);
+    // chip::run(&mut chip_wrapper.chipset, &mut last_inner_op);
+    *last_op = OperationWrapper::from(last_inner_op);
 }
 
 #[wasm_bindgen]
