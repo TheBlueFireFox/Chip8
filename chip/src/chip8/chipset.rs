@@ -1,12 +1,8 @@
-use std::u16;
-
-use crate::definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH, FONTSET_LOCATION};
-
 use {
     crate::{
         definitions::{
-            DISPLAY_RESOLUTION, MEMORY_SIZE, OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST,
-            REGISTER_SIZE, STACK_NESTING,
+            DISPLAY_HEIGHT, DISPLAY_RESOLUTION, DISPLAY_WIDTH, FONTSET_LOCATION, MEMORY_SIZE,
+            OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST, REGISTER_SIZE, STACK_NESTING,
         },
         devices::Keyboard,
         fontset::FONSET,
@@ -15,7 +11,8 @@ use {
             ProgramCounter, ProgramCounterStep,
         },
         resources::Rom,
-        timer::{Timed},
+        timer::Timed,
+        timer::{Timer, TimedWorker},
     },
     rand::RngCore,
 };
@@ -24,7 +21,7 @@ use {
 /// of the system, it contains all the structures
 /// needed for emulating an instant on the
 /// Chip8 CPU.
-pub struct ChipSet<T: Timed> {
+pub struct ChipSet<W: TimedWorker> {
     /// name of the loaded rom
     pub(super) name: String,
     /// all two bytes long and stored big-endian
@@ -53,11 +50,11 @@ pub struct ChipSet<T: Timed> {
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub(super) delay_timer: T,
+    pub(super) delay_timer: Timer<W>,
     /// Sound timer: This timer is used for sound effects. When its value is nonzero, a beeping
     /// sound is made.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub(super) sound_timer: T,
+    pub(super) sound_timer: Timer<W>,
     /// The graphics of the Chip 8 are black and white and the screen has a total of `2048` pixels
     /// `(64 x 32)`. This can easily be implemented using an array that hold the pixel state `(1 or 0)`:
     pub(super) display: Box<[Box<[bool]>]>,
@@ -77,7 +74,7 @@ pub struct ChipSet<T: Timed> {
     pub(super) preprocessor: Option<Box<dyn FnOnce(&mut Self)>>,
 }
 
-impl<T: Timed> ChipSet<T> {
+impl<W: TimedWorker> ChipSet<W> {
     /// will create a new chipset object
     pub fn new(rom: Rom) -> Self {
         // initialize all the memory with 0
@@ -99,8 +96,8 @@ impl<T: Timed> ChipSet<T> {
             index_register: 0,
             program_counter: PROGRAM_COUNTER,
             stack: Vec::with_capacity(STACK_NESTING),
-            delay_timer: T::new(0),
-            sound_timer: T::new(0),
+            delay_timer: Timer::new(0),
+            sound_timer: Timer::new(0),
             display: vec![vec![false; DISPLAY_HEIGHT].into_boxed_slice(); DISPLAY_RESOLUTION]
                 .into_boxed_slice(),
             keyboard: Keyboard::new(),
@@ -186,7 +183,7 @@ impl<T: Timed> ChipSet<T> {
     }
 }
 
-impl<T: Timed> ProgramCounter for ChipSet<T> {
+impl<W: TimedWorker> ProgramCounter for ChipSet<W> {
     fn step(&mut self, step: ProgramCounterStep) {
         match step {
             ProgramCounterStep::Next => self.program_counter += OPCODE_BYTE_SIZE,
@@ -203,7 +200,7 @@ impl<T: Timed> ProgramCounter for ChipSet<T> {
     }
 }
 
-impl<T: Timed> ChipOpcodePreProcessHandler for ChipSet<T> {
+impl<W: TimedWorker> ChipOpcodePreProcessHandler for ChipSet<W> {
     fn preprocess(&mut self) {
         if let Some(func) = self.preprocessor.take() {
             func(self);
@@ -211,7 +208,7 @@ impl<T: Timed> ChipOpcodePreProcessHandler for ChipSet<T> {
     }
 }
 
-impl<T: Timed> ChipOpcodes for ChipSet<T> {
+impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
     fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         match opcode {
             0x00E0 => {

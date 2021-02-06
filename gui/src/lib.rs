@@ -1,5 +1,4 @@
 mod controller;
-mod observer;
 mod timer;
 
 use chip::definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH};

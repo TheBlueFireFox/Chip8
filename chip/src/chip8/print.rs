@@ -1,4 +1,4 @@
-use crate::{definitions::STACK_NESTING, timer::Timed};
+use crate::{definitions::STACK_NESTING, timer::TimedWorker};
 
 use {super::*, std::fmt};
 
@@ -19,12 +19,8 @@ fn indent_helper(text: &str, indent: usize) -> String {
     text.split(END_OF_LINE)
         .enumerate()
         .map(|(i, x)| {
-            let end = if i < parts {
-                "\n"
-            } else {
-                ""
-            };
-          format!("{}{}{}", indent, x, end)  
+            let end = if i < parts { "\n" } else { "" };
+            format!("{}{}{}", indent, x, end)
         })
         .collect::<String>()
 }
@@ -243,7 +239,7 @@ mod bool_print {
     }
 }
 
-impl<T: Timed> fmt::Display for ChipSet<T> {
+impl<W: TimedWorker> fmt::Display for ChipSet<W> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut nam = self.name.clone();
         // keeping the strings mutable so that they can be indented later on

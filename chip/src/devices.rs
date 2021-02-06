@@ -6,7 +6,13 @@ pub trait DisplayCommands {
     /// Will clear the display
     fn clear_display(&mut self);
     /// Will display all from the pixels
-    fn display(&self, pixels: &[u8]);
+    fn display<'a>(&'a mut self, pixels: &'a[&'a [bool]]);
+}
+
+#[cfg_attr(test, mockall::automock)]
+/// The trait responsible for writing the keyboard data
+pub trait KeyboardCommands {
+    fn get_keyboard(&self) -> &[bool];
 }
 
 /// Will represent the last set key with the previous
@@ -98,8 +104,3 @@ impl Keyboard {
     }
 }
 
-#[cfg_attr(test, mockall::automock)]
-/// The trait responsible for writing the keyboard data
-pub trait KeyboardCommands {
-    fn get_keyboard(&self) -> Box<[bool]>;
-}

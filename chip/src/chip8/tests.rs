@@ -1,4 +1,4 @@
-use crate::timer::Timer;
+use crate::timer::Worker;
 
 use {
     super::ChipSet,
@@ -28,12 +28,12 @@ pub(super) fn get_base() -> Rom {
 }
 
 /// will setup the default configured chip
-pub(super) fn get_default_chip() -> ChipSet<Timer> {
+pub(super) fn get_default_chip() -> ChipSet<Worker> {
     let rom = get_base();
     setup_chip(rom)
 }
 
-pub(super) fn setup_chip(rom: Rom) -> ChipSet<Timer> {
+pub(super) fn setup_chip(rom: Rom) -> ChipSet<Worker> {
     let mut chip = ChipSet::new(rom);
     // fill up register with random values
     assert_eq!(chip.registers.len(), 16);

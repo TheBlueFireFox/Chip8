@@ -1,13 +1,11 @@
-use chip::{
-    chip8,
-    devices::{DisplayCommands, KeyboardCommands},
-};
+use chip::{chip8::ChipSet, devices::{DisplayCommands, KeyboardCommands}};
 
-use crate::timer::Timer;
+use crate::timer::Worker;
+
 pub struct Controller<T: DisplayCommands, U: KeyboardCommands> {
     display: T,
     keyboard: U,
-    chipset: Option<chip8::ChipSet<Timer>>,
+    chipset: Option<ChipSet<Worker>>
 }
 
 impl<T: DisplayCommands, U: KeyboardCommands> Controller<T, U> {

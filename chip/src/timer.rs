@@ -1,8 +1,9 @@
+use std::sync::RwLock;
+
 use {
     crate::definitions::TIMER_INTERVAL,
     std::{
         sync::{
-            atomic::{AtomicU8, Ordering},
             mpsc::{self, RecvTimeoutError, SyncSender},
             Arc,
         },
@@ -22,65 +23,62 @@ pub trait Timed {
     fn get_value(&self) -> u8;
 }
 
-/// Represents a timer inside of the chip
-/// infrastruture, it will count down to
-/// zero from what ever number given in
-/// the speck requireds 60Hz.
-pub struct Timer {
-    /// This is the main worker
-    /// it is intended to be a part
-    /// of the timer, but have no actuall
-    /// implementation.
-    _worker: Worker,
+pub(crate) struct Timer<W: TimedWorker> {
     /// will store the value of the timer
-    value: Arc<AtomicU8>,
+    value: Arc<RwLock<u8>>,
+    /// Represents a timer inside of the chip
+    /// infrastruture, it will count down to
+    /// zero from what ever number given in
+    /// the speck requireds 60Hz.
+    _worker: W,
 }
 
-impl Timed for Timer {
-    /// Will create a new timer with the given value.
+impl<W> Timed for Timer<W>
+where
+    W: TimedWorker,
+{
     fn new(value: u8) -> Self {
-        let counter = Arc::new(AtomicU8::new(value));
-        // used to move into the callback
-        let ccounter = counter.clone();
-        let callback = move || {
-            let val = ccounter.load(Ordering::Relaxed);
-            if val > 0 {
-                // make sure that there is no actuall
-                // issue with the decrement
-                // (this is acutally unneded as only this callback
-                // will modify the counter, but there is not reason
-                // not to use it)
-                ccounter.compare_and_swap(val, val - 1, Ordering::SeqCst);
+        let mut worker = W::new();
+        let value = Arc::new(RwLock::new(value));
+        let rw_value = value.clone();
+
+        let func = move || {
+            let mut cvalue = rw_value
+                .write()
+                .expect("something went wrong while unlocking the RW-Value");
+            if *cvalue > 0 {
+                *cvalue -= 1;
             }
         };
 
-        let mut worker = Worker::new();
-        worker.start(callback, Duration::from_millis(TIMER_INTERVAL));
+        worker.start(func, Duration::from_millis(TIMER_INTERVAL));
 
-        assert!(
-            worker.is_alive(),
-            "Something went wrong while initializing the worker thread!."
-        );
         Self {
+            value,
             _worker: worker,
-            value: counter,
         }
     }
 
-    /// Will set the value from which the timer shall count down from.
     fn set_value(&mut self, value: u8) {
-        self.value.swap(value, Ordering::Release);
+        let mut val = self
+            .value
+            .write()
+            .expect("something went wrong with the read write lock, while setting the value");
+
+        *val = value;
     }
 
-    /// Will get the value that the counter is currently at.
     fn get_value(&self) -> u8 {
-        self.value.load(Ordering::Relaxed)
+        *self
+            .value
+            .read()
+            .expect("something went wrong, while returning from the RW-Lock.")
     }
 }
 
 /// Is the internal worker, that exists on the
 /// second thread.
-struct Worker {
+pub(super) struct Worker {
     /// Contains the actuall thread, that is running.
     thread: Option<JoinHandle<()>>,
     /// Contains the sync sender used to gracefull shutdown the thread.
@@ -91,7 +89,7 @@ struct Worker {
     alive: Arc<()>,
 }
 
-pub trait Working {
+pub trait TimedWorker {
     fn new() -> Self;
     fn start<T>(&mut self, callback: T, interval: Duration)
     where
@@ -100,7 +98,7 @@ pub trait Working {
     fn is_alive(&self) -> bool;
 }
 
-impl Working for Worker {
+impl TimedWorker for Worker {
     /// Will initialize the new worker.
     fn new() -> Self {
         Self {
@@ -120,7 +118,7 @@ impl Working for Worker {
     {
         // stop any action around
         self.stop();
-        
+
         let (send, recv) = mpsc::sync_channel::<()>(1);
         let alive = self.alive.clone();
         let thread = thread::spawn(move || {
@@ -193,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_timer() {
-        let mut timer = Timer::new(TIMER_HERZ);
+        let mut timer : Timer<Worker> = Timer::new(TIMER_HERZ);
         assert!(timer._worker.is_alive());
 
         std::thread::sleep(Duration::from_secs(1));

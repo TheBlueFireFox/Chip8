@@ -1,8 +1,5 @@
-use std::{sync::{Arc, RwLock}, time::Duration};
-
 use chip::{
-    definitions::TIMER_INTERVAL,
-    timer::{Timed, Working},
+    timer::{TimedWorker},
 };
 use wasm_bindgen::prelude::*;
 
@@ -12,58 +9,13 @@ extern "C" {
     fn clearInterval(id: i32);
 }
 
-pub(crate) struct Timer {
-    value: Arc<RwLock<u8>>,
-    _worker: Worker,
-}
-
-impl Timed for Timer {
-    fn new(value: u8) -> Self {
-        let mut worker = Worker::new();
-        let value = Arc::new(RwLock::new(value));
-        let rw_value = value.clone();
-
-        let func = move || {
-            let mut cvalue = rw_value
-                .write()
-                .expect("something went wrong while unlocking the RW-Value");
-            if *cvalue > 0 {
-                *cvalue -= 1;
-            }
-        };
-
-        worker.start(func, Duration::from_millis(TIMER_INTERVAL));
-
-        Self {
-            value,
-            _worker: worker,
-        }
-    }
-
-    fn set_value(&mut self, value: u8) {
-        let mut val = self
-            .value
-            .write()
-            .expect("something went wrong with the read write lock, while setting the value");
-
-        *val = value;
-    }
-
-    fn get_value(&self) -> u8 {
-        *self
-            .value
-            .read()
-            .expect("something went wrong, while returning from the RW-Lock.")
-    }
-}
-
 /// see here https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/closure/struct.Closure.html#using-the-setinterval-api
-struct Worker {
+pub(super) struct Worker {
     interval_id: Option<i32>,
     function: Option<Closure<dyn FnMut()>>,
 }
 
-impl Working for Worker {
+impl TimedWorker for Worker {
     fn new() -> Self {
         Self {
             interval_id: None,
