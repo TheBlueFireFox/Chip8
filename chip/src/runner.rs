@@ -1,52 +1,45 @@
-use std::time::Duration;
-
-use chip8::ChipSet;
-
 use crate::{
-    chip8,
-    definitions::CPU_INTERVAL,
+    chip8::ChipSet,
     devices::{DisplayCommands, KeyboardCommands},
     opcode::Operation,
     resources::RomArchives,
     timer::TimedWorker,
 };
 
-pub fn run<D, K, W>(mut display: D, mut keyboard: K, rom_name: &str) -> W
+pub fn run<'a, D, K, W>(mut display: D, keyboard: K, rom_name: &str) -> Box<dyn FnMut() + 'a>
 where
-    D: DisplayCommands + 'static,
-    K: KeyboardCommands + 'static,
-    W: TimedWorker + 'static,
+    D: DisplayCommands + 'a,
+    K: KeyboardCommands + 'a,
+    W: TimedWorker + 'a,
 {
     let rom = RomArchives::new()
         .get_file_data(rom_name)
         .expect("Unexpected error during extraction of rom.");
+    let inner_run = {
+        let mut chip: ChipSet<W> = ChipSet::new(rom);
+        let mut last_op = Operation::None;
 
-    let mut chip: ChipSet<W> = chip8::ChipSet::new(rom);
-    let mut last_op = Operation::None;
+        let func = move || {
+            let work = if matches!(last_op, Operation::Wait) {
+                /* wait for user input */
+                keyboard.was_pressed()
+            } else {
+                true
+            };
 
-    let inner_run = move || {
-        let work = if matches!(last_op, Operation::Wait) {
-            /* wait for user input */
-            keyboard.was_pressed()
-        } else {
-            true
-        };
+            if work {
+                // run chip
+                last_op = chip
+                    .next()
+                    .expect("An unexpected error occured during executrion.");
 
-        if work {
-            // run chip
-            last_op = chip
-                .next()
-                .expect("An unexpected error occured during executrion.");
-
-            if matches!(last_op, Operation::Draw) {
-                /* draw the screen */
-                display.display(&chip.get_display()[..]);
+                if matches!(last_op, Operation::Draw) {
+                    /* draw the screen */
+                    display.display(&chip.get_display()[..]);
+                }
             }
-        }
+        };
+        func
     };
-    let mut worker = W::new();
-
-    worker.start(inner_run, Duration::from_millis(CPU_INTERVAL));
-
-    worker
+    Box::new(inner_run)
 }

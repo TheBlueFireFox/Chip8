@@ -49,7 +49,7 @@ where
             }
         };
 
-        worker.start(func, Duration::from_millis(TIMER_INTERVAL));
+        worker.start(Box::new(func), Duration::from_millis(TIMER_INTERVAL));
 
         Self {
             value,
@@ -87,7 +87,7 @@ pub(super) struct Worker {
     alive: Arc<()>,
 }
 
-pub trait TimedWorker: Send {
+pub trait TimedWorker {
     fn new() -> Self;
     fn start<T>(&mut self, callback: T, interval: Duration)
     where

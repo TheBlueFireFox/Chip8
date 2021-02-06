@@ -9,11 +9,15 @@ fn window() -> Window {
 /// see here https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/closure/struct.Closure.html#using-the-setinterval-api
 pub(super) struct Worker {
     interval_id: Option<i32>,
+    function: Option<Closure<dyn FnMut()>>,
 }
 
 impl TimedWorker for Worker {
     fn new() -> Self {
-        Self { interval_id: None }
+        Self {
+            interval_id: None,
+            function: None,
+        }
     }
 
     fn start<T>(&mut self, callback: T, interval: std::time::Duration)
@@ -25,8 +29,6 @@ impl TimedWorker for Worker {
 
         let function = Closure::wrap(Box::new(callback) as Box<dyn FnMut()>);
 
-        // SAFETY: unwrap is safe here, as it is set a line above.
-
         let interval_id = window()
             .set_interval_with_callback_and_timeout_and_arguments_0(
                 function.as_ref().unchecked_ref(),
@@ -34,11 +36,7 @@ impl TimedWorker for Worker {
             )
             .expect("something went wrong");
         self.interval_id = Some(interval_id);
-        // SAFETY: Attention leaks memory, but as the system shall support both
-        // threaded and set intervall and a Closure is not Send no other option
-        // is available.
-        // Once WEAK_REF is supported this problem will be solved.
-        function.forget();
+        self.function = Some(function);
     }
 
     fn stop(&mut self) {
