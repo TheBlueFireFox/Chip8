@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{cell::RefCell, fmt::Display, rc::Rc};
 
 use wasm_bindgen::prelude::*;
 use web_sys::{Document, Element, HtmlElement, Window};
@@ -10,24 +10,6 @@ use chip::{
     opcode::Operation,
     resources::Rom,
 };
-
-pub struct ChipSetWrapper {
-    pub(crate) chipset: ChipSet<Worker>,
-}
-
-impl ChipSetWrapper {
-    pub(crate) fn new(rom: Rom) -> Self {
-        Self {
-            chipset: ChipSet::new(rom),
-        }
-    }
-}
-
-impl Display for ChipSetWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.chipset)
-    }
-}
 
 #[derive(Clone, Copy)]
 pub enum OperationWrapper {
@@ -113,34 +95,45 @@ impl KeyboardCommands for KeyboardWrapper {
 }
 
 #[wasm_bindgen]
+/// This struct is the one that will be passed back and forth between 
+/// JS and WASM, as WASM API only allow for `&T` or `T` and not `&mut T`  
+/// see [here](https://rustwasm.github.io/docs/wasm-bindgen/reference/types/jsvalue.html?highlight=JSV#jsvalue)
+/// a compromise had to be chosen, so here is `Rc<RefCell<>>` used.
+/// In addition to not have multiple borrows at the same time instead of 
+/// a single wrapper multiple are used.
 pub struct RunWrapper {
-    chipset: ChipSet<Worker>,
-    display: DisplayWrapper,
-    keyboard: KeyboardWrapper,
-    operation: OperationWrapper,
+   pub(crate) chipset: Rc<RefCell<ChipSet<Worker>>>,
+   pub(crate) display: Rc<RefCell<DisplayWrapper>>,
+   pub(crate) keyboard: Rc<RefCell<KeyboardWrapper>>,
+   pub(crate) operation: Rc<RefCell<OperationWrapper>>,
 }
 
 impl RunWrapper {
-    fn new(rom: Rom) -> Self {
+    pub(crate) fn new(rom: Rom) -> Self {
         Self {
-            chipset: ChipSet::new(rom),
-            display: DisplayWrapper::new(),
-            keyboard: KeyboardWrapper::new(),
-            operation: OperationWrapper::None,
+            chipset: Rc::new(RefCell::new(ChipSet::new(rom))),
+            display:  Rc::new(RefCell::new(DisplayWrapper::new())),
+            keyboard:  Rc::new(RefCell::new(KeyboardWrapper::new())),
+            operation:  Rc::new(RefCell::new(OperationWrapper::None)),
         }
     }
 }
 
+/// This is a wrapper function designed to split the `RunWrapper`
+/// into it's internal parts to be used by the chip run function.
+/// It also translates from the external 
 pub(crate) fn run_wrapper(run_wrapper: &mut RunWrapper) {
-    let display = &run_wrapper.display;
-    let keyboard = &run_wrapper.keyboard;
-    let last_op = &mut run_wrapper.operation;
-    let chip = &mut run_wrapper.chipset;
+    let display = &(*run_wrapper.display.borrow());
+    let keyboard = &(*run_wrapper.keyboard.borrow());
+    let last_op = &mut (*run_wrapper.operation.borrow_mut());
+    let chip = &mut (*run_wrapper.chipset.borrow_mut());
 
     let mut last_inner_op: Operation = OperationWrapper::into(*last_op);
     let last_inner_op = &mut last_inner_op;
+
     chip::run(chip, last_inner_op, display, keyboard)
         .expect("Something went wrong while stepping to the next step.");
+
     *last_op = OperationWrapper::from(*last_inner_op);
 }
 
