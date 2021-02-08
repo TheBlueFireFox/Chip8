@@ -1,11 +1,9 @@
-use std::sync::RwLock;
-
 use {
     crate::definitions::TIMER_INTERVAL,
     std::{
         sync::{
             mpsc::{self, RecvTimeoutError, SyncSender},
-            Arc,
+            Arc, RwLock,
         },
         thread::{self, JoinHandle},
         time::Duration,
@@ -191,7 +189,7 @@ mod tests {
 
     #[test]
     fn test_timer() {
-        let mut timer : Timer<Worker> = Timer::new(TIMER_HERZ);
+        let mut timer: Timer<Worker> = Timer::new(TIMER_HERZ);
         assert!(timer._worker.is_alive());
 
         std::thread::sleep(Duration::from_secs(1));

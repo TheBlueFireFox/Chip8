@@ -6,6 +6,7 @@ use crate::{
     chip8,
     definitions::CPU_INTERVAL,
     devices::{DisplayCommands, KeyboardCommands},
+    opcode::Operation,
     resources::RomArchives,
     timer::TimedWorker,
 };
@@ -21,12 +22,19 @@ where
         .expect("Unexpected error during extraction of rom.");
 
     let mut chip: ChipSet<W> = chip8::ChipSet::new(rom);
+    let mut last_op = Operation::None;
+
     let inner_run = move || {
+        match last_op {
+            Operation::None => { /* do nothing */ }
+            Operation::Wait => { /* wait for user input */ }
+            Operation::Clear | Operation::Draw => { /* draw the screen */ }
+        }
+
         // run chip
-        let op = chip
+        last_op = chip
             .next()
             .expect("An unexpected error occured during executrion.");
-
     };
     let mut worker = W::new();
 

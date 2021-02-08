@@ -12,6 +12,7 @@ pub trait DisplayCommands {
 #[cfg_attr(test, mockall::automock)]
 /// The trait responsible for writing the keyboard data
 pub trait KeyboardCommands {
+    
     fn get_keyboard(&self) -> &[bool];
 }
 
