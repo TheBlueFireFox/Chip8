@@ -4,9 +4,13 @@ use wasm_bindgen::prelude::*;
 use web_sys::{Document, Element, HtmlElement, Window};
 
 use crate::timer::Worker;
-use chip::{chip8::ChipSet, devices::DisplayCommands, opcode::Operation, resources::Rom};
+use chip::{
+    chip8::ChipSet,
+    devices::{DisplayCommands, Keyboard, KeyboardCommands},
+    opcode::Operation,
+    resources::Rom,
+};
 
-#[wasm_bindgen]
 pub struct ChipSetWrapper {
     pub(crate) chipset: ChipSet<Worker>,
 }
@@ -25,7 +29,6 @@ impl Display for ChipSetWrapper {
     }
 }
 
-#[wasm_bindgen]
 #[derive(Clone, Copy)]
 pub enum OperationWrapper {
     None,
@@ -53,10 +56,13 @@ impl Into<Operation> for OperationWrapper {
     }
 }
 
-#[wasm_bindgen]
 pub struct DisplayWrapper;
 
 impl DisplayWrapper {
+    fn new() -> Self {
+        DisplayWrapper {}
+    }
+
     fn draw_board<'a>(pixels: &'a [&'a [bool]]) -> Result<Element, JsValue> {
         let window = window();
         let document = document(&window);
@@ -85,14 +91,57 @@ impl DisplayCommands for DisplayWrapper {
     }
 }
 
-fn run_wrapper(
-    chip_wrapper: &mut ChipSetWrapper,
-    last_op: &mut OperationWrapper,
-    display: &DisplayWrapper,
-) {
+#[derive(Default)]
+pub struct KeyboardWrapper {
+    keyboard: Keyboard,
+}
+
+impl KeyboardWrapper {
+    fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl KeyboardCommands for KeyboardWrapper {
+    fn was_pressed(&self) -> bool {
+        todo!()
+    }
+
+    fn get_keyboard(&self) -> &[bool] {
+        todo!()
+    }
+}
+
+#[wasm_bindgen]
+pub struct RunWrapper {
+    chipset: ChipSet<Worker>,
+    display: DisplayWrapper,
+    keyboard: KeyboardWrapper,
+    operation: OperationWrapper,
+}
+
+impl RunWrapper {
+    fn new(rom: Rom) -> Self {
+        Self {
+            chipset: ChipSet::new(rom),
+            display: DisplayWrapper::new(),
+            keyboard: KeyboardWrapper::new(),
+            operation: OperationWrapper::None,
+        }
+    }
+}
+
+pub(crate) fn run_wrapper(run_wrapper: &mut RunWrapper) {
+    let display = &run_wrapper.display;
+    let keyboard = &run_wrapper.keyboard;
+    let last_op = &mut run_wrapper.operation;
+    let chip = &mut run_wrapper.chipset;
+
     let mut last_inner_op: Operation = OperationWrapper::into(*last_op);
-    // chip::run(&mut chip_wrapper.chipset, &mut last_inner_op, &display, );
-    *last_op = OperationWrapper::from(last_inner_op);
+    let last_inner_op = &mut last_inner_op;
+    chip::run(chip, last_inner_op, display, keyboard)
+        .expect("Something went wrong while stepping to the next step.");
+    *last_op = OperationWrapper::from(*last_inner_op);
 }
 
 pub(crate) fn window() -> Window {

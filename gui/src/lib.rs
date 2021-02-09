@@ -6,6 +6,8 @@ use wasm_bindgen::prelude::*;
 
 use chip::{devices::DisplayCommands, resources::RomArchives};
 use wrappers::{body, document, window, ChipSetWrapper, DisplayWrapper};
+pub use wrappers::*;
+
 
 #[wasm_bindgen]
 pub fn main() -> Result<(), JsValue> {

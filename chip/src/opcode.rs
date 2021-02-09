@@ -236,7 +236,7 @@ pub trait ProgramCounter {
     fn step(&mut self, step: ProgramCounterStep);
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 /// Represents a command from the interpreter up to the gui.
 pub enum Operation {
     /// If no action has to be taken.

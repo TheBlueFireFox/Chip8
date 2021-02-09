@@ -5,11 +5,16 @@ use crate::{
     timer::TimedWorker,
 };
 
-pub fn run<'a, D, K, W>(chip: &mut ChipSet<W>, last_op: &mut Operation, display: D, keyboard: K)
+pub fn run<D, K, W>(
+    chip: &mut ChipSet<W>,
+    last_op: &mut Operation,
+    display: &D,
+    keyboard: &K,
+) -> Result<(), String>
 where
-    D: DisplayCommands + 'a,
-    K: KeyboardCommands + 'a,
-    W: TimedWorker + 'a,
+    D: DisplayCommands,
+    K: KeyboardCommands,
+    W: TimedWorker,
 {
     let work = if matches!(last_op, Operation::Wait) {
         /* wait for user input */
@@ -20,13 +25,12 @@ where
 
     if work {
         // run chip
-        *last_op = chip
-            .next()
-            .expect("An unexpected error occured during executrion.");
+        *last_op = chip.next()?;
 
         if matches!(last_op, Operation::Draw) {
             /* draw the screen */
             display.display(&chip.get_display()[..]);
         }
     }
+    Ok(())
 }
