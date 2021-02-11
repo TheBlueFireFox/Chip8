@@ -10,7 +10,6 @@ use {
         resources::{Rom, RomArchives},
     },
     lazy_static::lazy_static,
-    std::panic,
 };
 
 const ROM_NAME: &'static str = "15PUZZLE";
