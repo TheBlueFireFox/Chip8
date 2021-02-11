@@ -1,25 +1,15 @@
+#![no_std]
+extern crate alloc;
+
 mod controller;
 mod timer;
 mod wrappers;
 
+use alloc::string::String;
 use wasm_bindgen::prelude::*;
 
-use chip::{devices::DisplayCommands, resources::RomArchives};
+use chip::{resources::RomArchives, devices::DisplayCommands};
 pub use wrappers::*;
-use wrappers::{body, document, window};
-
-#[wasm_bindgen]
-pub fn roms() -> js_sys::Array {
-    let ra = RomArchives::new();
-    let mut files = ra.file_names();
-    files.sort();
-
-    let arr = js_sys::Array::new_with_length(files.len() as u32);
-    for file in files {
-        arr.push(&JsValue::from_str(file));
-    }
-    arr
-}
 
 pub fn setup() -> Result<(), JsValue> {
     let document = document(&window());
@@ -29,6 +19,13 @@ pub fn setup() -> Result<(), JsValue> {
     let val = document.create_element("p")?;
     val.set_inner_html("Hello from Rust");
     body.append_child(&val)?;
+
+    // get rom names
+    let ra = RomArchives::new();
+    let mut files = ra.file_names();
+    files.sort();
+
+    
 
     Ok(())
 }

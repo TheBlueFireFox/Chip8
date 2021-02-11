@@ -1,4 +1,5 @@
-use std::{cell::RefCell, fmt::Display, rc::Rc};
+use alloc::rc::Rc;
+use core::cell::RefCell;
 
 use wasm_bindgen::prelude::*;
 use web_sys::{Document, Element, HtmlElement, Window};
@@ -95,33 +96,33 @@ impl KeyboardCommands for KeyboardWrapper {
 }
 
 #[wasm_bindgen]
-/// This struct is the one that will be passed back and forth between 
+/// This struct is the one that will be passed back and forth between
 /// JS and WASM, as WASM API only allow for `&T` or `T` and not `&mut T`  
 /// see [here](https://rustwasm.github.io/docs/wasm-bindgen/reference/types/jsvalue.html?highlight=JSV#jsvalue)
 /// a compromise had to be chosen, so here is `Rc<RefCell<>>` used.
-/// In addition to not have multiple borrows at the same time instead of 
+/// In addition to not have multiple borrows at the same time instead of
 /// a single wrapper multiple are used.
 pub struct RunWrapper {
-   pub(crate) chipset: Rc<RefCell<ChipSet<Worker>>>,
-   pub(crate) display: Rc<RefCell<DisplayWrapper>>,
-   pub(crate) keyboard: Rc<RefCell<KeyboardWrapper>>,
-   pub(crate) operation: Rc<RefCell<OperationWrapper>>,
+    pub(crate) chipset: Rc<RefCell<ChipSet<Worker>>>,
+    pub(crate) display: Rc<RefCell<DisplayWrapper>>,
+    pub(crate) keyboard: Rc<RefCell<KeyboardWrapper>>,
+    pub(crate) operation: Rc<RefCell<OperationWrapper>>,
 }
 
 impl RunWrapper {
     pub(crate) fn new(rom: Rom) -> Self {
         Self {
             chipset: Rc::new(RefCell::new(ChipSet::new(rom))),
-            display:  Rc::new(RefCell::new(DisplayWrapper::new())),
-            keyboard:  Rc::new(RefCell::new(KeyboardWrapper::new())),
-            operation:  Rc::new(RefCell::new(OperationWrapper::None)),
+            display: Rc::new(RefCell::new(DisplayWrapper::new())),
+            keyboard: Rc::new(RefCell::new(KeyboardWrapper::new())),
+            operation: Rc::new(RefCell::new(OperationWrapper::None)),
         }
     }
 }
 
 /// This is a wrapper function designed to split the `RunWrapper`
 /// into it's internal parts to be used by the chip run function.
-/// It also translates from the external 
+/// It also translates from the external
 pub(crate) fn run_wrapper(run_wrapper: &mut RunWrapper) {
     let display = &(*run_wrapper.display.borrow());
     let keyboard = &(*run_wrapper.keyboard.borrow());

@@ -1,6 +1,8 @@
 use chip::timer::TimedWorker;
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::Window;
+use alloc::boxed::Box;
+use core::time::Duration;
 
 fn window() -> Window {
     web_sys::window().expect("No `global` window found")
@@ -20,7 +22,7 @@ impl TimedWorker for Worker {
         }
     }
 
-    fn start<T>(&mut self, callback: T, interval: std::time::Duration)
+    fn start<T>(&mut self, callback: T, interval: Duration)
     where
         T: Send + FnMut() + 'static,
     {
