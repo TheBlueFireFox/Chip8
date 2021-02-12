@@ -1,13 +1,11 @@
 use crate::definitions::KEYBOARD_SIZE;
 
-#[cfg_attr(test, mockall::automock)]
 /// The traits responsible for the display based code
 pub trait DisplayCommands {
     /// Will display all from the pixels
     fn display<'a>(&'a self, pixels: &'a[&'a [bool]]);
 }
 
-#[cfg_attr(test, mockall::automock)]
 /// The trait responsible for writing the keyboard data
 pub trait KeyboardCommands {
     fn was_pressed(&self) -> bool;
