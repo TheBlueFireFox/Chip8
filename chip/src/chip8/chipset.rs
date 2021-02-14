@@ -129,14 +129,17 @@ impl<W: TimedWorker> ChipSet<W> {
         self.keyboard.set_mult(keys);
     }
 
+    /// Will set the value of the given key
     pub fn set_key(&mut self, key: usize, to: bool) {
         self.keyboard.set_key(key, to)
     }
 
+    /// Will toggle the given key
     pub fn toggle_key(&mut self, key: usize) {
         self.keyboard.toggle_key(key)
     }
 
+    /// Will get the current state of the keyboard
     pub fn get_keyboard(&self) -> &[bool] {
         self.keyboard.get_keys()
     }

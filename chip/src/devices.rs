@@ -24,7 +24,8 @@ pub struct Key {
 }
 
 impl Key {
-    fn new(index: usize, last: bool, current: bool) -> Self {
+    /// Will instantiate a new key.
+    pub fn new(index: usize, last: bool, current: bool) -> Self {
         Self {
             index,
             last,
@@ -32,14 +33,17 @@ impl Key {
         }
     }
 
+    /// Will get the given index.
     pub fn get_index(&self) -> usize {
         self.index
     }
 
+    /// Will get the last value of the given key.
     pub fn get_last(&self) -> bool {
         self.last
     }
 
+    /// Will get current value set
     pub fn get_current(&self) -> bool {
         self.current
     }
@@ -60,25 +64,28 @@ pub struct Keyboard {
     /// One skips an instruction if a specific key is pressed, while another does the same if a
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
-    keys: Box<[bool; KEYBOARD_SIZE]>,
+    keys: [bool; KEYBOARD_SIZE],
     last: Option<Key>,
 }
 
 impl Keyboard {
+    /// Will initiate a new keyboard
     pub fn new() -> Self {
         Keyboard::default()
     }
 
+    /// Will reset the keyboard to it's false state.
     fn reset(&mut self) {
-        self.keys.copy_from_slice(&[false; KEYBOARD_SIZE]);
+        self.keys.fill(false);
     }
 
+    /// Will toggle a given key on or off.
     pub fn toggle_key(&mut self, key: usize) {
         self.set_key(key, !self.keys[key])
     }
 
+    /// Will set the given key to a state
     pub fn set_key(&mut self, key: usize, to: bool) {
-        debug_assert!(key < KEYBOARD_SIZE);
         self.reset();
 
         // setup last
@@ -88,16 +95,18 @@ impl Keyboard {
         self.keys[key] = to;
     }
 
+    /// Will set multiple keys
     pub fn set_mult(&mut self, keys: &[bool]) {
-        assert!(keys.len() == self.keys.len());
         self.keys.copy_from_slice(keys);
         self.last = None;
     }
 
+    /// Will get all the keys
     pub fn get_keys(&self) -> &[bool] {
-        &*self.keys
+        &self.keys
     }
 
+    /// Will get the last changes key
     pub fn get_last(&self) -> Option<Key> {
         self.last
     }
