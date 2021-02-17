@@ -1,6 +1,3 @@
-#![no_std]
-extern crate alloc;
-
 mod observer;
 mod controller;
 mod timer;

@@ -1,6 +1,4 @@
-use alloc::{rc::Rc, vec::Vec};
-use core::cell::RefCell;
-
+use std::{cell::RefCell, rc::Rc};
 pub struct EventSystem<E> {
     observers: Vec<Rc<RefCell<dyn Observer<E>>>>,
 }

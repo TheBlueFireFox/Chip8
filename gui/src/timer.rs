@@ -1,7 +1,6 @@
 use chip::timer::TimedWorker;
 use wasm_bindgen::{JsCast, prelude::*};
 use web_sys::Window;
-use alloc::boxed::Box;
 use core::time::Duration;
 
 fn window() -> Window {

@@ -1,12 +1,12 @@
 use web_sys::{Document, HtmlElement, Window};
 
-pub(crate) struct BrowerWindow {
+pub(crate) struct BrowserWindow {
     window: Window,
     document: Document,
     body: HtmlElement,
 }
 
-impl BrowerWindow {
+impl BrowserWindow {
     pub fn new() -> Self {
         let window = window();
         let document = document(&window);

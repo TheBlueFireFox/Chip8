@@ -1,10 +1,8 @@
-use alloc::rc::Rc;
-use core::cell::RefCell;
-
+use definitions::field;
+use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::prelude::*;
-use web_sys::Element;
 
-use crate::{helpers::BrowerWindow, timer::Worker};
+use crate::{definitions, helpers::BrowserWindow, timer::Worker};
 use chip::{
     chip8::ChipSet,
     devices::{DisplayCommands, Keyboard, KeyboardCommands},
@@ -20,16 +18,18 @@ impl DisplayAdapter {
     }
 
     fn draw_board<'a>(pixels: &'a [&'a [bool]]) -> Result<(), JsValue> {
-        let html = BrowerWindow::new();
+        let html = BrowserWindow::new();
         let document = html.document();
-        let table = document.create_element("table")?;
+
+        let table = document.create_element(definitions::field::TYPE)?;
+        table.set_id(definitions::field::ID);
         for row in pixels.iter() {
-            let tr = document.create_element("tr")?;
+            let tr = document.create_element(definitions::field::TYPE_ROW)?;
             for value in row.iter() {
-                let td = document.create_element("td")?;
+                let td = document.create_element(definitions::field::TYPE_COLUMN)?;
 
                 if *value {
-                    td.set_class_name("alive");
+                    td.set_class_name(definitions::field::ACTIVE);
                 }
 
                 tr.append_child(&td)?;
@@ -37,8 +37,13 @@ impl DisplayAdapter {
             table.append_child(&tr)?;
         }
 
+        // check if already exists, if exists remove element
+        if let Some(element) = document.get_element_by_id(definitions::field::ID) {
+            element.remove();
+        }
+
         html.body().append_child(&table)?;
-        
+
         Ok(())
     }
 }
@@ -77,14 +82,14 @@ impl KeyboardCommands for KeyboardAdapter {
 /// a compromise had to be chosen, so here is `Rc<RefCell<>>` used.
 /// In addition to not have multiple borrows at the same time instead of
 /// a single wrapper multiple are used.
-pub struct RunWrapper {
+pub struct Data {
     pub(crate) chipset: Rc<RefCell<ChipSet<Worker>>>,
     pub(crate) display: Rc<RefCell<DisplayAdapter>>,
     pub(crate) keyboard: Rc<RefCell<KeyboardAdapter>>,
     pub(crate) operation: Rc<RefCell<Operation>>,
 }
 
-impl RunWrapper {
+impl Data {
     pub(crate) fn new(rom: Rom) -> Self {
         Self {
             chipset: Rc::new(RefCell::new(ChipSet::new(rom))),
@@ -98,7 +103,7 @@ impl RunWrapper {
 /// This is a wrapper function designed to split the `RunWrapper`
 /// into it's internal parts to be used by the chip run function.
 /// It also translates from the external
-pub(crate) fn run_wrapper(run_wrapper: &mut RunWrapper) {
+pub(crate) fn run(run_wrapper: &mut Data) {
     let display = &(*run_wrapper.display.borrow());
     let keyboard = &(*run_wrapper.keyboard.borrow());
     let last_op = &mut (*run_wrapper.operation.borrow_mut());
