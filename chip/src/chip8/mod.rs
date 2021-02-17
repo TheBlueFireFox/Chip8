@@ -1,5 +1,6 @@
 mod chipset;
 mod print;
+mod opcodes;
 
 /// reexport chipset structs and data for simpler usage
 pub use chipset::*;
