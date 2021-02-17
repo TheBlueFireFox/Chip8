@@ -2,9 +2,9 @@ use alloc::rc::Rc;
 use core::cell::RefCell;
 
 use wasm_bindgen::prelude::*;
-use web_sys::{Document, Element, HtmlElement, Window};
+use web_sys::Element;
 
-use crate::timer::Worker;
+use crate::{helpers::BrowerWindow, timer::Worker};
 use chip::{
     chip8::ChipSet,
     devices::{DisplayCommands, Keyboard, KeyboardCommands},
@@ -12,43 +12,16 @@ use chip::{
     resources::Rom,
 };
 
-#[derive(Clone, Copy)]
-pub enum OperationWrapper {
-    None,
-    Wait,
-    Draw,
-}
+pub struct DisplayAdapter;
 
-impl From<Operation> for OperationWrapper {
-    fn from(op: Operation) -> Self {
-        match op {
-            Operation::None => Self::None,
-            Operation::Wait => Self::Wait,
-            Operation::Draw => Self::Draw,
-        }
-    }
-}
-
-impl Into<Operation> for OperationWrapper {
-    fn into(self) -> Operation {
-        match self {
-            OperationWrapper::None => Operation::None,
-            OperationWrapper::Wait => Operation::Wait,
-            OperationWrapper::Draw => Operation::Draw,
-        }
-    }
-}
-
-pub struct DisplayWrapper;
-
-impl DisplayWrapper {
+impl DisplayAdapter {
     fn new() -> Self {
-        DisplayWrapper {}
+        DisplayAdapter {}
     }
 
-    fn draw_board<'a>(pixels: &'a [&'a [bool]]) -> Result<Element, JsValue> {
-        let window = window();
-        let document = document(&window);
+    fn draw_board<'a>(pixels: &'a [&'a [bool]]) -> Result<(), JsValue> {
+        let html = BrowerWindow::new();
+        let document = html.document();
         let table = document.create_element("table")?;
         for row in pixels.iter() {
             let tr = document.create_element("tr")?;
@@ -64,28 +37,30 @@ impl DisplayWrapper {
             table.append_child(&tr)?;
         }
 
-        Ok(table)
+        html.body().append_child(&table)?;
+        
+        Ok(())
     }
 }
 
-impl DisplayCommands for DisplayWrapper {
+impl DisplayCommands for DisplayAdapter {
     fn display<'a>(&'a self, pixels: &'a [&'a [bool]]) {
         Self::draw_board(pixels).expect("something went wrong while working on the board");
     }
 }
 
 #[derive(Default)]
-pub struct KeyboardWrapper {
+pub struct KeyboardAdapter {
     keyboard: Keyboard,
 }
 
-impl KeyboardWrapper {
+impl KeyboardAdapter {
     fn new() -> Self {
         Self::default()
     }
 }
 
-impl KeyboardCommands for KeyboardWrapper {
+impl KeyboardCommands for KeyboardAdapter {
     fn was_pressed(&self) -> bool {
         todo!()
     }
@@ -104,18 +79,18 @@ impl KeyboardCommands for KeyboardWrapper {
 /// a single wrapper multiple are used.
 pub struct RunWrapper {
     pub(crate) chipset: Rc<RefCell<ChipSet<Worker>>>,
-    pub(crate) display: Rc<RefCell<DisplayWrapper>>,
-    pub(crate) keyboard: Rc<RefCell<KeyboardWrapper>>,
-    pub(crate) operation: Rc<RefCell<OperationWrapper>>,
+    pub(crate) display: Rc<RefCell<DisplayAdapter>>,
+    pub(crate) keyboard: Rc<RefCell<KeyboardAdapter>>,
+    pub(crate) operation: Rc<RefCell<Operation>>,
 }
 
 impl RunWrapper {
     pub(crate) fn new(rom: Rom) -> Self {
         Self {
             chipset: Rc::new(RefCell::new(ChipSet::new(rom))),
-            display: Rc::new(RefCell::new(DisplayWrapper::new())),
-            keyboard: Rc::new(RefCell::new(KeyboardWrapper::new())),
-            operation: Rc::new(RefCell::new(OperationWrapper::None)),
+            display: Rc::new(RefCell::new(DisplayAdapter::new())),
+            keyboard: Rc::new(RefCell::new(KeyboardAdapter::new())),
+            operation: Rc::new(RefCell::new(Operation::None)),
         }
     }
 }
@@ -129,23 +104,6 @@ pub(crate) fn run_wrapper(run_wrapper: &mut RunWrapper) {
     let last_op = &mut (*run_wrapper.operation.borrow_mut());
     let chip = &mut (*run_wrapper.chipset.borrow_mut());
 
-    let mut last_inner_op: Operation = OperationWrapper::into(*last_op);
-    let last_inner_op = &mut last_inner_op;
-
-    chip::run(chip, last_inner_op, display, keyboard)
+    chip::run(chip, last_op, display, keyboard)
         .expect("Something went wrong while stepping to the next step.");
-
-    *last_op = OperationWrapper::from(*last_inner_op);
-}
-
-pub(crate) fn window() -> Window {
-    web_sys::window().expect("no global `window` exists.")
-}
-
-pub(crate) fn document(window: &Window) -> Document {
-    window.document().expect("no document available")
-}
-
-pub(crate) fn body(document: &Document) -> HtmlElement {
-    document.body().expect("document should have a valid body")
 }

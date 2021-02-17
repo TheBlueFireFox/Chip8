@@ -1,4 +1,5 @@
-use std::{cell::RefCell, rc::Rc};
+use alloc::{rc::Rc, vec::Vec};
+use core::cell::RefCell;
 
 pub struct EventSystem<E> {
     observers: Vec<Rc<RefCell<dyn Observer<E>>>>,
@@ -28,8 +29,7 @@ pub trait Observer<E> {
 
 #[cfg(test)]
 mod tests {
-    use super::{EventSystem, Observer};
-    use std::{cell::RefCell, rc::Rc};
+    use super::*;
 
     #[derive(Copy, Clone, PartialEq, Debug)]
     pub enum ObserverEvents<T> {
