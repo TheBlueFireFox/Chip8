@@ -2,27 +2,28 @@ use wasm_bindgen::prelude::*;
 use web_sys::Element;
 
 use crate::{definitions, helpers::BrowserWindow, wrappers::*};
-use chip::{definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH}, devices::DisplayCommands, resources::RomArchives};
+use chip::{
+    definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH},
+    devices::DisplayCommands,
+    resources::RomArchives,
+};
 
 fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
-    let table = window
-        .document()
-        .create_element(definitions::field::TYPE)?;
+    let table = window.document().create_element(definitions::field::TYPE)?;
 
-    for _ in 0..DISPLAY_HEIGHT {
-        
-        for _ in 0..DISPLAY_WIDTH {
-            
-        }
-    }
+    let data = vec![vec![false; DISPLAY_WIDTH]; DISPLAY_HEIGHT];
 
+    let tmp: Vec<&[bool]> = data.iter().map(|f| &f[..]).collect();
 
+    DisplayAdapter::new().display(&tmp[..]);
 
     Ok(table)
 }
 
 fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsValue> {
-    let dropdown = window.document().create_element(definitions::selector::TYPE)?;
+    let dropdown = window
+        .document()
+        .create_element(definitions::selector::TYPE)?;
     dropdown.set_id(definitions::selector::ID);
     for file in files.into_iter() {
         let option = window.document().create_element("option")?;

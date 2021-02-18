@@ -13,7 +13,7 @@ use chip::{
 pub struct DisplayAdapter;
 
 impl DisplayAdapter {
-    fn new() -> Self {
+    pub fn new() -> Self {
         DisplayAdapter {}
     }
 
@@ -37,12 +37,12 @@ impl DisplayAdapter {
             table.append_child(&tr)?;
         }
 
-        // check if already exists, if exists remove element
+        // check if already exists, if exists replace element
         if let Some(element) = document.get_element_by_id(definitions::field::ID) {
-            element.remove();
+            let _ = document.replace_child(&table, &element)?;
+        } else {
+            html.body().append_child(&table)?;
         }
-
-        html.body().append_child(&table)?;
 
         Ok(())
     }
