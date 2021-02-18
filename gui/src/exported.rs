@@ -1,3 +1,4 @@
+use definitions::field;
 use wasm_bindgen::prelude::*;
 use web_sys::Element;
 
@@ -11,11 +12,19 @@ use chip::{
 fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     let table = window.document().create_element(definitions::field::TYPE)?;
 
-    let data = vec![vec![false; DISPLAY_WIDTH]; DISPLAY_HEIGHT];
-
-    let tmp: Vec<&[bool]> = data.iter().map(|f| &f[..]).collect();
-
-    DisplayAdapter::new().display(&tmp[..]);
+    for i in 0..DISPLAY_HEIGHT {
+        let tr = window.document().create_element(definitions::field::TYPE_ROW)?;
+        for j in 0..DISPLAY_WIDTH {
+            let td = window.document().create_element(definitions::field::TYPE_COLUMN)?;
+            if (i + j) % 2 == 0 {
+                td.set_class_name(definitions::field::ACTIVE); 
+            }
+            
+            tr.append_child(&td)?;
+            
+        }
+        table.append_child(&tr)?;
+    }
 
     Ok(table)
 }
@@ -29,6 +38,7 @@ fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsV
         let option = window.document().create_element("option")?;
         option.set_attribute("value", *file)?;
         option.set_text_content(Some(*file));
+        dropdown.append_child(&option)?;
     }
     Ok(dropdown)
 }
@@ -50,6 +60,7 @@ pub fn setup() -> Result<(), JsValue> {
     browser_window.body().append_child(&select)?;
 
     let board = create_board(&browser_window)?;
+
     browser_window.body().append_child(&board)?;
 
     Ok(())

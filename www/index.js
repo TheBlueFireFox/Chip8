@@ -1,4 +1,5 @@
 import * as wasm from "chip-eight";
 
 // start application
-wasm.main()
+wasm.setup()
+//wasm.main()
