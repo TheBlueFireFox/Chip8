@@ -7,7 +7,6 @@ use wasm_bindgen::prelude::*;
 use crate::{definitions, helpers::BrowserWindow, timer::Worker};
 use chip::{
     devices::{DisplayCommands, Keyboard, KeyboardCommands},
-    resources::Rom,
     Controller,
 };
 
@@ -85,10 +84,10 @@ pub struct Data {
     controller: Rc<RefCell<Controller<DisplayAdapter, KeyboardAdapter, Worker>>>,
 }
 
+#[wasm_bindgen]
 impl Data {
-    pub(crate) fn new(rom: Rom) -> Self {
-        let mut controller = Controller::new(DisplayAdapter::new(), KeyboardAdapter::new());
-        controller.set_rom(rom);
+    pub(crate) fn new() -> Self {
+        let controller = Controller::new(DisplayAdapter::new(), KeyboardAdapter::new());
 
         Self {
             controller: Rc::new(RefCell::new(controller)),
@@ -97,22 +96,28 @@ impl Data {
 
     /// Get a mutable reference to the data's controller.
     pub(crate) fn controller_mut(
-        &mut self,
+        &self,
     ) -> RefMut<'_, Controller<DisplayAdapter, KeyboardAdapter, Worker>> {
         self.controller.borrow_mut()
     }
 
     /// Get a reference to the data's controller.
-    pub(crate) fn controller(&self) -> Ref<'_, Controller<DisplayAdapter, KeyboardAdapter, Worker>> {
+    pub(crate) fn controller(
+        &self,
+    ) -> Ref<'_, Controller<DisplayAdapter, KeyboardAdapter, Worker>> {
         self.controller.borrow()
     }
-}
 
-/// Will convert the Data type into a mutable controller, so that 
-/// it can be used by the chip
-pub(crate) fn run(data: &mut Data) -> Result<(), JsValue> {
-    chip::run(&mut *data.controller_mut()).map_err(|err| {
-        let line = format!("Something went wrong while stepping to the next step.\n{}", err);
-        JsValue::from(line)
-    })  
+    /// Will convert the Data type into a mutable controller, so that
+    /// it can be used by the chip
+    #[wasm_bindgen]
+    pub fn run(&mut self) -> Result<(), JsValue> {
+        chip::run(&mut *self.controller_mut()).map_err(|err| {
+            let line = format!(
+                "Something went wrong while stepping to the next step.\n{}",
+                err
+            );
+            JsValue::from(line)
+        })
+    }
 }

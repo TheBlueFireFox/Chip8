@@ -1,12 +1,9 @@
-use std::borrow::Borrow;
-
 use wasm_bindgen::prelude::*;
 use web_sys::Element;
 
 use crate::{definitions, helpers::BrowserWindow, Data};
 use chip::{
     definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH},
-    devices::DisplayCommands,
     resources::RomArchives,
 };
 
@@ -48,7 +45,7 @@ fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsV
 }
 
 #[wasm_bindgen]
-pub fn setup() -> Result<(), JsValue> {
+pub fn setup() -> Result<Data, JsValue> {
     let browser_window = BrowserWindow::new();
     // create elements
     let val = browser_window.document().create_element("p")?;
@@ -67,22 +64,20 @@ pub fn setup() -> Result<(), JsValue> {
 
     browser_window.body().append_child(&board)?;
 
-    Ok(())
+    let data = Data::new();
+
+    Ok(data)
 }
 
-// TODO:
 #[wasm_bindgen]
-pub fn main(rom_name: &str) -> Result<(), JsValue> {
+pub fn setup_rom(data: &Data, rom_name: &str) -> Result<(), JsValue> {
     let mut ra = RomArchives::new();
 
     let rom = ra
         .get_file_data(&rom_name)
         .map_err(|err| JsValue::from(format!("{}", err)))?;
 
-    let data = Data::new(rom);
-
-
-
+    data.controller_mut().set_rom(rom);
 
     Ok(())
 }

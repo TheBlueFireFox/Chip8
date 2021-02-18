@@ -1,21 +1,30 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, usize};
 pub struct EventSystem<E> {
-    observers: Vec<Rc<RefCell<dyn Observer<E>>>>,
+    observers: HashMap<usize, Rc<RefCell<dyn Observer<E>>>>,
+    counter: usize,
 }
 
 impl<E> EventSystem<E> {
     pub fn new() -> Self {
         EventSystem {
-            observers: Vec::new(),
+            observers: HashMap::new(),
+            counter: 0,
         }
     }
 
-    pub fn register_observer(&mut self, observer: Rc<RefCell<dyn Observer<E>>>) {
-        self.observers.push(observer);
+    pub fn register_observer(&mut self, observer: Rc<RefCell<dyn Observer<E>>>) -> usize {
+        self.counter += 1;
+        self.observers.insert(self.counter, observer);
+        self.counter
+    }
+
+    pub fn remove_observer(&mut self, index: usize) -> Option<Rc<RefCell<dyn Observer<E>>>> {
+        // remove the index of the map 
+        self.observers.remove_entry(&index).map(|(_, val)| val)
     }
 
     pub fn handle_event(&mut self, event: &E) {
-        for observer in self.observers.iter_mut() {
+        for (_, observer) in self.observers.iter_mut() {
             observer.borrow_mut().on_notify(event);
         }
     }
