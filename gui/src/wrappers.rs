@@ -1,13 +1,12 @@
 use std::{
-    cell::{Cell, Ref, RefCell, RefMut},
+    cell::{Ref, RefCell, RefMut},
     rc::Rc,
 };
 use wasm_bindgen::prelude::*;
 
 use crate::{definitions, helpers::BrowserWindow, timer::Worker};
 use chip::{
-    devices::{DisplayCommands, Key, Keyboard, KeyboardCommands},
-    opcode::Operation,
+    devices::{DisplayCommands, Keyboard, KeyboardCommands},
     resources::Rom,
     Controller,
 };
@@ -77,15 +76,13 @@ impl KeyboardCommands for KeyboardAdapter {
     }
 }
 
-#[wasm_bindgen]
 /// This struct is the one that will be passed back and forth between
 /// JS and WASM, as WASM API only allow for `&T` or `T` and not `&mut T`  
 /// see [here](https://rustwasm.github.io/docs/wasm-bindgen/reference/types/jsvalue.html?highlight=JSV#jsvalue)
 /// a compromise had to be chosen, so here is `Rc<RefCell<>>` used.
-/// In addition to not have multiple borrows at the same time instead of
-/// a single wrapper multiple are used.
+#[wasm_bindgen]
 pub struct Data {
-    pub(crate) controller: Rc<RefCell<Controller<DisplayAdapter, KeyboardAdapter, Worker>>>
+    controller: Rc<RefCell<Controller<DisplayAdapter, KeyboardAdapter, Worker>>>,
 }
 
 impl Data {
@@ -99,28 +96,23 @@ impl Data {
     }
 
     /// Get a mutable reference to the data's controller.
-    fn controller_mut(
+    pub(crate) fn controller_mut(
         &mut self,
     ) -> RefMut<'_, Controller<DisplayAdapter, KeyboardAdapter, Worker>> {
         self.controller.borrow_mut()
     }
 
     /// Get a reference to the data's controller.
-    fn controller(&self) -> Ref<'_, Controller<DisplayAdapter, KeyboardAdapter, Worker>> {
+    pub(crate) fn controller(&self) -> Ref<'_, Controller<DisplayAdapter, KeyboardAdapter, Worker>> {
         self.controller.borrow()
     }
 }
 
-/// This is a wrapper function designed to split the `RunWrapper`
-/// into it's internal parts to be used by the chip run function.
-/// It also translates from the external datatypes to the internally
-/// used ones.
-pub(crate) fn run(data: &mut Data) {
-    // using this block to stop the mutable borrow from the data struct
-    {
-        // depacking the controller into it's own parts, so that it can be used below
-        let controller = &mut *data.controller_mut();
-
-        chip::run(controller).expect("Something went wrong while stepping to the next step.");
-    }
+/// Will convert the Data type into a mutable controller, so that 
+/// it can be used by the chip
+pub(crate) fn run(data: &mut Data) -> Result<(), JsValue> {
+    chip::run(&mut *data.controller_mut()).map_err(|err| {
+        let line = format!("Something went wrong while stepping to the next step.\n{}", err);
+        JsValue::from(line)
+    })  
 }

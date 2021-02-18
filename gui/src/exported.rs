@@ -1,13 +1,13 @@
-use definitions::field;
+use std::borrow::Borrow;
+
 use wasm_bindgen::prelude::*;
 use web_sys::Element;
 
-use crate::{definitions, helpers::BrowserWindow, wrappers::*};
+use crate::{definitions, helpers::BrowserWindow, Data};
 use chip::{
     definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH},
     devices::DisplayCommands,
     resources::RomArchives,
-    Controller,
 };
 
 fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
@@ -70,28 +70,19 @@ pub fn setup() -> Result<(), JsValue> {
     Ok(())
 }
 
-// TODO: 
-// #[wasm_bindgen]
-// pub fn main(rom_name: String) -> Result<(), JsValue> {
-//     let mut ra = RomArchives::new();
-// 
-//     let rom = ra
-//         .get_file_data(&rom_name)
-//         .expect("Some unknown rom name was used to get the file data.");
-// 
-//     let run_wrapper = Data::new(rom);
-//     let Controller {
-//         chipset, display, ..
-//     } = &*run_wrapper.controller.borrow();
-// 
-//     let chip = chipset
-//         .as_ref()
-//         .expect("Assuming the chip was incorrectly setup, one should never see this line...");
-//     display.display(&chip.get_display());
-// 
-//     // let val = document.create_element("pre")?;
-//     // val.set_inner_html(&format!("{}", chip));
-//     // body.append_child(&val)?;
-// 
-//     Ok(())
-// }
+// TODO:
+#[wasm_bindgen]
+pub fn main(rom_name: &str) -> Result<(), JsValue> {
+    let mut ra = RomArchives::new();
+
+    let rom = ra
+        .get_file_data(&rom_name)
+        .map_err(|err| JsValue::from(format!("{}", err)))?;
+
+    let data = Data::new(rom);
+
+
+
+
+    Ok(())
+}

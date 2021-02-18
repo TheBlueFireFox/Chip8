@@ -91,20 +91,21 @@ where
         .as_mut()
         .expect("There is no valid chipset initialized.");
 
-    let work = if matches!(last_op, Operation::Wait) {
-        /* wait for user input */
-        keyboard.was_pressed()
-    } else {
-        true
+    let work = match last_op {
+        Operation::Wait => keyboard.was_pressed(),
+        _ => false,
     };
 
     if work {
         // run chip
         *last_op = chip.next()?;
 
-        if matches!(last_op, Operation::Draw) {
-            /* draw the screen */
-            display.display(&chip.get_display()[..]);
+        match last_op {
+            Operation::Draw => {
+                /* draw the screen */
+                display.display(&chip.get_display()[..]);
+            }
+            _ => {}
         }
     }
     Ok(())
