@@ -1,13 +1,15 @@
-use definitions::field;
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Cell, Ref, RefCell, RefMut},
+    rc::Rc,
+};
 use wasm_bindgen::prelude::*;
 
 use crate::{definitions, helpers::BrowserWindow, timer::Worker};
 use chip::{
-    chip8::ChipSet,
-    devices::{DisplayCommands, Keyboard, KeyboardCommands},
+    devices::{DisplayCommands, Key, Keyboard, KeyboardCommands},
     opcode::Operation,
     resources::Rom,
+    Controller,
 };
 
 pub struct DisplayAdapter;
@@ -83,32 +85,42 @@ impl KeyboardCommands for KeyboardAdapter {
 /// In addition to not have multiple borrows at the same time instead of
 /// a single wrapper multiple are used.
 pub struct Data {
-    pub(crate) chipset: Rc<RefCell<ChipSet<Worker>>>,
-    pub(crate) display: Rc<RefCell<DisplayAdapter>>,
-    pub(crate) keyboard: Rc<RefCell<KeyboardAdapter>>,
-    pub(crate) operation: Rc<RefCell<Operation>>,
+    pub(crate) controller: Rc<RefCell<Controller<DisplayAdapter, KeyboardAdapter, Worker>>>
 }
 
 impl Data {
     pub(crate) fn new(rom: Rom) -> Self {
+        let mut controller = Controller::new(DisplayAdapter::new(), KeyboardAdapter::new());
+        controller.set_rom(rom);
+
         Self {
-            chipset: Rc::new(RefCell::new(ChipSet::new(rom))),
-            display: Rc::new(RefCell::new(DisplayAdapter::new())),
-            keyboard: Rc::new(RefCell::new(KeyboardAdapter::new())),
-            operation: Rc::new(RefCell::new(Operation::None)),
+            controller: Rc::new(RefCell::new(controller)),
         }
+    }
+
+    /// Get a mutable reference to the data's controller.
+    fn controller_mut(
+        &mut self,
+    ) -> RefMut<'_, Controller<DisplayAdapter, KeyboardAdapter, Worker>> {
+        self.controller.borrow_mut()
+    }
+
+    /// Get a reference to the data's controller.
+    fn controller(&self) -> Ref<'_, Controller<DisplayAdapter, KeyboardAdapter, Worker>> {
+        self.controller.borrow()
     }
 }
 
 /// This is a wrapper function designed to split the `RunWrapper`
 /// into it's internal parts to be used by the chip run function.
-/// It also translates from the external
-pub(crate) fn run(run_wrapper: &mut Data) {
-    let display = &(*run_wrapper.display.borrow());
-    let keyboard = &(*run_wrapper.keyboard.borrow());
-    let last_op = &mut (*run_wrapper.operation.borrow_mut());
-    let chip = &mut (*run_wrapper.chipset.borrow_mut());
+/// It also translates from the external datatypes to the internally
+/// used ones.
+pub(crate) fn run(data: &mut Data) {
+    // using this block to stop the mutable borrow from the data struct
+    {
+        // depacking the controller into it's own parts, so that it can be used below
+        let controller = &mut *data.controller_mut();
 
-    chip::run(chip, last_op, display, keyboard)
-        .expect("Something went wrong while stepping to the next step.");
+        chip::run(controller).expect("Something went wrong while stepping to the next step.");
+    }
 }

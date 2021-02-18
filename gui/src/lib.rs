@@ -1,5 +1,4 @@
 mod observer;
-mod controller;
 mod timer;
 mod wrappers;
 mod exported;

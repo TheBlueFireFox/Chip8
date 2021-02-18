@@ -7,21 +7,25 @@ use chip::{
     definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH},
     devices::DisplayCommands,
     resources::RomArchives,
+    Controller,
 };
 
 fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     let table = window.document().create_element(definitions::field::TYPE)?;
 
     for i in 0..DISPLAY_HEIGHT {
-        let tr = window.document().create_element(definitions::field::TYPE_ROW)?;
+        let tr = window
+            .document()
+            .create_element(definitions::field::TYPE_ROW)?;
         for j in 0..DISPLAY_WIDTH {
-            let td = window.document().create_element(definitions::field::TYPE_COLUMN)?;
+            let td = window
+                .document()
+                .create_element(definitions::field::TYPE_COLUMN)?;
             if (i + j) % 2 == 0 {
-                td.set_class_name(definitions::field::ACTIVE); 
+                td.set_class_name(definitions::field::ACTIVE);
             }
-            
+
             tr.append_child(&td)?;
-            
         }
         table.append_child(&tr)?;
     }
@@ -66,22 +70,28 @@ pub fn setup() -> Result<(), JsValue> {
     Ok(())
 }
 
-#[wasm_bindgen]
-pub fn main(rom_name: String) -> Result<(), JsValue> {
-    let mut ra = RomArchives::new();
-
-    let rom = ra
-        .get_file_data(&rom_name)
-        .expect("Some unknown rom name was used to get the file data.");
-
-    let run_wrapper = Data::new(rom);
-    let chip = &mut *run_wrapper.chipset.borrow_mut();
-
-    run_wrapper.display.borrow().display(&chip.get_display());
-
-    // let val = document.create_element("pre")?;
-    // val.set_inner_html(&format!("{}", chip));
-    // body.append_child(&val)?;
-
-    Ok(())
-}
+// TODO: 
+// #[wasm_bindgen]
+// pub fn main(rom_name: String) -> Result<(), JsValue> {
+//     let mut ra = RomArchives::new();
+// 
+//     let rom = ra
+//         .get_file_data(&rom_name)
+//         .expect("Some unknown rom name was used to get the file data.");
+// 
+//     let run_wrapper = Data::new(rom);
+//     let Controller {
+//         chipset, display, ..
+//     } = &*run_wrapper.controller.borrow();
+// 
+//     let chip = chipset
+//         .as_ref()
+//         .expect("Assuming the chip was incorrectly setup, one should never see this line...");
+//     display.display(&chip.get_display());
+// 
+//     // let val = document.create_element("pre")?;
+//     // val.set_inner_html(&format!("{}", chip));
+//     // body.append_child(&val)?;
+// 
+//     Ok(())
+// }
