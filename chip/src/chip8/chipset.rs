@@ -6,10 +6,7 @@ use {
         },
         devices::Keyboard,
         fontset::FONSET,
-        opcode::{
-            self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter,
-            ProgramCounterStep,
-        },
+        opcode::{self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter, ProgramCounterStep},
         resources::Rom,
         timer::Timed,
         timer::{TimedWorker, Timer},

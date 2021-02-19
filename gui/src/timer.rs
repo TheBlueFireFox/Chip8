@@ -1,7 +1,7 @@
 use chip::timer::TimedWorker;
-use wasm_bindgen::{JsCast, prelude::*};
-use web_sys::Window;
 use core::time::Duration;
+use wasm_bindgen::{prelude::*, JsCast};
+use web_sys::Window;
 
 fn window() -> Window {
     web_sys::window().expect("No `global` window found")

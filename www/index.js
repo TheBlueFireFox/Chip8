@@ -1,5 +1,5 @@
 import * as wasm from "chip-eight";
 
 // start application
-wasm.setup()
-//wasm.main()
+let data = wasm.setup()
+setInterval(data.run, data.interval())

@@ -89,7 +89,7 @@ where
     let last_op = operation;
     let chip = chipset
         .as_mut()
-        .expect("There is no valid chipset initialized.");
+        .ok_or_else(|| "There is no valid chipset initialized.".to_string())?;
 
     let work = match last_op {
         Operation::Wait => keyboard.was_pressed(),

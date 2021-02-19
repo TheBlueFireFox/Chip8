@@ -19,7 +19,7 @@ impl<E> EventSystem<E> {
     }
 
     pub fn remove_observer(&mut self, index: usize) -> Option<Rc<RefCell<dyn Observer<E>>>> {
-        // remove the index of the map 
+        // remove the index of the map
         self.observers.remove_entry(&index).map(|(_, val)| val)
     }
 

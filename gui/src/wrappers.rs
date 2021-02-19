@@ -82,6 +82,7 @@ impl KeyboardCommands for KeyboardAdapter {
 #[wasm_bindgen]
 pub struct Data {
     controller: Rc<RefCell<Controller<DisplayAdapter, KeyboardAdapter, Worker>>>,
+    interval: u32,
 }
 
 #[wasm_bindgen]
@@ -91,6 +92,7 @@ impl Data {
 
         Self {
             controller: Rc::new(RefCell::new(controller)),
+            interval: chip::definitions::CPU_INTERVAL as u32,
         }
     }
 
@@ -119,5 +121,11 @@ impl Data {
             );
             JsValue::from(line)
         })
+    }
+
+    /// Get a reference to the data's interval.
+    #[wasm_bindgen]
+    pub fn interval(&self) -> u32 {
+        self.interval
     }
 }

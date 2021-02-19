@@ -3,7 +3,7 @@ use crate::definitions::KEYBOARD_SIZE;
 /// The traits responsible for the display based code
 pub trait DisplayCommands {
     /// Will display all from the pixels
-    fn display<'a>(&'a self, pixels: &'a[&'a [bool]]);
+    fn display<'a>(&'a self, pixels: &'a [&'a [bool]]);
 }
 
 /// The trait responsible for writing the keyboard data
@@ -109,4 +109,3 @@ impl Keyboard {
         self.last
     }
 }
-

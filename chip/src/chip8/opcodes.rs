@@ -1,4 +1,8 @@
-use crate::{definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH, FONTSET_LOCATION, REGISTER_LAST}, opcode::{ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep}, timer::{Timed, TimedWorker}};
+use crate::{
+    definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH, FONTSET_LOCATION, REGISTER_LAST},
+    opcode::{ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep},
+    timer::{Timed, TimedWorker},
+};
 
 use super::ChipSet;
 
