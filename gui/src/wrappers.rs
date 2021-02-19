@@ -7,6 +7,8 @@ use wasm_bindgen::prelude::*;
 use crate::{definitions, helpers::BrowserWindow, timer::Worker};
 use chip::{
     devices::{DisplayCommands, Keyboard, KeyboardCommands},
+    resources::RomArchives,
+    timer::TimedWorker,
     Controller,
 };
 
@@ -83,6 +85,7 @@ impl KeyboardCommands for KeyboardAdapter {
 pub struct Data {
     controller: Rc<RefCell<Controller<DisplayAdapter, KeyboardAdapter, Worker>>>,
     interval: u32,
+    worker: Worker,
 }
 
 #[wasm_bindgen]
@@ -93,6 +96,7 @@ impl Data {
         Self {
             controller: Rc::new(RefCell::new(controller)),
             interval: chip::definitions::CPU_INTERVAL as u32,
+            worker: Worker::new(),
         }
     }
 
@@ -110,10 +114,20 @@ impl Data {
         self.controller.borrow()
     }
 
+    /// Get a reference to the data's interval.
+    pub fn interval(&self) -> u32 {
+        self.interval
+    }
+
+    /// Get a reference to the data's callback id.
+    pub fn callback_id(&self) -> Option<i32> {
+        self.worker.interval_id()
+    }
+
     /// Will convert the Data type into a mutable controller, so that
-    /// it can be used by the chip
-    #[wasm_bindgen]
-    pub fn run(&mut self) -> Result<(), JsValue> {
+    /// it can be used by the chip, this will run a single opcode of the
+    /// chip.
+    fn chip_step(&mut self) -> Result<(), JsValue> {
         chip::run(&mut *self.controller_mut()).map_err(|err| {
             let line = format!(
                 "Something went wrong while stepping to the next step.\n{}",
@@ -123,9 +137,22 @@ impl Data {
         })
     }
 
-    /// Get a reference to the data's interval.
-    #[wasm_bindgen]
-    pub fn interval(&self) -> u32 {
-        self.interval
+    pub fn start(&mut self, rom_name: &str) -> Result<(), JsValue> {
+        let mut ra = RomArchives::new();
+
+        let rom = ra
+            .get_file_data(&rom_name)
+            .map_err(|err| JsValue::from(format!("{}", err)))?;
+
+        self.controller_mut().set_rom(rom);
+
+        // TODO: setup interval worker
+
+        Ok(())
+    }
+    /// Will clear the interval that is running the application
+    pub fn stop(&mut self) {
+        // stop executing chip
+        self.worker.stop();
     }
 }

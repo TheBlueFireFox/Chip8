@@ -1,16 +1,21 @@
-use chip::timer::TimedWorker;
-use core::time::Duration;
+use std::time::Duration;
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::Window;
 
-fn window() -> Window {
-    web_sys::window().expect("No `global` window found")
-}
+use crate::helpers::BrowserWindow;
+use chip::timer::TimedWorker;
 
 /// see here https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/closure/struct.Closure.html#using-the-setinterval-api
 pub(super) struct Worker {
     interval_id: Option<i32>,
     function: Option<Closure<dyn FnMut()>>,
+    browser: BrowserWindow,
+}
+
+impl Worker {
+    /// Get a reference to the worker's interval id.
+    pub(crate) fn interval_id(&self) -> Option<i32> {
+        self.interval_id
+    }
 }
 
 impl TimedWorker for Worker {
@@ -18,6 +23,7 @@ impl TimedWorker for Worker {
         Self {
             interval_id: None,
             function: None,
+            browser: BrowserWindow::new(),
         }
     }
 
@@ -30,7 +36,9 @@ impl TimedWorker for Worker {
 
         let function = Closure::wrap(Box::new(callback) as Box<dyn FnMut()>);
 
-        let interval_id = window()
+        let interval_id = self
+            .browser
+            .window()
             .set_interval_with_callback_and_timeout_and_arguments_0(
                 function.as_ref().unchecked_ref(),
                 interval.as_millis() as i32,
@@ -42,7 +50,7 @@ impl TimedWorker for Worker {
 
     fn stop(&mut self) {
         if let Some(id) = self.interval_id.take() {
-            window().clear_interval_with_handle(id);
+            self.browser.window().clear_interval_with_handle(id);
         }
     }
 

@@ -69,15 +69,3 @@ pub fn setup() -> Result<Data, JsValue> {
     Ok(data)
 }
 
-#[wasm_bindgen]
-pub fn setup_rom(data: &Data, rom_name: &str) -> Result<(), JsValue> {
-    let mut ra = RomArchives::new();
-
-    let rom = ra
-        .get_file_data(&rom_name)
-        .map_err(|err| JsValue::from(format!("{}", err)))?;
-
-    data.controller_mut().set_rom(rom);
-
-    Ok(())
-}
