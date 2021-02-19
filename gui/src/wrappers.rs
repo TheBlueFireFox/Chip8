@@ -1,14 +1,18 @@
 use std::{
     cell::{Ref, RefCell, RefMut},
     rc::Rc,
+    time::Duration,
 };
 use wasm_bindgen::prelude::*;
 
-use crate::{definitions, helpers::BrowserWindow, timer::Worker};
+use crate::{
+    definitions,
+    helpers::BrowserWindow,
+    timer::{WasmWorker, Worker},
+};
 use chip::{
     devices::{DisplayCommands, Keyboard, KeyboardCommands},
     resources::RomArchives,
-    timer::TimedWorker,
     Controller,
 };
 
@@ -85,7 +89,7 @@ impl KeyboardCommands for KeyboardAdapter {
 pub struct Data {
     controller: Rc<RefCell<Controller<DisplayAdapter, KeyboardAdapter, Worker>>>,
     interval: u32,
-    worker: Worker,
+    worker: WasmWorker,
 }
 
 #[wasm_bindgen]
@@ -96,7 +100,7 @@ impl Data {
         Self {
             controller: Rc::new(RefCell::new(controller)),
             interval: chip::definitions::CPU_INTERVAL as u32,
-            worker: Worker::new(),
+            worker: WasmWorker::new(),
         }
     }
 
@@ -124,19 +128,7 @@ impl Data {
         self.worker.interval_id()
     }
 
-    /// Will convert the Data type into a mutable controller, so that
-    /// it can be used by the chip, this will run a single opcode of the
-    /// chip.
-    fn chip_step(&mut self) -> Result<(), JsValue> {
-        chip::run(&mut *self.controller_mut()).map_err(|err| {
-            let line = format!(
-                "Something went wrong while stepping to the next step.\n{}",
-                err
-            );
-            JsValue::from(line)
-        })
-    }
-
+    /// Will start executing the 
     pub fn start(&mut self, rom_name: &str) -> Result<(), JsValue> {
         let mut ra = RomArchives::new();
 
@@ -146,10 +138,24 @@ impl Data {
 
         self.controller_mut().set_rom(rom);
 
-        // TODO: setup interval worker
+        // Will setup the worker
+        let controller = self.controller.clone();
+
+        // Will convert the Data type into a mutable controller, so that
+        // it can be used by the chip, this will run a single opcode of the
+        // chip.
+        let callback = move || {
+            chip::run(&mut *controller.borrow_mut())
+                .expect("Something went wrong while stepping to the next step.");
+        };
+        self.worker.start(
+            callback,
+            Duration::from_micros(chip::definitions::CPU_INTERVAL),
+        )?;
 
         Ok(())
     }
+
     /// Will clear the interval that is running the application
     pub fn stop(&mut self) {
         // stop executing chip

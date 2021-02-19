@@ -88,11 +88,18 @@ pub(super) struct Worker {
 }
 
 pub trait TimedWorker {
+    /// Will create the respective timer
+    /// The reason that this is a required method
+    /// is so that the implementing types can 
+    /// instantiate it them selves.
     fn new() -> Self;
+    /// Will start the timed worker every the interval
     fn start<T>(&mut self, callback: T, interval: Duration)
     where
         T: Send + FnMut() + 'static;
+    /// Will stop the timed worker
     fn stop(&mut self);
+    /// Will check if the worker is currntly working
     fn is_alive(&self) -> bool;
 }
 
@@ -171,6 +178,9 @@ impl TimedWorker for Worker {
 
     /// Checks if the thread is alive.
     fn is_alive(&self) -> bool {
+        // This is okay as there can ever only be a single second thread around, so 
+        // the problem that there might be a reference count change right during 
+        // function execution is given the implementation rare.
         Arc::strong_count(&self.alive) > 1
     }
 }
