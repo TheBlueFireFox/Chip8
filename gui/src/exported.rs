@@ -139,13 +139,16 @@ impl JsBoundData {
         self.controller_mut().set_rom(rom);
 
         // Will setup the worker
-        let controller = self.controller.clone();
+        let ccontroller = self.controller.clone();
 
         // Will convert the Data type into a mutable controller, so that
         // it can be used by the chip, this will run a single opcode of the
         // chip.
         let callback = move || {
-            chip::run(&mut *controller.borrow_mut())
+            // moving the ccontroller into this closure
+            let mut controller = ccontroller.borrow_mut();
+            // running the chip step
+            chip::run(&mut controller)
                 .expect("Something went wrong while stepping to the next step.");
         };
         self.worker.start(
