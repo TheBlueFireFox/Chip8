@@ -4,13 +4,13 @@ use wasm_bindgen::{prelude::*, JsCast};
 use crate::helpers::BrowserWindow;
 use chip::timer::TimedWorker;
 
-pub(crate) struct Worker {
+pub(crate) struct TimingWorker {
     /// Wrapps the actuall implementation so that the TimedWorker thread condition,
     /// for the Timer can be fullfilled correctly.
     worker: WasmWorker,
 }
 
-impl TimedWorker for Worker {
+impl TimedWorker for TimingWorker {
     fn new() -> Self {
         Self {
             worker: WasmWorker::new(),
