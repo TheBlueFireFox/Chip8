@@ -1,9 +1,14 @@
-use wasm_bindgen::prelude::*;
+use std::{cell::RefCell, rc::Rc};
 
-use crate::{definitions, utils::BrowserWindow};
+use wasm_bindgen::prelude::*;
+use crate::{
+    definitions,
+    observer::{EventSystem, Observer},
+    utils::BrowserWindow,
+};
 use chip::devices::{DisplayCommands, Keyboard, KeyboardCommands};
 
-pub struct DisplayAdapter;
+pub(crate) struct DisplayAdapter;
 
 impl DisplayAdapter {
     pub fn new() -> Self {
@@ -47,14 +52,24 @@ impl DisplayCommands for DisplayAdapter {
     }
 }
 
-#[derive(Default)]
-pub struct KeyboardAdapter {
+pub(crate) struct KeyboardAdapter {
     keyboard: Keyboard,
+    event_system: EventSystem<usize>,
 }
 
 impl KeyboardAdapter {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            keyboard: Keyboard::new(),
+            event_system: EventSystem::new(),
+        }
+    }
+
+    pub fn register_callback<T>(&mut self, data: Rc<RefCell<T>>)
+    where
+        T: Observer<usize> + 'static,
+    {
+        self.event_system.register_observer(data);
     }
 
     /// Get a reference to the keyboard adapter's keyboard.
@@ -65,7 +80,7 @@ impl KeyboardAdapter {
 
 impl KeyboardCommands for KeyboardAdapter {
     fn was_pressed(&self) -> bool {
-        todo!()
+        self.keyboard.get_last().is_some()
     }
 
     fn get_keyboard(&self) -> &[bool] {

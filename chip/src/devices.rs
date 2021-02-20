@@ -104,7 +104,7 @@ impl Keyboard {
         &self.keys
     }
 
-    /// Will get the last changes key
+    /// Will get the last changes key 
     pub fn get_last(&self) -> Option<Key> {
         self.last
     }

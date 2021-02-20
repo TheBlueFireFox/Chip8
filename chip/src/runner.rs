@@ -6,15 +6,15 @@ use crate::{
     timer::TimedWorker,
 };
 
-pub struct Controller<D, K, T>
+pub struct Controller<D, K, W>
 where
     D: DisplayCommands,
     K: KeyboardCommands,
-    T: TimedWorker,
+    W: TimedWorker,
 {
     display: D,
     keyboard: K,
-    chipset: Option<ChipSet<T>>,
+    chipset: Option<ChipSet<W>>,
     operation: Operation,
 }
 
@@ -38,8 +38,8 @@ where
         &self.chipset
     }
 
-    pub fn chipset_mut(&mut self) -> &mut Option<ChipSet<W>> {
-        &mut self.chipset
+    pub fn chipset_mut(&mut self) -> Option<&mut ChipSet<W>> {
+        self.chipset.as_mut()
     }
 
     /// Set the controller's chipset.

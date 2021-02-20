@@ -10,11 +10,13 @@ use web_sys::Element;
 use crate::{
     adapters::{DisplayAdapter, KeyboardAdapter},
     definitions,
+    observer::{EventSystem, Observer},
     timer::{TimingWorker, WasmWorker},
     utils::{set_panic_hook, BrowserWindow},
 };
 use chip::{
     definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH},
+    devices::Key,
     resources::RomArchives,
     Controller,
 };
@@ -84,46 +86,69 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
     Ok(data)
 }
 
+struct ObservedKeypress {
+    controller: Rc<RefCell<InternalController>>,
+}
+
+impl ObservedKeypress {
+    fn new(controller: Rc<RefCell<InternalController>>) -> Self {
+        Self { controller }
+    }
+}
+
+impl Observer<Key> for ObservedKeypress {
+    fn on_notify(&mut self, event: &Key) {
+        self.controller
+            .borrow_mut()
+            .chipset_mut()
+            .expect("Extracting the chipset from the controller, went terribly wrong!")
+            .set_key(event.get_index(), event.get_current());
+    }
+}
+
+/// As the Controller has multiple long parameters, this
+/// type is used to abriviate the given configuration.
+type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWorker>;
+
 /// This struct is the one that will be passed back and forth between
 /// JS and WASM, as WASM API only allow for `&T` or `T` and not `&mut T`  
 /// see [here](https://rustwasm.github.io/docs/wasm-bindgen/reference/types/jsvalue.html?highlight=JSV#jsvalue)
 /// a compromise had to be chosen, so here is `Rc<RefCell<>>` used.
 #[wasm_bindgen]
 pub struct JsBoundData {
-    controller: Rc<RefCell<Controller<DisplayAdapter, KeyboardAdapter, TimingWorker>>>,
-    interval: u32,
+    controller: Rc<RefCell<InternalController>>,
     worker: WasmWorker,
+    keypress_event: EventSystem<Key>,
 }
 
 #[wasm_bindgen]
 impl JsBoundData {
     pub(crate) fn new() -> Self {
         let controller = Controller::new(DisplayAdapter::new(), KeyboardAdapter::new());
+        let rc_controller = Rc::new(RefCell::new(controller));
+        let mut eh = EventSystem::new();
 
-        Self {
-            controller: Rc::new(RefCell::new(controller)),
-            interval: chip::definitions::CPU_INTERVAL as u32,
+        let keypress = ObservedKeypress::new(rc_controller.clone());
+        let keypress = Rc::new(RefCell::new(keypress));
+        eh.register_observer(keypress);
+
+        let res = Self {
+            controller: rc_controller,
             worker: WasmWorker::new(),
-        }
+            keypress_event: eh,
+        };
+
+        res
     }
 
     /// Get a mutable reference to the data's controller.
-    pub(crate) fn controller_mut(
-        &self,
-    ) -> RefMut<'_, Controller<DisplayAdapter, KeyboardAdapter, TimingWorker>> {
+    pub(crate) fn controller_mut(&self) -> RefMut<'_, InternalController> {
         self.controller.borrow_mut()
     }
 
     /// Get a reference to the data's controller.
-    pub(crate) fn controller(
-        &self,
-    ) -> Ref<'_, Controller<DisplayAdapter, KeyboardAdapter, TimingWorker>> {
+    pub(crate) fn controller(&self) -> Ref<'_, InternalController> {
         self.controller.borrow()
-    }
-
-    /// Get a reference to the data's interval.
-    pub fn interval(&self) -> u32 {
-        self.interval
     }
 
     /// Will start executing the
