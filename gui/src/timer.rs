@@ -90,10 +90,6 @@ impl WasmWorker {
     pub(crate) fn is_alive(&self) -> bool {
         self.interval_id.is_some()
     }
-
-    pub(crate) fn interval_id(&self) -> Option<i32> {
-        self.interval_id
-    }
 }
 
 impl Drop for WasmWorker {

@@ -5,5 +5,4 @@ mod observer;
 mod timer;
 mod utils;
 
-pub use adapters::*;
 pub use exported::*;

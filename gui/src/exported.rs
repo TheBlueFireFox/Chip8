@@ -8,10 +8,10 @@ use wasm_bindgen::prelude::*;
 use web_sys::Element;
 
 use crate::{
+    adapters::{DisplayAdapter, KeyboardAdapter},
     definitions,
     timer::{TimingWorker, WasmWorker},
-    utils::BrowserWindow,
-    DisplayAdapter, KeyboardAdapter,
+    utils::{set_panic_hook, BrowserWindow},
 };
 use chip::{
     definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH},
@@ -58,6 +58,9 @@ fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsV
 
 #[wasm_bindgen]
 pub fn setup() -> Result<JsBoundData, JsValue> {
+    // will set the panic hook to be the console logs
+    set_panic_hook();
+
     let browser_window = BrowserWindow::new();
     // create elements
     let val = browser_window.document().create_element("p")?;
@@ -121,11 +124,6 @@ impl JsBoundData {
     /// Get a reference to the data's interval.
     pub fn interval(&self) -> u32 {
         self.interval
-    }
-
-    /// Get a reference to the data's callback id.
-    pub fn callback_id(&self) -> Option<i32> {
-        self.worker.interval_id()
     }
 
     /// Will start executing the
