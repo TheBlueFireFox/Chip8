@@ -1,12 +1,7 @@
 use wasm_bindgen::prelude::*;
 
-use crate::{
-    definitions,
-    helpers::BrowserWindow,
-};
-use chip::{
-    devices::{DisplayCommands, Keyboard, KeyboardCommands},
-};
+use crate::{definitions, utils::BrowserWindow};
+use chip::devices::{DisplayCommands, Keyboard, KeyboardCommands};
 
 pub struct DisplayAdapter;
 
@@ -60,6 +55,11 @@ pub struct KeyboardAdapter {
 impl KeyboardAdapter {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Get a reference to the keyboard adapter's keyboard.
+    pub fn keyboard(&self) -> &Keyboard {
+        &self.keyboard
     }
 }
 

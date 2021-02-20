@@ -1,4 +1,35 @@
+use web_sys::{Document, HtmlElement, Window};
+pub(crate) struct BrowserWindow {
+    window: Window,
+    document: Document,
+    body: HtmlElement,
+}
 
+impl BrowserWindow {
+    pub fn new() -> Self {
+        let window = web_sys::window().expect("no global `window` exists.");
+        let document = window.document().expect("no document available");
+        let body = document.body().expect("document should have a valid body");
+        Self {
+            window,
+            document,
+            body,
+        }
+    }
+    pub fn window(&self) -> &Window {
+        &self.window
+    }
+    pub fn document(&self) -> &Document {
+        &self.document
+    }
+
+    pub fn body(&self) -> &HtmlElement {
+        &self.body
+    }
+}
+
+/// This is the panic hook it will be called by the JS runtime itself
+/// if something happends.
 pub fn set_panic_hook() {
     // When the `console_error_panic_hook` feature is enabled, we can call the
     // `set_panic_hook` function at least once during initialization, and then

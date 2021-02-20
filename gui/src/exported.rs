@@ -1,10 +1,23 @@
-use std::{cell::{Ref, RefCell, RefMut}, rc::Rc, time::Duration};
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    rc::Rc,
+    time::Duration,
+};
 
 use wasm_bindgen::prelude::*;
 use web_sys::Element;
 
-use crate::{DisplayAdapter, KeyboardAdapter, definitions, helpers::BrowserWindow, timer::{TimingWorker, WasmWorker}};
-use chip::{Controller, definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH}, resources::RomArchives};
+use crate::{
+    definitions,
+    timer::{TimingWorker, WasmWorker},
+    utils::BrowserWindow,
+    DisplayAdapter, KeyboardAdapter,
+};
+use chip::{
+    definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH},
+    resources::RomArchives,
+    Controller,
+};
 
 fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     let table = window.document().create_element(definitions::field::TYPE)?;
@@ -115,7 +128,7 @@ impl JsBoundData {
         self.worker.interval_id()
     }
 
-    /// Will start executing the 
+    /// Will start executing the
     pub fn start(&mut self, rom_name: &str) -> Result<(), JsValue> {
         let mut ra = RomArchives::new();
 

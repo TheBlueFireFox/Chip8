@@ -1,7 +1,7 @@
 use std::time::Duration;
 use wasm_bindgen::{prelude::*, JsCast};
 
-use crate::helpers::BrowserWindow;
+use crate::utils::BrowserWindow;
 use chip::timer::TimedWorker;
 
 pub(crate) struct TimingWorker {
@@ -36,14 +36,14 @@ impl TimedWorker for TimingWorker {
 }
 
 /// The actuall worker for the peudo-wasm-thread.
-/// The start function in this version does not 
-/// need the Send bound, as well as to send the 
+/// The start function in this version does not
+/// need the Send bound, as well as to send the
 /// Controller over a !Send is requiered.
 pub(crate) struct WasmWorker {
     /// The by JS given interval id.
     interval_id: Option<i32>,
     /// The Closure object that has to be held
-    /// or the function will stop executing 
+    /// or the function will stop executing
     /// and crash after the drop is called.
     function: Option<Closure<dyn FnMut()>>,
     /// The browser window object wrapper
