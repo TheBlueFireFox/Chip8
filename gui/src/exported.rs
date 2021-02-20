@@ -161,5 +161,6 @@ impl JsBoundData {
     pub fn stop(&mut self) {
         // stop executing chip
         self.worker.stop();
+        self.controller_mut().remove_rom();
     }
 }
