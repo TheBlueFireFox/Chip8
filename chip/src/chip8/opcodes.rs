@@ -1,5 +1,5 @@
 use crate::{
-    definitions::{display,cpu},
+    definitions::{cpu, display},
     opcode::{ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep},
     timer::{Timed, TimedWorker},
 };
@@ -252,13 +252,13 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
 
                 x += 1;
 
-                if x >= display::WIDTH{
+                if x >= display::WIDTH {
                     break;
                 }
             }
 
             y += 1;
-            if y >= display::HEIGHT{
+            if y >= display::HEIGHT {
                 break;
             }
         }
@@ -352,7 +352,7 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                     "There was a too large number in register <{:#X}> for hex representation.",
                     x
                 );
-                self.index_register = (display::fontset::LOCATION+ 5 * val) as u16;
+                self.index_register = (display::fontset::LOCATION + 5 * val) as u16;
             }
             0x33 => {
                 // FX33

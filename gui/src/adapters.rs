@@ -1,12 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use wasm_bindgen::prelude::*;
 use crate::{
     definitions,
     observer::{EventSystem, Observer},
     utils::BrowserWindow,
 };
 use chip::devices::{DisplayCommands, Keyboard, KeyboardCommands};
+use wasm_bindgen::prelude::*;
 
 pub(crate) struct DisplayAdapter;
 

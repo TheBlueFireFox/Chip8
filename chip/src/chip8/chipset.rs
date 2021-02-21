@@ -6,7 +6,7 @@ use {
         devices::Keyboard,
         opcode::{self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter, ProgramCounterStep},
         resources::Rom,
-        timer::{TimedWorker, Timer, Timed},
+        timer::{Timed, TimedWorker, Timer},
     },
     rand::RngCore,
 };
@@ -76,7 +76,8 @@ impl<W: TimedWorker> ChipSet<W> {
         let mut ram = vec![0; memory::SIZE];
 
         // load fonts
-        ram[display::fontset::LOCATION..(display::fontset::LOCATION + display::fontset::FONTSET.len())]
+        ram[display::fontset::LOCATION
+            ..(display::fontset::LOCATION + display::fontset::FONTSET.len())]
             .copy_from_slice(&display::fontset::FONTSET);
 
         // write the rom data into memory

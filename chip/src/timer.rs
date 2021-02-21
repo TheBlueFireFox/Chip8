@@ -1,13 +1,10 @@
-use {
-    crate::definitions::timer,
-    std::{
-        sync::{
-            mpsc::{self, RecvTimeoutError, SyncSender},
-            Arc, RwLock,
-        },
-        thread::{self, JoinHandle},
-        time::Duration,
+use std::{
+    sync::{
+        mpsc::{self, RecvTimeoutError, SyncSender},
+        Arc, RwLock,
     },
+    thread::{self, JoinHandle},
+    time::Duration,
 };
 
 pub trait Timed<V>

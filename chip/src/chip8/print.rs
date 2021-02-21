@@ -286,7 +286,7 @@ impl<W: TimedWorker> fmt::Display for ChipSet<W> {
 #[cfg(test)]
 mod tests {
     use super::super::{
-        super::definitions::{keyboard, cpu},
+        super::definitions::{cpu, keyboard},
         tests,
     };
 
