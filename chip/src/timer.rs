@@ -1,5 +1,5 @@
 use {
-    crate::definitions::TIMER_INTERVAL,
+    crate::definitions::timer,
     std::{
         sync::{
             mpsc::{self, RecvTimeoutError, SyncSender},
@@ -49,7 +49,7 @@ where
             }
         };
 
-        worker.start(Box::new(func), Duration::from_millis(TIMER_INTERVAL));
+        worker.start(Box::new(func), Duration::from_millis(timer::INTERVAL));
 
         Self {
             value,
@@ -195,11 +195,11 @@ impl Drop for Worker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::definitions::TIMER_HERZ;
+    use crate::definitions::timer;
 
     #[test]
     fn test_timer() {
-        let mut timer: Timer<Worker> = Timer::new(TIMER_HERZ);
+        let mut timer: Timer<Worker> = Timer::new(timer::HERZ);
         assert!(timer._worker.is_alive());
 
         std::thread::sleep(Duration::from_secs(1));

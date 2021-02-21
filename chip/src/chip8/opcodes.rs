@@ -1,5 +1,5 @@
 use crate::{
-    definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH, FONTSET_LOCATION, REGISTER_LAST},
+    definitions::{display,cpu},
     opcode::{ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep},
     timer::{Timed, TimedWorker},
 };
@@ -125,7 +125,7 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                 let res = left + right;
                 let carry = res & 0x0100 == 0x0100;
                 self.registers[x] = res as u8;
-                self.registers[REGISTER_LAST] = if carry { 1 } else { 0 };
+                self.registers[cpu::register::LAST] = if carry { 1 } else { 0 };
             }
             0x5 => {
                 // 8XY5
@@ -136,13 +136,13 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                 let res = left + right;
                 let carry = (res & 0x0100) == 0x0100;
                 self.registers[x] = res as u8;
-                self.registers[REGISTER_LAST] = if carry { 1 } else { 0 };
+                self.registers[cpu::register::LAST] = if carry { 1 } else { 0 };
             }
             0x6 => {
                 // 8XY6
                 // Stores the least significant bit of VX in VF and then shifts VX to the right
                 // by 1.
-                self.registers[REGISTER_LAST] = self.registers[x] & 1;
+                self.registers[cpu::register::LAST] = self.registers[x] & 1;
                 self.registers[x] = self.registers[x] >> 1;
             }
             0x7 => {
@@ -154,14 +154,14 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                 let res = left + right;
                 let carry = (res & 0x0100) == 0x0100;
                 self.registers[x] = res as u8;
-                self.registers[REGISTER_LAST] = if carry { 1 } else { 0 };
+                self.registers[cpu::register::LAST] = if carry { 1 } else { 0 };
             }
             0xE => {
                 // 8XYE
                 // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
                 const SHIFT_SIGNIFICANT: u8 = 7;
                 const AND_SIGNIFICANT: u8 = 1 << SHIFT_SIGNIFICANT;
-                self.registers[REGISTER_LAST] =
+                self.registers[cpu::register::LAST] =
                     (self.registers[x] & AND_SIGNIFICANT) >> SHIFT_SIGNIFICANT;
                 self.registers[x] = self.registers[x] << 1;
             }
@@ -230,10 +230,10 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
         let coorx = self.registers[x] as usize;
         let coory = self.registers[y] as usize;
 
-        let coorx = coorx % DISPLAY_WIDTH;
-        let coory = coory % DISPLAY_HEIGHT;
+        let coorx = coorx % display::WIDTH;
+        let coory = coory % display::HEIGHT;
 
-        self.registers[REGISTER_LAST] = 0;
+        self.registers[cpu::register::LAST] = 0;
 
         const BYTE: u8 = 8;
 
@@ -246,19 +246,19 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                 let state = ((row >> j) & 1) == 1;
                 let on = state == self.display[y][x];
                 if on {
-                    self.registers[REGISTER_LAST] = 1;
+                    self.registers[cpu::register::LAST] = 1;
                 }
                 self.display[coory][coorx] = state;
 
                 x += 1;
 
-                if x >= DISPLAY_WIDTH {
+                if x >= display::WIDTH{
                     break;
                 }
             }
 
             y += 1;
-            if y >= DISPLAY_HEIGHT {
+            if y >= display::HEIGHT{
                 break;
             }
         }
@@ -352,7 +352,7 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                     "There was a too large number in register <{:#X}> for hex representation.",
                     x
                 );
-                self.index_register = (FONTSET_LOCATION + 5 * val) as u16;
+                self.index_register = (display::fontset::LOCATION+ 5 * val) as u16;
             }
             0x33 => {
                 // FX33

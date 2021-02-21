@@ -1,11 +1,7 @@
 use {
     crate::{
-        definitions::{
-            DISPLAY_HEIGHT, DISPLAY_RESOLUTION, FONTSET_LOCATION, MEMORY_SIZE, OPCODE_BYTE_SIZE,
-            PROGRAM_COUNTER, REGISTER_SIZE, STACK_NESTING,
-        },
+        definitions::{cpu, display, memory},
         devices::Keyboard,
-        fontset::FONSET,
         opcode::{self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter, ProgramCounterStep},
         resources::Rom,
         timer::Timed,
@@ -76,26 +72,27 @@ impl<W: TimedWorker> ChipSet<W> {
     pub fn new(rom: Rom) -> Self {
         // initialize all the memory with 0
 
-        let mut ram = vec![0; MEMORY_SIZE];
+        let mut ram = vec![0; memory::SIZE];
 
         // load fonts
-        ram[FONTSET_LOCATION..(FONTSET_LOCATION + FONSET.len())].copy_from_slice(&FONSET);
+        ram[display::fontset::LOCATION..(display::fontset::LOCATION + display::fontset::FONTSET.len())]
+            .copy_from_slice(&display::fontset::FONTSET);
 
         // write the rom data into memory
-        ram[PROGRAM_COUNTER..(PROGRAM_COUNTER + rom.get_data().len())]
+        ram[cpu::PROGRAM_COUNTER..(cpu::PROGRAM_COUNTER + rom.get_data().len())]
             .copy_from_slice(&rom.get_data());
 
         Self {
             name: rom.get_name().to_string(),
             opcode: 0,
             memory: ram.into_boxed_slice(),
-            registers: vec![0; REGISTER_SIZE].into_boxed_slice(),
+            registers: vec![0; cpu::register::SIZE].into_boxed_slice(),
             index_register: 0,
-            program_counter: PROGRAM_COUNTER,
-            stack: Vec::with_capacity(STACK_NESTING),
+            program_counter: cpu::PROGRAM_COUNTER,
+            stack: Vec::with_capacity(cpu::stack::SIZE),
             delay_timer: Timer::new(0),
             sound_timer: Timer::new(0),
-            display: vec![vec![false; DISPLAY_HEIGHT].into_boxed_slice(); DISPLAY_RESOLUTION]
+            display: vec![vec![false; display::HEIGHT].into_boxed_slice(); display::WIDTH]
                 .into_boxed_slice(),
             keyboard: Keyboard::new(),
             rng: Box::new(rand::rngs::OsRng {}),
@@ -188,11 +185,11 @@ impl<W: TimedWorker> ChipSet<W> {
 impl<W: TimedWorker> ProgramCounter for ChipSet<W> {
     fn step(&mut self, step: ProgramCounterStep) {
         match step {
-            ProgramCounterStep::Next => self.program_counter += OPCODE_BYTE_SIZE,
-            ProgramCounterStep::Skip => self.program_counter += 2 * OPCODE_BYTE_SIZE,
+            ProgramCounterStep::Next => self.program_counter += memory::opcodes::SIZE,
+            ProgramCounterStep::Skip => self.program_counter += 2 * memory::opcodes::SIZE,
             ProgramCounterStep::None => {}
             ProgramCounterStep::Jump(pointer) => {
-                if PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
+                if cpu::PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
                     self.program_counter = pointer;
                 } else {
                     panic!("Memory out of bounds error!")

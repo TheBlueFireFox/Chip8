@@ -1,34 +1,29 @@
-use std::{
-    cell::{Ref, RefCell, RefMut},
-    rc::Rc,
-    time::Duration,
-};
-
-use wasm_bindgen::prelude::*;
-use web_sys::Element;
-
-use crate::{
-    adapters::{DisplayAdapter, KeyboardAdapter},
-    definitions,
-    observer::{EventSystem, Observer},
-    timer::{TimingWorker, WasmWorker},
-    utils::{set_panic_hook, BrowserWindow},
-};
-use chip::{
-    definitions::{DISPLAY_HEIGHT, DISPLAY_WIDTH},
-    devices::Key,
-    resources::RomArchives,
-    Controller,
+use {
+    crate::{
+        adapters::{DisplayAdapter, KeyboardAdapter},
+        definitions,
+        observer::{EventSystem, Observer},
+        timer::{TimingWorker, WasmWorker},
+        utils::{set_panic_hook, BrowserWindow},
+    },
+    chip::{definitions::display, devices::Key, resources::RomArchives, Controller},
+    std::{
+        cell::{Ref, RefCell, RefMut},
+        rc::Rc,
+        time::Duration,
+    },
+    wasm_bindgen::prelude::*,
+    web_sys::Element,
 };
 
 fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     let table = window.document().create_element(definitions::field::TYPE)?;
 
-    for i in 0..DISPLAY_HEIGHT {
+    for i in 0..display::HEIGHT {
         let tr = window
             .document()
             .create_element(definitions::field::TYPE_ROW)?;
-        for j in 0..DISPLAY_WIDTH {
+        for j in 0..display::WIDTH {
             let td = window
                 .document()
                 .create_element(definitions::field::TYPE_COLUMN)?;
@@ -176,7 +171,7 @@ impl JsBoundData {
         };
         self.worker.start(
             callback,
-            Duration::from_micros(chip::definitions::CPU_INTERVAL),
+            Duration::from_micros(chip::definitions::cpu::INTERVAL),
         )?;
 
         Ok(())
