@@ -1,4 +1,4 @@
-use crate::definitions::KEYBOARD_SIZE;
+use crate::definitions::keyboard;
 
 /// The traits responsible for the display based code
 pub trait DisplayCommands {
@@ -62,7 +62,7 @@ pub struct Keyboard {
     /// One skips an instruction if a specific key is pressed, while another does the same if a
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
-    keys: [bool; KEYBOARD_SIZE],
+    keys: [bool; keyboard::SIZE],
     last: Option<Key>,
 }
 
@@ -104,7 +104,7 @@ impl Keyboard {
         &self.keys
     }
 
-    /// Will get the last changes key
+    /// Will get the last changes key 
     pub fn get_last(&self) -> Option<Key> {
         self.last
     }

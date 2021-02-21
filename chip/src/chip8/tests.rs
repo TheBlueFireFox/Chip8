@@ -3,9 +3,7 @@ use crate::timer::Worker;
 use {
     super::ChipSet,
     crate::{
-        definitions::{
-            OPCODE_BYTE_SIZE, PROGRAM_COUNTER, REGISTER_LAST, REGISTER_SIZE, STACK_NESTING,
-        },
+        definitions::{cpu, memory},
         opcode::{ChipOpcodes, Opcode, Operation, ProgramCounter, ProgramCounterStep},
         resources::{Rom, RomArchives},
     },
@@ -36,7 +34,7 @@ pub(super) fn setup_chip(rom: Rom) -> ChipSet<Worker> {
     let mut chip = ChipSet::new(rom);
     // fill up register with random values
     assert_eq!(chip.registers.len(), 16);
-    chip.registers = (0..REGISTER_SIZE).map(|_| rand::random()).collect();
+    chip.registers = (0..cpu::register::SIZE).map(|_| rand::random()).collect();
 
     assert_eq!(chip.registers.len(), 16);
     chip
@@ -74,9 +72,9 @@ fn test_push_pop_stack() {
     // check empty initial stack
     assert!(chip.stack.is_empty());
 
-    let next_counter = 0x0133 + PROGRAM_COUNTER;
+    let next_counter = 0x0133 + cpu::PROGRAM_COUNTER;
 
-    for i in 0..STACK_NESTING {
+    for i in 0..cpu::stack::SIZE {
         // as the stack is empty just accept the result
         assert_eq!(Ok(()), chip.push_stack(next_counter + i * 8));
     }
@@ -84,9 +82,9 @@ fn test_push_pop_stack() {
     assert_eq!(Err("Stack is full!"), chip.push_stack(next_counter));
 
     // check if the stack counter moved as expected
-    assert_eq!(STACK_NESTING, chip.stack.len());
+    assert_eq!(cpu::stack::SIZE, chip.stack.len());
     // pop the stack
-    for i in (0..STACK_NESTING).rev() {
+    for i in (0..cpu::stack::SIZE).rev() {
         assert_eq!(Ok(next_counter + i * 8), chip.pop_stack());
     }
     assert!(chip.stack.is_empty());
@@ -106,12 +104,12 @@ fn test_step() {
     ];
 
     for (pcs, by) in data.iter() {
-        pc += by * OPCODE_BYTE_SIZE;
+        pc += by * memory::opcodes::SIZE;
         chip.step(*pcs);
         assert_eq!(chip.program_counter, pc);
     }
 
-    pc += 8 * OPCODE_BYTE_SIZE;
+    pc += 8 * memory::opcodes::SIZE;
     chip.step(ProgramCounterStep::Jump(pc));
     assert_eq!(chip.program_counter, pc);
 }
@@ -120,7 +118,7 @@ fn test_step() {
 #[should_panic(expected = "Memory out of bounds error!")]
 fn test_step_panic_lower_bound() {
     let mut chip = get_default_chip();
-    let pc = PROGRAM_COUNTER - 1;
+    let pc = cpu::PROGRAM_COUNTER - 1;
     chip.step(ProgramCounterStep::Jump(pc));
 }
 
@@ -149,7 +147,7 @@ mod zero {
         // run - if there was no panic it worked as intended
         assert_eq!(chip.next(), Ok(Operation::Draw));
 
-        assert_eq!(curr_pc + OPCODE_BYTE_SIZE, chip.program_counter);
+        assert_eq!(curr_pc + memory::opcodes::SIZE, chip.program_counter);
     }
 
     #[test]
@@ -247,13 +245,13 @@ mod three {
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
 
         let curr_pc = chip.program_counter;
         chip.registers[register as usize] = solution as u8;
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 2 * memory::opcodes::SIZE);
     }
 }
 
@@ -275,7 +273,7 @@ mod four {
         chip.registers[register as usize] = solution as u8;
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
 
         // skip next block because it's not equal
         let curr_pc = chip.program_counter;
@@ -283,7 +281,7 @@ mod four {
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 2 * memory::opcodes::SIZE);
     }
 }
 
@@ -309,7 +307,7 @@ mod five {
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
 
         // skip next block because it's not equal
         // setup register
@@ -319,7 +317,7 @@ mod five {
         let curr_pc = chip.program_counter;
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
-        assert_eq!(chip.program_counter, curr_pc + 2 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 2 * memory::opcodes::SIZE);
     }
 
     #[test]
@@ -363,7 +361,7 @@ mod six {
 
         assert_eq!(value, chip.registers[register]);
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 }
 
@@ -388,7 +386,7 @@ mod seven {
         let res = 0x60;
         assert_eq!(res, chip.registers[register]);
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 }
 
@@ -425,7 +423,7 @@ mod eight {
         assert_ne!(chip.registers[reg_x], val_reg_x);
         assert_eq!(chip.registers[reg_x], val_reg_y);
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 
     #[test]
@@ -457,7 +455,7 @@ mod eight {
 
         assert_eq!(chip.registers[reg_x], 0xFE);
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 
     #[test]
@@ -489,7 +487,7 @@ mod eight {
 
         assert_eq!(chip.registers[reg_x], 0x10);
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 
     #[test]
@@ -521,7 +519,7 @@ mod eight {
 
         assert_eq!(chip.registers[reg_x], 0xEE);
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 
     #[test]
@@ -552,8 +550,8 @@ mod eight {
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.registers[reg_x], 0x0E);
-        assert_eq!(chip.registers[REGISTER_LAST], 1);
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.registers[cpu::register::LAST], 1);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 
     #[test]
@@ -585,8 +583,8 @@ mod eight {
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.registers[reg_x], 0x1A);
-        assert_eq!(chip.registers[REGISTER_LAST], 0);
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.registers[cpu::register::LAST], 0);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 
     #[test]
@@ -616,8 +614,8 @@ mod eight {
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.registers[reg_x], 0x08);
-        assert_eq!(chip.registers[REGISTER_LAST], 1);
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.registers[cpu::register::LAST], 1);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 
     #[test]
@@ -649,8 +647,8 @@ mod eight {
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.registers[reg_x], 0x1A);
-        assert_eq!(chip.registers[REGISTER_LAST], 0);
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.registers[cpu::register::LAST], 0);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 
     #[test]
@@ -679,8 +677,8 @@ mod eight {
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.registers[reg_x], 0xE2);
-        assert_eq!(chip.registers[REGISTER_LAST], 1);
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.registers[cpu::register::LAST], 1);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 
     #[test]
@@ -759,7 +757,7 @@ mod nine {
 
             assert_eq!(chip.next(), Ok(Operation::None));
 
-            assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+            assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
         }
         {
             let val_reg_y = 0x2;
@@ -771,7 +769,7 @@ mod nine {
             assert_eq!(chip.next(), Ok(Operation::None));
 
             // using 3 here are the counter was moved bevore by 1
-            assert_eq!(chip.program_counter, curr_pc + 3 * OPCODE_BYTE_SIZE);
+            assert_eq!(chip.program_counter, curr_pc + 3 * memory::opcodes::SIZE);
         }
     }
 }
@@ -794,7 +792,7 @@ mod a {
 
         assert_eq!(chip.index_register, addr);
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
 }
 mod b {
@@ -847,14 +845,14 @@ mod c {
 
         assert_eq!(chip.registers[reg as usize], anded & base);
 
-        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
     }
 }
 
 mod d {}
 
 mod e {
-    use {super::*, crate::definitions::KEYBOARD_SIZE};
+    use {super::*, crate::definitions::keyboard};
 
     #[test]
     fn test_skip_key_pressed() {
@@ -862,7 +860,7 @@ mod e {
         let reg1 = 0x1;
         let reg2 = 0x0;
 
-        let mut keyboard = vec![false; KEYBOARD_SIZE].into_boxed_slice();
+        let mut keyboard = vec![false; keyboard::SIZE].into_boxed_slice();
         keyboard[reg1] = true;
 
         let mut chip = setup_chip(rom);
@@ -878,7 +876,7 @@ mod e {
 
             assert_eq!(chip.next(), Ok(Operation::None));
 
-            assert_eq!(chip.program_counter, pc + (i + 1) * OPCODE_BYTE_SIZE);
+            assert_eq!(chip.program_counter, pc + (i + 1) * memory::opcodes::SIZE);
         }
     }
 
@@ -888,7 +886,7 @@ mod e {
         let reg1 = 0x0;
         let reg2 = 0x1;
 
-        let mut keyboard = vec![false; KEYBOARD_SIZE].into_boxed_slice();
+        let mut keyboard = vec![false; keyboard::SIZE].into_boxed_slice();
         keyboard[reg1] = true;
 
         let mut chip = setup_chip(rom);
@@ -905,7 +903,7 @@ mod e {
 
             assert_eq!(chip.next(), Ok(Operation::None));
 
-            assert_eq!(chip.program_counter, pc + (i + 1) * OPCODE_BYTE_SIZE);
+            assert_eq!(chip.program_counter, pc + (i + 1) * memory::opcodes::SIZE);
         }
     }
 
@@ -914,7 +912,7 @@ mod e {
         let rom = get_base();
         let reg = 0x0;
 
-        let mut keyboard = vec![false; KEYBOARD_SIZE].into_boxed_slice();
+        let mut keyboard = vec![false; keyboard::SIZE].into_boxed_slice();
         keyboard[reg] = true;
 
         let mut chip = setup_chip(rom);
@@ -940,7 +938,7 @@ mod f {
     use {
         super::*,
         crate::{
-            definitions::{KEYBOARD_SIZE, OPCODE_BYTE_SIZE, TIMER_HERZ},
+            definitions::{keyboard, memory, timer},
             opcode::Operation,
         },
         std::time::Duration,
@@ -951,7 +949,7 @@ mod f {
     // Sets VX to the value of the delay timer.
     fn test_reg_to_delay_timer() {
         let mut chip = get_default_chip();
-        let dt = TIMER_HERZ;
+        let dt = timer::HERZ;
         let reg = 0xA;
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x07;
 
@@ -985,7 +983,7 @@ mod f {
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
         write_opcode_to_memory(
             &mut chip.memory,
-            chip.program_counter + OPCODE_BYTE_SIZE,
+            chip.program_counter + memory::opcodes::SIZE,
             opcode,
         );
 
@@ -993,7 +991,7 @@ mod f {
         assert_eq!(chip.program_counter, pc);
 
         assert!(chip.keyboard.get_last().is_none());
-        assert_eq!(&[false; KEYBOARD_SIZE], chip.keyboard.get_keys());
+        assert_eq!(&[false; keyboard::SIZE], chip.keyboard.get_keys());
         assert!(chip.keyboard.get_last().is_none());
 
         chip.toggle_key(key);
@@ -1005,7 +1003,7 @@ mod f {
         assert_ne!(chip.registers[reg] as usize, key);
         assert_eq!(Ok(Operation::Wait), chip.next());
 
-        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
         assert_eq!(chip.registers[reg] as usize, key);
     }
 
@@ -1029,7 +1027,7 @@ mod f {
 
         assert!(chip.get_delay_timer() > 0);
 
-        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
 
         std::thread::sleep(Duration::from_secs(1));
 
@@ -1054,7 +1052,7 @@ mod f {
 
         assert!(chip.get_sound_timer() > 0);
 
-        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
 
         std::thread::sleep(Duration::from_secs(1));
 
@@ -1076,7 +1074,7 @@ mod f {
         chip.index_register = 0x44;
 
         assert_eq!(Ok(Operation::None), chip.next());
-        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
 
         assert_eq!(0x88, chip.index_register);
     }
@@ -1096,7 +1094,7 @@ mod f {
             chip.index_register = 0x44;
 
             assert_eq!(Ok(Operation::None), chip.next());
-            assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+            assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
 
             assert_eq!(loc, chip.index_register);
         };
@@ -1125,7 +1123,7 @@ mod f {
             chip.index_register = 0x44;
 
             assert_eq!(Ok(Operation::None), chip.next());
-            assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+            assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
 
             let i = chip.index_register as usize;
             for (index, num) in [hundered, ten, one].iter().enumerate() {
@@ -1157,7 +1155,7 @@ mod f {
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, OPCODE);
 
         assert_eq!(Ok(Operation::None), chip.next());
-        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
 
         let index = chip.index_register as usize;
         assert_eq!(&rand_data[..], &chip.memory[index..=(index + REG)]);
@@ -1182,7 +1180,7 @@ mod f {
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, OPCODE);
 
         assert_eq!(Ok(Operation::None), chip.next());
-        assert_eq!(chip.program_counter, pc + OPCODE_BYTE_SIZE);
+        assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
 
         assert_eq!(&rand_data[..], &chip.registers[..=REG]);
     }

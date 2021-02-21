@@ -1,6 +1,8 @@
-use crate::{definitions::STACK_NESTING, timer::TimedWorker};
-
-use {super::*, std::fmt};
+use {
+    super::*,
+    crate::{definitions::cpu, timer::TimedWorker},
+    std::fmt,
+};
 
 /// The length of the pretty print data
 /// as a single instruction is u16 the octa
@@ -41,7 +43,7 @@ mod opcode_print {
     use {
         super::{integer_print, pointer_print, HEX_PRINT_STEP},
         crate::{
-            definitions::OPCODE_BYTE_SIZE,
+            definitions::memory,
             opcode::{self, Opcode},
         },
         lazy_static,
@@ -51,7 +53,7 @@ mod opcode_print {
     /// The internal length of the given data
     /// as the data is stored as u8 and an opcode
     /// is u16 long
-    const POINTER_INCREMENT: usize = HEX_PRINT_STEP * OPCODE_BYTE_SIZE;
+    const POINTER_INCREMENT: usize = HEX_PRINT_STEP * memory::opcodes::SIZE;
     const FILLER_BASE: &str = "...";
 
     lazy_static::lazy_static! {
@@ -121,7 +123,7 @@ mod opcode_print {
             let mut only_null = true;
 
             // loop over all the opcodes u8 pairs
-            for index in (from..=to).step_by(OPCODE_BYTE_SIZE) {
+            for index in (from..=to).step_by(memory::opcodes::SIZE) {
                 // set the opcode
                 data[data_index] = opcode::build_opcode(memory, index)
                     .expect("Please check if memory is valid in the given Rom.");
@@ -247,7 +249,7 @@ impl<W: TimedWorker> fmt::Display for ChipSet<W> {
         let mut reg = integer_print::printer(&self.registers, 0);
 
         // handle stack specially as it needes to be filled up if empty
-        let mut stack = [0; STACK_NESTING];
+        let mut stack = [0; cpu::stack::SIZE];
         stack[0..self.stack.len()].copy_from_slice(&self.stack);
 
         let mut sta = integer_print::printer(&stack, 0);
@@ -283,10 +285,9 @@ impl<W: TimedWorker> fmt::Display for ChipSet<W> {
 
 #[cfg(test)]
 mod tests {
-    use {
-        super::super::super::definitions::{KEYBOARD_SIZE, REGISTER_SIZE},
-        super::super::tests::*,
-        super::*,
+    use super::super::{
+        super::definitions::{keyboard, cpu},
+        tests,
     };
 
     #[test]
@@ -294,7 +295,7 @@ mod tests {
         let text = "some relevant text\nsome more";
         let text_expected = "\t\tsome relevant text\n\t\tsome more";
         let indent = 2;
-        let result = indent_helper(text, indent);
+        let result = super::indent_helper(text, indent);
         assert_eq!(&result, text_expected);
     }
 
@@ -354,13 +355,13 @@ mod tests {
     /// this test is mainly for coverage purposes, as
     /// the given module takes up a multitude of lines.
     fn test_full_print() {
-        let mut chip = get_default_chip();
-        let keys: Vec<bool> = (0..KEYBOARD_SIZE).map(|i| i % 2 != 0).collect();
+        let mut chip = tests::get_default_chip();
+        let keys: Vec<bool> = (0..keyboard::SIZE).map(|i| i % 2 != 0).collect();
 
         chip.set_keyboard(&keys);
 
         // override the chip register as they are generated randomly
-        chip.registers = vec![0; REGISTER_SIZE].into_boxed_slice();
+        chip.registers = vec![0; cpu::register::SIZE].into_boxed_slice();
         let actual_full = format!("{}", chip);
         let actual_split = actual_full.split("\n");
         let expected = OUTPUT_PRINT.split("\n");
