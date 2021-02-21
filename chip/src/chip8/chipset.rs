@@ -1,11 +1,12 @@
+use std::time::Duration;
+
 use {
     crate::{
-        definitions::{cpu, display, memory},
+        definitions::{cpu, display, memory, timer},
         devices::Keyboard,
         opcode::{self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter, ProgramCounterStep},
         resources::Rom,
-        timer::Timed,
-        timer::{TimedWorker, Timer},
+        timer::{TimedWorker, Timer, Timed},
     },
     rand::RngCore,
 };
@@ -43,11 +44,11 @@ pub struct ChipSet<W: TimedWorker> {
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub(super) delay_timer: Timer<W>,
+    pub(super) delay_timer: Timer<W, u8>,
     /// Sound timer: This timer is used for sound effects. When its value is nonzero, a beeping
     /// sound is made.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub(super) sound_timer: Timer<W>,
+    pub(super) sound_timer: Timer<W, u8>,
     /// The graphics of the Chip 8 are black and white and the screen has a total of `2048` pixels
     /// `(64 x 32)`. This can easily be implemented using an array that hold the pixel state `(1 or 0)`:
     pub(super) display: Box<[Box<[bool]>]>,
@@ -90,8 +91,8 @@ impl<W: TimedWorker> ChipSet<W> {
             index_register: 0,
             program_counter: cpu::PROGRAM_COUNTER,
             stack: Vec::with_capacity(cpu::stack::SIZE),
-            delay_timer: Timer::new(0),
-            sound_timer: Timer::new(0),
+            delay_timer: Timer::new(0, Duration::from_millis(timer::INTERVAL)),
+            sound_timer: Timer::new(0, Duration::from_millis(timer::INTERVAL)),
             display: vec![vec![false; display::HEIGHT].into_boxed_slice(); display::WIDTH]
                 .into_boxed_slice(),
             keyboard: Keyboard::new(),

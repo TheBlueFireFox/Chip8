@@ -10,20 +10,35 @@ use {
     },
 };
 
-pub trait Timed {
+pub trait Timed<V>
+where
+    V: num::Unsigned
+        + std::ops::Sub<V, Output = V>
+        + std::convert::From<u8>
+        + std::cmp::PartialOrd<V>
+        + Send
+        + Sync
+        + Copy
+        + 'static,
+{
     /// Will create a new timer with the given value.
-    fn new(value: u8) -> Self;
+    fn new(value: V, interval: Duration) -> Self;
 
     /// Will set the value from which the timer shall count down from.
-    fn set_value(&mut self, value: u8);
+    fn set_value(&mut self, value: V);
 
     /// Will get the value that the counter is currently at.
-    fn get_value(&self) -> u8;
+    fn get_value(&self) -> V;
 }
 
-pub(crate) struct Timer<W: TimedWorker> {
+/// A timer that will count down to 0, from any type that does support it
+pub(crate) struct Timer<W, V>
+where
+    W: TimedWorker,
+    V: num::Unsigned,
+{
     /// will store the value of the timer
-    value: Arc<RwLock<u8>>,
+    value: Arc<RwLock<V>>,
     /// Represents a timer inside of the chip
     /// infrastruture, it will count down to
     /// zero from what ever number given in
@@ -31,11 +46,19 @@ pub(crate) struct Timer<W: TimedWorker> {
     _worker: W,
 }
 
-impl<W> Timed for Timer<W>
+impl<W, V> Timed<V> for Timer<W, V>
 where
     W: TimedWorker,
+    V: num::Unsigned
+        + std::ops::Sub<V, Output = V>
+        + std::convert::From<u8>
+        + std::cmp::PartialOrd<V>
+        + Send
+        + Sync
+        + Copy
+        + 'static,
 {
-    fn new(value: u8) -> Self {
+    fn new(value: V, interval: Duration) -> Self {
         let mut worker = W::new();
         let value = Arc::new(RwLock::new(value));
         let rw_value = value.clone();
@@ -44,12 +67,12 @@ where
             let mut cvalue = rw_value
                 .write()
                 .expect("something went wrong while unlocking the RW-Value");
-            if *cvalue > 0 {
-                *cvalue -= 1;
+            if *cvalue > V::from(0) {
+                *cvalue = *cvalue - V::from(1u8);
             }
         };
 
-        worker.start(Box::new(func), Duration::from_millis(timer::INTERVAL));
+        worker.start(func, interval);
 
         Self {
             value,
@@ -57,7 +80,7 @@ where
         }
     }
 
-    fn set_value(&mut self, value: u8) {
+    fn set_value(&mut self, value: V) {
         let mut val = self
             .value
             .write()
@@ -66,7 +89,7 @@ where
         *val = value;
     }
 
-    fn get_value(&self) -> u8 {
+    fn get_value(&self) -> V {
         *self
             .value
             .read()
@@ -199,7 +222,8 @@ mod tests {
 
     #[test]
     fn test_timer() {
-        let mut timer: Timer<Worker> = Timer::new(timer::HERZ);
+        let mut timer: Timer<Worker, u8> =
+            Timer::new(timer::HERZ, Duration::from_millis(timer::INTERVAL));
         assert!(timer._worker.is_alive());
 
         std::thread::sleep(Duration::from_secs(1));
