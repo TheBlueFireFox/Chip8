@@ -21,6 +21,7 @@ web-sys = {version = "0.3", default-features = false, features = [
   'HtmlElement',
   'Node',
   'Window',
+  'console'
 ]}
 
 # The `console_error_panic_hook` crate provides better debugging of panics by

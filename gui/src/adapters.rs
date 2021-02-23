@@ -48,7 +48,7 @@ impl DisplayAdapter {
 
 impl DisplayCommands for DisplayAdapter {
     fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&self, pixels: M) {
-        crate::exported::console_log("drawing");
+        crate::utils::log("drawing");
         Self::draw_board(pixels).expect("something went wrong while working on the board");
     }
 }

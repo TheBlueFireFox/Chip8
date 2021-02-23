@@ -16,28 +16,6 @@ use {
     web_sys::Element,
 };
 
-#[wasm_bindgen]
-extern "C" {
-    // Use `js_namespace` here to bind `console.log(..)` instead of just
-    // `log(..)`
-    #[wasm_bindgen(js_namespace = console)]
-    fn log(s: &str);
-
-    // The `console.log` is quite polymorphic, so we can bind it with multiple
-    // signatures. Note that we need to use `js_name` to ensure we always call
-    // `log` in JS.
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
-    fn log_u32(a: u32);
-
-    // Multiple arguments too!
-    #[wasm_bindgen(js_namespace = console, js_name = log)]
-    fn log_many(a: &str, b: &str);
-}
-
-pub(crate) fn console_log(s: &str) {
-    unsafe {log(s);};
-}
-
 fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     let table = window.document().create_element(definitions::field::TYPE)?;
 
@@ -187,7 +165,8 @@ impl JsBoundData {
         let callback = move || {
             // moving the ccontroller into this closure
             let mut controller = ccontroller.borrow_mut();
-            console_log(&format!("{:?}", controller.operation()));
+
+            crate::utils::log(&format!("{:?}", controller.operation()));
 
             // running the chip step
             chip::run(&mut controller)
