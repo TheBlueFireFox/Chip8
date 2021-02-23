@@ -106,9 +106,9 @@ impl Observer<Key> for ObservedKeypress {
 /// type is used to abriviate the given configuration.
 type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWorker>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum State {
-    Failure(String),
+    Failure,
     Running,
     Shutdown,
     Stop,
@@ -184,19 +184,19 @@ impl JsBoundData {
             let message;
             let shutdown = match state {
                 State::Running => {
-                    message = String::new(); // is not needed
+                    message = ""; // is not needed
                     false
                 }
-                State::Failure(err) => {
-                    message = err; // print error message
+                State::Failure => {
+                    message = "Shuting down due to error"; // print error message
                     true
                 }
                 State::Shutdown => {
-                    message = "Shutting down the processing".to_string();
+                    message = "Shutting down the processing";
                     true
                 }
                 State::Stop => {
-                    message = "Something unexpected paniced".to_string();
+                    message = "Something unexpected paniced";
                     true
                 }
             };
@@ -211,15 +211,14 @@ impl JsBoundData {
             // moving the ccontroller into this closure
             let mut controller = ccontroller.borrow_mut();
 
-            // crate::utils::log(&format!("{:?}", controller.operation()));
-
             // running the chip step
             let state = match chip::run(&mut controller) {
                 Ok(_) => State::Running,
-                Err(err) => State::Failure(format!(
-                    "Something went wrong while stepping to the next step.\n{}",
-                    err
-                )),
+                Err(err) => {
+                    crate::utils::log("Something went wrong while stepping to the next step.");
+                    crate::utils::log(&err);
+                    State::Failure
+                }
             };
 
             let _ = csuccesss.replace(state);

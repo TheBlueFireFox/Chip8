@@ -224,42 +224,63 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
         // value doesn’t change after the execution of this instruction. As described above, VF is
         // set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and
         // to 0 if that doesn’t happen
+        // see https://tobiasvl.github.io/blog/write-a-chip-8-emulator/
+
+        let log = |s: &str| {
+            use wasm_bindgen::JsValue;
+            unsafe {
+                web_sys::console::log_1(&JsValue::from(s));
+            }
+        };
 
         let (x, y, n) = opcode.xyn();
         let index = self.index_register as usize;
         let coorx = self.registers[x] as usize;
         let coory = self.registers[y] as usize;
 
-        let coorx = coorx % display::WIDTH;
-        let coory = coory % display::HEIGHT;
+        let coorx = coorx % display::HEIGHT;
+        let coory = coory % display::WIDTH;
 
+        // Set VF to 0
         self.registers[cpu::register::LAST] = 0;
 
-        const BYTE: u8 = 8;
+        const BYTE: usize = 8;
 
-        let mut y = coory;
+        log("drawing");
+
         for i in 0..n {
-            let mut x = coorx;
+            let y = coory + i;
 
+            if y >= display::WIDTH {
+                break;
+            }
+            // Get one byte of sprite data from the memory address in the I register
             let row = self.memory[index + i];
+
+            // - If the current pixel in the sprite row is 'on' and the pixel at coordinates X,Y
+            //   on the screen is also 'on', turn 'off' the pixel and set VF to '1'.
+            // - Or if the current pixel in the sprite row is 'on' and the screen pixel is 'not',
+            //  draw the pixel at the X and Y coordinates.
+
+            log("test");
+
             for j in 0..BYTE {
-                let state = ((row >> j) & 1) == 1;
-                let on = state == self.display[y][x];
-                if on {
-                    self.registers[cpu::register::LAST] = 1;
-                }
-                self.display[coory][coorx] = state;
-
-                x += 1;
-
-                if x >= display::WIDTH {
+                let x = coorx + j;
+                if x >= display::HEIGHT {
                     break;
                 }
-            }
 
-            y += 1;
-            if y >= display::HEIGHT {
-                break;
+                let mask = 1 << j;
+
+                let state = (row & mask) >= 1;
+
+                if state && self.display[y][x] {
+                    self.display[y][x] = false;
+
+                    self.registers[cpu::register::LAST] = 1;
+                } else if state && !self.display[y][x] {
+                    self.display[y][x] = true;
+                }
             }
         }
 

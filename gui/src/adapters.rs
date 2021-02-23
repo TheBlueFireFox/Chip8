@@ -26,7 +26,7 @@ impl DisplayAdapter {
             for value in row.as_ref().iter() {
                 let td = document.create_element(definitions::field::TYPE_COLUMN)?;
 
-                if *value {
+                if !*value {
                     td.set_class_name(definitions::field::ACTIVE);
                 }
 

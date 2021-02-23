@@ -55,7 +55,7 @@ pub mod display {
     /// The fontset information
     pub mod fontset {
         /// Is the location of the beginning to the font in memory
-        pub const LOCATION: usize = 0;
+        pub const LOCATION: usize = 0x50;
         /// The font set character to be rendered on the screen
         pub const FONTSET: [u8; 80] = [
             0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
