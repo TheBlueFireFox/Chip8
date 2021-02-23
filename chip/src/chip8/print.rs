@@ -357,7 +357,7 @@ mod tests {
         chip.set_keyboard(&keys);
 
         // override the chip register as they are generated randomly
-        chip.registers = vec![0; cpu::register::SIZE].into_boxed_slice();
+        chip.registers.fill(0);
         let actual_full = format!("{}", chip);
         let actual_split = actual_full.split("\n");
         let expected = OUTPUT_PRINT.split("\n");

@@ -36,7 +36,9 @@ pub(super) fn setup_chip(rom: Rom) -> ChipSet<Worker> {
     let mut chip = ChipSet::new(rom);
     // fill up register with random values
     assert_eq!(chip.registers.len(), 16);
-    chip.registers = (0..cpu::register::SIZE).map(|_| rand::random()).collect();
+    for reg in chip.registers.iter_mut() {
+        *reg = rand::random();
+    }
 
     assert_eq!(chip.registers.len(), 16);
     chip

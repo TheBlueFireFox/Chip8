@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use crate::definitions;
+
 use {
     crate::{
         definitions::{cpu, display, memory, timer},
@@ -23,12 +25,12 @@ pub struct ChipSet<W: TimedWorker> {
     /// - `0x000-0x1FF` - Chip 8 interpreter (contains font set in emu)
     /// - `0x050-0x0A0` - Used for the built in `4x5` pixel font set (`0-F`)
     /// - `0x200-0xFFF` - Program ROM and work RAM
-    pub(super) memory: Box<[u8]>,
+    pub(super) memory: Vec<u8>,
     /// `8-bit` data registers named `V0` to `VF`. The `VF` register doubles as a flag for some
     /// instructions; thus, it should be avoided. In an addition operation, `VF` is the carry flag,
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction `VF` is set upon
     /// pixel collision.
-    pub(super) registers: Box<[u8]>,
+    pub(super) registers: [u8; definitions::cpu::register::SIZE],
     /// The index for the register, this is a special register entry
     /// called index `I`
     pub(super) index_register: u16,
@@ -51,7 +53,7 @@ pub struct ChipSet<W: TimedWorker> {
     pub(super) sound_timer: Timer<W, u8>,
     /// The graphics of the Chip 8 are black and white and the screen has a total of `2048` pixels
     /// `(64 x 32)`. This can easily be implemented using an array that hold the pixel state `(1 or 0)`:
-    pub(super) display: Box<[Box<[bool]>]>,
+    pub(super) display: Vec<Vec<bool>>,
     /// Input is done with a hex keyboard that has 16 keys ranging `0-F`. The `8`, `4`, `6`, and
     /// `2` keys are typically used for directional input. Three opcodes are used to detect input.
     /// One skips an instruction if a specific key is pressed, while another does the same if a
@@ -87,15 +89,14 @@ impl<W: TimedWorker> ChipSet<W> {
         Self {
             name: rom.get_name().to_string(),
             opcode: 0,
-            memory: ram.into_boxed_slice(),
-            registers: vec![0; cpu::register::SIZE].into_boxed_slice(),
+            memory: ram,
+            registers: [0; cpu::register::SIZE],
             index_register: 0,
             program_counter: cpu::PROGRAM_COUNTER,
             stack: Vec::with_capacity(cpu::stack::SIZE),
             delay_timer: Timer::new(0, Duration::from_millis(timer::INTERVAL)),
             sound_timer: Timer::new(0, Duration::from_millis(timer::INTERVAL)),
-            display: vec![vec![false; display::HEIGHT].into_boxed_slice(); display::WIDTH]
-                .into_boxed_slice(),
+            display: vec![vec![false; display::HEIGHT]; display::WIDTH],
             keyboard: Keyboard::new(),
             rng: Box::new(rand::rngs::OsRng {}),
             preprocessor: None,
@@ -150,8 +151,8 @@ impl<W: TimedWorker> ChipSet<W> {
         self.delay_timer.get_value()
     }
 
-    /// will return a clone of the current display configuration
-    pub fn get_display(&self) -> &[Box<[bool]>] {
+    /// Will return a immutable slice of the current display configuration
+    pub fn get_display(&self) -> &[Vec<bool>] {
         &self.display[..]
     }
 
