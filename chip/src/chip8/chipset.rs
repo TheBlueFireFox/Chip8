@@ -33,7 +33,7 @@ pub struct ChipSet<W: TimedWorker> {
     pub(super) registers: [u8; definitions::cpu::register::SIZE],
     /// The index for the register, this is a special register entry
     /// called index `I`
-    pub(super) index_register: u16,
+    pub(super) index_register: usize,
     /// The program counter is a CPU register in the computer processor which has the address of the
     /// next instruction to be executed from memory.
     pub(super) program_counter: usize,

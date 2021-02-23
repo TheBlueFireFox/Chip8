@@ -34,7 +34,7 @@ impl RomArchives<'_> {
         // there might be a case where there is an uneven amount of
         // data entries adding one for simplicty.
         let size = (file.size() + file.size() % 2) as usize;
-        let mut data = vec![0; size].into_boxed_slice();
+        let mut data = vec![0; size];
         // this result can be ignored as the included archive
         // will definitely contain data for if the file is included
         file.read(&mut data)?;
@@ -50,12 +50,12 @@ pub struct Rom {
     /// The decompressed content data of the zip file
     /// stored as a u8 slice on the heap
     /// uses a box for simple execution
-    data: Box<[u8]>,
+    data: Vec<u8>
 }
 
 impl Rom {
     /// Will generate a new rom based of the given data
-    fn new(name: &str, data: Box<[u8]>) -> Self {
+    fn new(name: &str, data: Vec<u8>) -> Self {
         Rom {
             name: name.to_string(),
             data,

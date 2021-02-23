@@ -54,6 +54,16 @@ fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsV
     Ok(dropdown)
 }
 
+fn print_info(message: &str) -> Result<(), JsValue> {
+    let bw = BrowserWindow::new();
+    let doc = bw.document();
+    let pre = doc.create_element("pre")?;
+    pre.set_text_content(Some(message));
+
+    bw.body().append_child(&pre)?;
+    Ok(())
+}
+
 #[wasm_bindgen]
 pub fn setup() -> Result<JsBoundData, JsValue> {
     // will set the panic hook to be the console logs
@@ -167,6 +177,14 @@ impl JsBoundData {
             .map_err(|err| JsValue::from(format!("{}", err)))?;
 
         self.controller_mut().set_rom(rom);
+
+        print_info(&format!(
+            "{}",
+            self.controller()
+                .chipset()
+                .as_ref()
+                .ok_or_else(|| JsValue::from("printing went terribly wrong"))?
+        ))?;
 
         // Will setup the worker
         let ccontroller = self.controller.clone();

@@ -191,7 +191,7 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
     fn a(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // ANNN
         // Sets I to the address NNN.
-        self.index_register = opcode.nnn() as u16;
+        self.index_register = opcode.nnn() as usize;
         Ok(ProgramCounterStep::Next)
     }
 
@@ -228,15 +228,18 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
 
         let log = |s: &str| {
             use wasm_bindgen::JsValue;
+            // just removing weird errors from Rust Analzer
+            #[allow(unused_unsafe)]
             unsafe {
                 web_sys::console::log_1(&JsValue::from(s));
             }
         };
 
-        let (x, y, n) = opcode.xyn();
-        let index = self.index_register as usize;
-        let coorx = self.registers[x] as usize;
-        let coory = self.registers[y] as usize;
+        let (reg_x, reg_y, n) = opcode.xyn();
+
+        let index = self.index_register;
+        let coorx = self.registers[reg_x] as usize;
+        let coory = self.registers[reg_y] as usize;
 
         let coorx = coorx % display::HEIGHT;
         let coory = coory % display::WIDTH;
@@ -245,8 +248,6 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
         self.registers[cpu::register::LAST] = 0;
 
         const BYTE: usize = 8;
-
-        log("drawing");
 
         for i in 0..n {
             let y = coory + i;
@@ -262,8 +263,6 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
             // - Or if the current pixel in the sprite row is 'on' and the screen pixel is 'not',
             //  draw the pixel at the X and Y coordinates.
 
-            log("test");
-
             for j in 0..BYTE {
                 let x = coorx + j;
                 if x >= display::HEIGHT {
@@ -272,13 +271,13 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
 
                 let mask = 1 << j;
 
-                let state = (row & mask) >= 1;
+                let cpixel = (row & mask) == mask;
+                let spixel = self.display[y][x];
 
-                if state && self.display[y][x] {
-                    self.display[y][x] = false;
-
+                if cpixel && spixel {
                     self.registers[cpu::register::LAST] = 1;
-                } else if state && !self.display[y][x] {
+                    self.display[y][x] = false;
+                } else if cpixel && !spixel {
                     self.display[y][x] = true;
                 }
             }
@@ -358,9 +357,8 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                 // 0 when there isn't. (not used in this system)
                 //
                 // Adds VX to I. VF is not affected.[c]
-                let xi = self.registers[x] as u16;
-                let res = self.index_register.wrapping_add(xi);
-                self.index_register = res;
+                let xi = self.registers[x] as usize;
+                self.index_register = self.index_register.wrapping_add(xi);
             }
             0x29 => {
                 // FX29
@@ -373,7 +371,7 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                     "There was a too large number in register <{:#X}> for hex representation.",
                     x
                 );
-                self.index_register = (display::fontset::LOCATION + 5 * val) as u16;
+                self.index_register = display::fontset::LOCATION + 5 * val;
             }
             0x33 => {
                 // FX33
@@ -382,7 +380,7 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                 // significant digit at I plus 2. (In other words, take the decimal representation
                 // of VX, place the hundreds digit in memory at location in I, the tens digit at
                 // location I+1, and the ones digit at location I+2.)
-                let i = self.index_register as usize;
+                let i = self.index_register;
                 let r = self.registers[x];
 
                 self.memory[i] = r / 100; // 246u8 / 100 => 2
@@ -393,7 +391,7 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                 // FX55
                 // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
                 // is increased by 1 for each value written, but I itself is left unmodified.
-                let index = self.index_register as usize;
+                let index = self.index_register;
                 self.memory[index..=(index + x)].copy_from_slice(&self.registers[..=x]);
             }
             0x65 => {
@@ -401,7 +399,7 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
                 // Fills V0 to VX (including VX) with values from memory starting at address I. The
                 // offset from I is increased by 1 for each value written, but I itself is left
                 // unmodified.
-                let index = self.index_register as usize;
+                let index = self.index_register;
                 self.registers[..=x].copy_from_slice(&self.memory[index..=(index + x)]);
             }
             _ => {

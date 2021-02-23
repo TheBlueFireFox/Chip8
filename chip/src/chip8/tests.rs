@@ -790,11 +790,11 @@ mod a {
 
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
 
-        assert_ne!(chip.index_register, addr);
+        assert_ne!(chip.index_register, addr as usize);
 
         assert_eq!(chip.next(), Ok(Operation::None));
 
-        assert_eq!(chip.index_register, addr);
+        assert_eq!(chip.index_register, addr as usize);
 
         assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
     }
@@ -937,7 +937,7 @@ mod e {
 }
 
 mod f {
-    use crate::timer::Timed;
+    use crate::{definitions, timer::Timed};
 
     use {
         super::*,
@@ -1094,16 +1094,17 @@ mod f {
 
             let pc = chip.program_counter;
             write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+
             chip.registers[reg] = val;
             chip.index_register = 0x44;
 
             assert_eq!(Ok(Operation::None), chip.next());
             assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
 
-            assert_eq!(loc, chip.index_register);
+            assert_eq!(loc, chip.index_register as usize);
         };
 
-        test(0xA, 4, 20);
+        test(0xA, 4, definitions::display::fontset::LOCATION + 20);
     }
 
     /// FX33
@@ -1177,7 +1178,7 @@ mod f {
         const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x65;
         let rand_data = rand::random::<[u8; REG + 1]>();
         let from = 0x510;
-        chip.index_register = from as u16;
+        chip.index_register = from;
         chip.memory[from..=(from + REG)].copy_from_slice(&rand_data);
 
         let pc = chip.program_counter;

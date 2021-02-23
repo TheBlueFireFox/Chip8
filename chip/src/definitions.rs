@@ -48,7 +48,7 @@ pub mod display {
     /// The amount of pixels height
     pub const HEIGHT: usize = 64;
     /// The amount of pixels width
-    pub const WIDTH: usize = 23;
+    pub const WIDTH: usize = 32;
     /// The amount of pixels the display has
     pub const RESOLUTION: usize = HEIGHT * WIDTH;
 
