@@ -86,28 +86,26 @@ where
     K: KeyboardCommands,
     W: TimedWorker,
 {
-    let last_op = operation;
+    // Checks if the last operation was a wait and if 
+    // processing can continue.
+    if *operation == Operation::Wait && !keyboard.was_pressed() {
+        return Ok(());
+    }
+
+    // Extract the chip from the chipset option
     let chip = chipset
         .as_mut()
         .ok_or_else(|| "There is no valid chipset initialized.".to_string())?;
 
-    let work = match last_op {
-        Operation::Wait => keyboard.was_pressed(),
-        _ => true,
-    };
+    // run chip
+    *operation = chip.next()?;
 
-    if work {
-        // run chip
-        *last_op = chip.next()?;
-
-        match last_op {
-            Operation::Draw => {
-                /* draw the screen */
-                display.display(chip.get_display());
-            }
-            _ => {}
-        }
+    // Checks if we can redraw the screen after this or not.
+    if *operation == Operation::Draw {
+        /* draw the screen */
+        display.display(chip.get_display());
     }
+
     Ok(())
 }
 
@@ -115,7 +113,7 @@ where
 mod tests {
 
     use super::*;
-    use crate::{definitions, timer::Worker};
+    use crate::timer::Worker;
     use mockall::predicate::*;
 
     #[mockall::automock]
@@ -134,7 +132,7 @@ mod tests {
     where
         MD: InternalDCommands,
     {
-        fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&self, pixels: M) {
+        fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&self, _pixels: M) {
             self.da.display()
         }
     }
@@ -149,16 +147,16 @@ mod tests {
     where
         M: InternalKCommands,
     {
-        da: M,
+        ka: M,
     }
 
     impl<M: InternalKCommands> KeyboardCommands for KeyboardAdapter<M> {
         fn was_pressed(&self) -> bool {
-            self.da.was_pressed()
+            self.ka.was_pressed()
         }
 
         fn get_keyboard(&self) -> &[bool] {
-            self.da.get_keyboard()
+            self.ka.get_keyboard()
         }
     }
 
@@ -174,7 +172,7 @@ mod tests {
 
         let mock_keyboard = MockInternalKCommands::new();
 
-        let ka = KeyboardAdapter { da: mock_keyboard };
+        let ka = KeyboardAdapter { ka: mock_keyboard };
 
         let mut controller: Controller<_, _, Worker> = Controller::new(da, ka);
 
@@ -185,6 +183,7 @@ mod tests {
         controller.set_rom(rom);
 
         assert_eq!(Ok(()), run(&mut controller));
+        assert_eq!(Operation::Draw, controller.operation());
         assert_eq!(Ok(()), run(&mut controller));
     }
 }
