@@ -37,7 +37,7 @@ impl DisplayAdapter {
 
         // check if already exists, if exists replace element
         if let Some(element) = document.get_element_by_id(definitions::field::ID) {
-            let _ = document.replace_child(&table, &element)?;
+            let _ = html.body().replace_child(&table, &element)?;
         } else {
             html.body().append_child(&table)?;
         }

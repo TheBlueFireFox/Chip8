@@ -1,4 +1,5 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc, usize};
+
 pub struct EventSystem<E> {
     observers: HashMap<usize, Rc<RefCell<dyn Observer<E>>>>,
     counter: usize,

@@ -18,6 +18,7 @@ use {
 
 fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     let table = window.document().create_element(definitions::field::TYPE)?;
+    table.set_id(definitions::field::ID);
 
     for i in 0..display::HEIGHT {
         let tr = window
@@ -105,6 +106,14 @@ impl Observer<Key> for ObservedKeypress {
 /// type is used to abriviate the given configuration.
 type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWorker>;
 
+#[derive(Debug, Clone)]
+enum State {
+    Failure(String),
+    Running,
+    Shutdown,
+    Stop,
+}
+
 /// This struct is the one that will be passed back and forth between
 /// JS and WASM, as WASM API only allow for `&T` or `T` and not `&mut T`  
 /// see [here](https://rustwasm.github.io/docs/wasm-bindgen/reference/types/jsvalue.html?highlight=JSV#jsvalue)
@@ -112,8 +121,10 @@ type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWork
 #[wasm_bindgen]
 pub struct JsBoundData {
     controller: Rc<RefCell<InternalController>>,
-    worker: WasmWorker,
+    worker: Rc<RefCell<WasmWorker>>,
     keypress_event: EventSystem<Key>,
+    /// If the run method had run with out problems
+    state: Rc<RefCell<State>>,
 }
 
 #[wasm_bindgen]
@@ -129,8 +140,9 @@ impl JsBoundData {
 
         let res = Self {
             controller: rc_controller,
-            worker: WasmWorker::new(),
+            worker: Rc::new(RefCell::new(WasmWorker::new())),
             keypress_event: eh,
+            state: Rc::new(RefCell::new(State::Running)),
         };
 
         res
@@ -147,7 +159,7 @@ impl JsBoundData {
     }
 
     /// Will start executing the
-    pub fn start(&mut self, rom_name: &str) -> Result<(), JsValue> {
+    pub fn start(&self, rom_name: &str) -> Result<(), JsValue> {
         let mut ra = RomArchives::new();
 
         let rom = ra
@@ -158,21 +170,62 @@ impl JsBoundData {
 
         // Will setup the worker
         let ccontroller = self.controller.clone();
+        let csuccesss = self.state.clone();
+        let cworker = self.worker.clone();
 
         // Will convert the Data type into a mutable controller, so that
         // it can be used by the chip, this will run a single opcode of the
         // chip.
         let callback = move || {
+            // check sucess state so that the browser will not be overwhelem
+            // and crash by error messages
+            let state = csuccesss.replace(State::Stop);
+
+            let message;
+            let shutdown = match state {
+                State::Running => {
+                    message = String::new(); // is not needed
+                    false
+                }
+                State::Failure(err) => {
+                    message = err; // print error message
+                    true
+                }
+                State::Shutdown => {
+                    message = "Shutting down the processing".to_string();
+                    true
+                }
+                State::Stop => {
+                    message = "Something unexpected paniced".to_string();
+                    true
+                }
+            };
+
+            if shutdown {
+                // Will shutdown any ongoing processing
+                crate::utils::log(&message);
+                stop(cworker.clone(), ccontroller.clone());
+                return;
+            }
+
             // moving the ccontroller into this closure
             let mut controller = ccontroller.borrow_mut();
 
-            crate::utils::log(&format!("{:?}", controller.operation()));
+            // crate::utils::log(&format!("{:?}", controller.operation()));
 
             // running the chip step
-            chip::run(&mut controller)
-                .expect("Something went wrong while stepping to the next step.");
+            let state = match chip::run(&mut controller) {
+                Ok(_) => State::Running,
+                Err(err) => State::Failure(format!(
+                    "Something went wrong while stepping to the next step.\n{}",
+                    err
+                )),
+            };
+
+            let _ = csuccesss.replace(state);
         };
-        self.worker.start(
+
+        self.worker.borrow_mut().start(
             callback,
             Duration::from_micros(chip::definitions::cpu::INTERVAL),
         )?;
@@ -181,9 +234,13 @@ impl JsBoundData {
     }
 
     /// Will clear the interval that is running the application
-    pub fn stop(&mut self) {
-        // stop executing chip
-        self.worker.stop();
-        self.controller_mut().remove_rom();
+    pub fn stop(&self) {
+        stop(self.worker.clone(), self.controller.clone());
     }
+}
+
+fn stop(worker: Rc<RefCell<WasmWorker>>, controller: Rc<RefCell<InternalController>>) {
+    // stop executing chip
+    worker.borrow_mut().stop();
+    controller.borrow_mut().remove_rom();
 }

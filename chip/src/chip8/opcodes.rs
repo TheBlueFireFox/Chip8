@@ -238,7 +238,7 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
         const BYTE: u8 = 8;
 
         let mut y = coory;
-        for i in 0..=n {
+        for i in 0..n {
             let mut x = coorx;
 
             let row = self.memory[index + i];
