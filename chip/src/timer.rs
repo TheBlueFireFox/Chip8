@@ -9,14 +9,7 @@ use std::{
 
 pub trait Timed<V>
 where
-    V: num::Unsigned
-        + std::ops::Sub<V, Output = V>
-        + std::convert::From<u8>
-        + std::cmp::PartialOrd<V>
-        + Send
-        + Sync
-        + Copy
-        + 'static,
+    V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
 {
     /// Will create a new timer with the given value.
     fn new(value: V, interval: Duration) -> Self;
@@ -46,14 +39,7 @@ where
 impl<W, V> Timed<V> for Timer<W, V>
 where
     W: TimedWorker,
-    V: num::Unsigned
-        + std::ops::Sub<V, Output = V>
-        + std::convert::From<u8>
-        + std::cmp::PartialOrd<V>
-        + Send
-        + Sync
-        + Copy
-        + 'static,
+    V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
 {
     fn new(value: V, interval: Duration) -> Self {
         let mut worker = W::new();
@@ -64,8 +50,10 @@ where
             let mut cvalue = rw_value
                 .write()
                 .expect("something went wrong while unlocking the RW-Value");
-            if *cvalue > V::from(0) {
-                *cvalue = *cvalue - V::from(1u8);
+
+            let value = *cvalue;
+            if value > V::zero() {
+                *cvalue = value - V::one();
             }
         };
 

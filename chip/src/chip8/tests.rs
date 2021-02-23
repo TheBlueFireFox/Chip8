@@ -7,20 +7,18 @@ use {
         opcode::{ChipOpcodes, Opcode, Operation, ProgramCounter, ProgramCounterStep},
         resources::{Rom, RomArchives},
     },
-    lazy_static::lazy_static,
 };
 
 const ROM_NAME: &'static str = "15PUZZLE";
 
-lazy_static! {
+lazy_static::lazy_static! {
     /// preloading this as it get's called multiple times per unit
     static ref BASE_ROM : Rom = get_rom(ROM_NAME);
-
 }
 
 fn get_rom(s: &str) -> Rom {
     RomArchives::new()
-        .get_file_data(ROM_NAME)
+        .get_file_data(s)
         .expect("A panic happend during extraction of the Rom archive.")
 }
 

@@ -86,7 +86,7 @@ where
     K: KeyboardCommands,
     W: TimedWorker,
 {
-    // Checks if the last operation was a wait and if 
+    // Checks if the last operation was a wait and if
     // processing can continue.
     if *operation == Operation::Wait && !keyboard.was_pressed() {
         return Ok(());
@@ -176,6 +176,11 @@ mod tests {
 
         let mut controller: Controller<_, _, Worker> = Controller::new(da, ka);
 
+        assert_eq!(
+            Err("There is no valid chipset initialized.".to_string()),
+            run(&mut controller)
+        );
+
         let rom = crate::resources::RomArchives::new()
             .get_file_data(ROM_NAME)
             .expect("Something went wrong while extracting the rom");
@@ -184,6 +189,7 @@ mod tests {
 
         assert_eq!(Ok(()), run(&mut controller));
         assert_eq!(Operation::Draw, controller.operation());
+
         assert_eq!(Ok(()), run(&mut controller));
     }
 }

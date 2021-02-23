@@ -46,7 +46,6 @@ mod opcode_print {
             definitions::memory,
             opcode::{self, Opcode},
         },
-        lazy_static,
         std::fmt,
     };
 
@@ -201,10 +200,7 @@ mod integer_print {
 }
 
 mod bool_print {
-    use {
-        super::{integer_print, pointer_print, HEX_PRINT_STEP},
-        lazy_static,
-    };
+    use super::{integer_print, pointer_print, HEX_PRINT_STEP};
 
     lazy_static::lazy_static! {
         /// is used internally for lenght adjustment
