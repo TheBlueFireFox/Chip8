@@ -1,9 +1,10 @@
 use crate::definitions::keyboard;
 
+
 /// The traits responsible for the display based code
 pub trait DisplayCommands {
     /// Will display all from the pixels
-    fn display<'a>(&'a self, pixels: &'a [&'a [bool]]);
+    fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&self, pixels: M);
 }
 
 /// The trait responsible for writing the keyboard data

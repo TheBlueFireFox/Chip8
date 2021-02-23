@@ -14,10 +14,14 @@ const ROM_NAME: &'static str = "15PUZZLE";
 
 lazy_static! {
     /// preloading this as it get's called multiple times per unit
-    static ref BASE_ROM : Rom = RomArchives::new()
-        .get_file_data(ROM_NAME)
-        .expect("A panic happend during extraction of the Rom archive.");
+    static ref BASE_ROM : Rom = get_rom(ROM_NAME);
 
+}
+
+fn get_rom(s: &str) -> Rom {
+    RomArchives::new()
+        .get_file_data(ROM_NAME)
+        .expect("A panic happend during extraction of the Rom archive.")
 }
 
 pub(super) fn get_base() -> Rom {

@@ -151,8 +151,8 @@ impl<W: TimedWorker> ChipSet<W> {
     }
 
     /// will return a clone of the current display configuration
-    pub fn get_display(&self) -> Vec<&[bool]> {
-        self.display.iter().map(|row| &row[..]).collect()
+    pub fn get_display(&self) -> &[Box<[bool]>] {
+        &self.display[..]
     }
 
     /// Will push the current pointer to the stack

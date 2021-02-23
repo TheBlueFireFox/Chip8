@@ -15,15 +15,15 @@ impl DisplayAdapter {
         DisplayAdapter {}
     }
 
-    fn draw_board<'a>(pixels: &'a [&'a [bool]]) -> Result<(), JsValue> {
+    fn draw_board<M: AsRef<[V]>, V: AsRef<[bool]>>(pixels: M) -> Result<(), JsValue> {
         let html = BrowserWindow::new();
         let document = html.document();
 
         let table = document.create_element(definitions::field::TYPE)?;
         table.set_id(definitions::field::ID);
-        for row in pixels.iter() {
+        for row in pixels.as_ref().iter() {
             let tr = document.create_element(definitions::field::TYPE_ROW)?;
-            for value in row.iter() {
+            for value in row.as_ref().iter() {
                 let td = document.create_element(definitions::field::TYPE_COLUMN)?;
 
                 if *value {
@@ -47,7 +47,8 @@ impl DisplayAdapter {
 }
 
 impl DisplayCommands for DisplayAdapter {
-    fn display<'a>(&'a self, pixels: &'a [&'a [bool]]) {
+    fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&self, pixels: M) {
+        crate::exported::console_log("drawing");
         Self::draw_board(pixels).expect("something went wrong while working on the board");
     }
 }

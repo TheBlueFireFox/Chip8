@@ -93,7 +93,7 @@ where
 
     let work = match last_op {
         Operation::Wait => keyboard.was_pressed(),
-        _ => false,
+        _ => true,
     };
 
     if work {
@@ -103,10 +103,88 @@ where
         match last_op {
             Operation::Draw => {
                 /* draw the screen */
-                display.display(&chip.get_display()[..]);
+                display.display(chip.get_display());
             }
             _ => {}
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::{definitions, timer::Worker};
+    use mockall::predicate::*;
+
+    #[mockall::automock]
+    trait InternalDCommands {
+        fn display(&self);
+    }
+
+    struct DisplayAdapter<M>
+    where
+        M: InternalDCommands,
+    {
+        da: M,
+    }
+
+    impl<MD> DisplayCommands for DisplayAdapter<MD>
+    where
+        MD: InternalDCommands,
+    {
+        fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&self, pixels: M) {
+            self.da.display()
+        }
+    }
+
+    #[mockall::automock]
+    trait InternalKCommands {
+        fn was_pressed(&self) -> bool;
+        fn get_keyboard(&self) -> &[bool];
+    }
+
+    struct KeyboardAdapter<M>
+    where
+        M: InternalKCommands,
+    {
+        da: M,
+    }
+
+    impl<M: InternalKCommands> KeyboardCommands for KeyboardAdapter<M> {
+        fn was_pressed(&self) -> bool {
+            self.da.was_pressed()
+        }
+
+        fn get_keyboard(&self) -> &[bool] {
+            self.da.get_keyboard()
+        }
+    }
+
+    #[test]
+    fn test_runner() {
+        const ROM_NAME: &str = "IBMLOGO";
+
+        let mut mock_display = MockInternalDCommands::new();
+
+        mock_display.expect_display().times(1).return_const(());
+
+        let da = DisplayAdapter { da: mock_display };
+
+        let mock_keyboard = MockInternalKCommands::new();
+
+        let ka = KeyboardAdapter { da: mock_keyboard };
+
+        let mut controller: Controller<_, _, Worker> = Controller::new(da, ka);
+
+        let rom = crate::resources::RomArchives::new()
+            .get_file_data(ROM_NAME)
+            .expect("Something went wrong while extracting the rom");
+
+        controller.set_rom(rom);
+
+        assert_eq!(Ok(()), run(&mut controller));
+        assert_eq!(Ok(()), run(&mut controller));
+    }
 }
