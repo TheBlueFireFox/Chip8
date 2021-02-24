@@ -20,6 +20,21 @@ where
     /// Will get the value that the counter is currently at.
     fn get_value(&self) -> V;
 }
+pub trait TimedWorker {
+    /// Will create the respective timer
+    /// The reason that this is a required method
+    /// is so that the implementing types can
+    /// instantiate it them selves.
+    fn new() -> Self;
+    /// Will start the timed worker every the interval
+    fn start<T>(&mut self, callback: T, interval: Duration)
+    where
+        T: Send + FnMut() + 'static;
+    /// Will stop the timed worker
+    fn stop(&mut self);
+    /// Will check if the worker is currntly working
+    fn is_alive(&self) -> bool;
+}
 
 /// A timer that will count down to 0, from any type that does support it
 pub(crate) struct Timer<W, V>
@@ -43,13 +58,12 @@ where
 {
     fn new(value: V, interval: Duration) -> Self {
         let mut worker = W::new();
+
         let value = Arc::new(RwLock::new(value));
         let rw_value = value.clone();
 
         let func = move || {
-            let mut cvalue = rw_value
-                .write()
-                .expect("something went wrong while unlocking the RW-Value");
+            let mut cvalue = rw_value.write().expect("We have a poisoned lock");
 
             let value = *cvalue;
             if value > V::zero() {
@@ -93,22 +107,6 @@ pub(super) struct Worker {
     /// is simple to use.) It uses an ```()``` so that it doesn't use
     /// up too much memory.
     alive: Arc<()>,
-}
-
-pub trait TimedWorker {
-    /// Will create the respective timer
-    /// The reason that this is a required method
-    /// is so that the implementing types can
-    /// instantiate it them selves.
-    fn new() -> Self;
-    /// Will start the timed worker every the interval
-    fn start<T>(&mut self, callback: T, interval: Duration)
-    where
-        T: Send + FnMut() + 'static;
-    /// Will stop the timed worker
-    fn stop(&mut self);
-    /// Will check if the worker is currntly working
-    fn is_alive(&self) -> bool;
 }
 
 impl TimedWorker for Worker {

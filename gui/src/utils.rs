@@ -1,13 +1,14 @@
 use wasm_bindgen::JsValue;
 use web_sys::{Document, HtmlElement, Window};
 
-
 pub fn log(message: &str) {
     // As RustAnalyzer keeps saying an unsafe block is neede here,
-    // although it's not i've added one and deactiveted clippy 
+    // although it's not i've added one and deactiveted clippy
     // on this line only.
     #[allow(unused_unsafe)]
-   unsafe { web_sys::console::log_1(&JsValue::from(message)); }
+    unsafe {
+        web_sys::console::log_1(&JsValue::from(message));
+    }
 }
 
 pub(crate) struct BrowserWindow {
@@ -17,15 +18,15 @@ pub(crate) struct BrowserWindow {
 }
 
 impl BrowserWindow {
-    pub fn new() -> Self {
-        let window = web_sys::window().expect("no global `window` exists.");
-        let document = window.document().expect("no document available");
-        let body = document.body().expect("document should have a valid body");
-        Self {
+    pub fn new() -> Result<Self, &'static str> {
+        let window = web_sys::window().ok_or("no global `window` exists.")?;
+        let document = window.document().ok_or("no document available")?;
+        let body = document.body().ok_or("document should have a valid body")?;
+        Ok(Self {
             window,
             document,
             body,
-        }
+        })
     }
     pub fn window(&self) -> &Window {
         &self.window

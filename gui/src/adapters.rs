@@ -15,12 +15,17 @@ impl DisplayAdapter {
         DisplayAdapter {}
     }
 
-    fn draw_board<M: AsRef<[V]>, V: AsRef<[bool]>>(pixels: M) -> Result<(), JsValue> {
-        let html = BrowserWindow::new();
+    fn draw_board<M, V>(pixels: M) -> Result<(), JsValue>
+    where
+        M: AsRef<[V]>,
+        V: AsRef<[bool]>,
+    {
+        let html = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
         let document = html.document();
 
         let table = document.create_element(definitions::field::TYPE)?;
         table.set_id(definitions::field::ID);
+
         for row in pixels.as_ref().iter() {
             let tr = document.create_element(definitions::field::TYPE_ROW)?;
             for value in row.as_ref().iter() {

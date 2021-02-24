@@ -55,7 +55,7 @@ fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsV
 }
 
 fn print_info(message: &str) -> Result<(), JsValue> {
-    let bw = BrowserWindow::new();
+    let bw = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
     let doc = bw.document();
     let pre = doc.create_element("pre")?;
     pre.set_text_content(Some(message));
@@ -69,7 +69,7 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
     // will set the panic hook to be the console logs
     set_panic_hook();
 
-    let browser_window = BrowserWindow::new();
+    let browser_window = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
     // create elements
     let val = browser_window.document().create_element("p")?;
     val.set_inner_html("Hello from Rust");
@@ -87,9 +87,7 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
 
     browser_window.body().append_child(&board)?;
 
-    let data = JsBoundData::new();
-
-    Ok(data)
+    JsBoundData::new()
 }
 
 struct ObservedKeypress {
@@ -139,7 +137,7 @@ pub struct JsBoundData {
 
 #[wasm_bindgen]
 impl JsBoundData {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new() -> Result<Self, JsValue> {
         let controller = Controller::new(DisplayAdapter::new(), KeyboardAdapter::new());
         let rc_controller = Rc::new(RefCell::new(controller));
         let mut eh = EventSystem::new();
@@ -150,12 +148,12 @@ impl JsBoundData {
 
         let res = Self {
             controller: rc_controller,
-            worker: Rc::new(RefCell::new(WasmWorker::new())),
+            worker: Rc::new(RefCell::new(WorkerWrapper::new())),
             keypress_event: eh,
             state: Rc::new(RefCell::new(State::Running)),
         };
 
-        res
+        Ok(res)
     }
 
     /// Get a mutable reference to the data's controller.
@@ -191,61 +189,26 @@ impl JsBoundData {
         let csuccesss = self.state.clone();
         let cworker = self.worker.clone();
 
+        let shutdown_callback = || {
+            stop(cworker.clone(), ccontroller.clone());
+        };
         // Will convert the Data type into a mutable controller, so that
         // it can be used by the chip, this will run a single opcode of the
         // chip.
         let callback = move || {
-            // check sucess state so that the browser will not be overwhelem
-            // and crash by error messages
-            let state = csuccesss.replace(State::Stop);
-
-            let message;
-            let shutdown = match state {
-                State::Running => {
-                    message = ""; // is not needed
-                    false
-                }
-                State::Failure => {
-                    message = "Shuting down due to error"; // print error message
-                    true
-                }
-                State::Shutdown => {
-                    message = "Shutting down the processing";
-                    true
-                }
-                State::Stop => {
-                    message = "Something unexpected paniced";
-                    true
-                }
-            };
-
-            if shutdown {
-                // Will shutdown any ongoing processing
-                crate::utils::log(&message);
-                stop(cworker.clone(), ccontroller.clone());
-                return;
-            }
 
             // moving the ccontroller into this closure
             let mut controller = ccontroller.borrow_mut();
 
             // running the chip step
-            let state = match chip::run(&mut controller) {
-                Ok(_) => State::Running,
-                Err(err) => {
-                    crate::utils::log("Something went wrong while stepping to the next step.");
-                    crate::utils::log(&err);
-                    State::Failure
-                }
-            };
-
-            let _ = csuccesss.replace(state);
+            chip::run(&mut controller)
         };
 
-        self.worker.borrow_mut().start(
+        self.worker.borrow_mut().start_with_shutdown(
             callback,
+            shutdown_callback,
             Duration::from_micros(chip::definitions::cpu::INTERVAL),
-        )?;
+        );
 
         Ok(())
     }
@@ -256,7 +219,7 @@ impl JsBoundData {
     }
 }
 
-fn stop(worker: Rc<RefCell<WasmWorker>>, controller: Rc<RefCell<InternalController>>) {
+fn stop(worker: Rc<RefCell<WorkerWrapper<TimingWorker>>>, controller: Rc<RefCell<InternalController>>) {
     // stop executing chip
     worker.borrow_mut().stop();
     controller.borrow_mut().remove_rom();

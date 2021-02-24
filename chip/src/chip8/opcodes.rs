@@ -226,15 +226,6 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
         // to 0 if that doesn’t happen
         // see https://tobiasvl.github.io/blog/write-a-chip-8-emulator/
 
-        let log = |s: &str| {
-            use wasm_bindgen::JsValue;
-            // just removing weird errors from Rust Analzer
-            #[allow(unused_unsafe)]
-            unsafe {
-                web_sys::console::log_1(&JsValue::from(s));
-            }
-        };
-
         let (reg_x, reg_y, n) = opcode.xyn();
 
         let index = self.index_register;
