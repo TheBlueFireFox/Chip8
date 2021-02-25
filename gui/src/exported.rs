@@ -1,9 +1,11 @@
+use crate::timer::WorkerWrapper;
+
 use {
     crate::{
         adapters::{DisplayAdapter, KeyboardAdapter},
         definitions,
         observer::{EventSystem, Observer},
-        timer::{TimingWorker, WasmWorker},
+        timer::TimingWorker,
         utils::{set_panic_hook, BrowserWindow},
     },
     chip::{definitions::display, devices::Key, resources::RomArchives, Controller},
@@ -129,7 +131,7 @@ enum State {
 #[wasm_bindgen]
 pub struct JsBoundData {
     controller: Rc<RefCell<InternalController>>,
-    worker: Rc<RefCell<WasmWorker>>,
+    worker: Rc<RefCell<WorkerWrapper>>,
     keypress_event: EventSystem<Key>,
     /// If the run method had run with out problems
     state: Rc<RefCell<State>>,
@@ -148,7 +150,7 @@ impl JsBoundData {
 
         let res = Self {
             controller: rc_controller,
-            worker: Rc::new(RefCell::new(WorkerWrapper::new())),
+            worker: Rc::new(RefCell::new(WorkerWrapper::new()?)),
             keypress_event: eh,
             state: Rc::new(RefCell::new(State::Running)),
         };
@@ -186,17 +188,16 @@ impl JsBoundData {
 
         // Will setup the worker
         let ccontroller = self.controller.clone();
-        let csuccesss = self.state.clone();
+        let scontroller = self.controller.clone();
         let cworker = self.worker.clone();
 
-        let shutdown_callback = || {
-            stop(cworker.clone(), ccontroller.clone());
+        let shutdown_callback = move || {
+            stop(cworker.clone(), scontroller.clone());
         };
         // Will convert the Data type into a mutable controller, so that
         // it can be used by the chip, this will run a single opcode of the
         // chip.
         let callback = move || {
-
             // moving the ccontroller into this closure
             let mut controller = ccontroller.borrow_mut();
 
@@ -219,7 +220,7 @@ impl JsBoundData {
     }
 }
 
-fn stop(worker: Rc<RefCell<WorkerWrapper<TimingWorker>>>, controller: Rc<RefCell<InternalController>>) {
+fn stop(worker: Rc<RefCell<WorkerWrapper>>, controller: Rc<RefCell<InternalController>>) {
     // stop executing chip
     worker.borrow_mut().stop();
     controller.borrow_mut().remove_rom();

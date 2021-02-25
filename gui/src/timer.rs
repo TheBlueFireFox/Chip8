@@ -1,5 +1,5 @@
 use std::{
-    cell::{Cell, Ref, RefCell},
+    cell::{Cell, RefCell},
     rc::Rc,
     time::Duration,
 };
@@ -11,23 +11,27 @@ use chip::timer::TimedWorker;
 pub(crate) struct TimingWorker {
     /// Wrapps the actuall implementation so that the TimedWorker thread condition,
     /// for the Timer can be fullfilled correctly.
-    worker: WasmWorker,
+    worker: WorkerWrapper,
 }
 
 impl TimedWorker for TimingWorker {
     fn new() -> Self {
         Self {
-            worker: WasmWorker::new().expect("Error during WasmWorker creation."),
+            worker: WorkerWrapper::new().expect("Error during WasmWorker creation."),
         }
     }
 
-    fn start<T>(&mut self, callback: T, interval: Duration)
+    fn start<T>(&mut self, mut callback: T, interval: Duration)
     where
         T: Send + FnMut() + 'static,
     {
+        let icallback = move || {
+            callback();
+            Ok(())
+        };
         self.worker
-            .start(callback, interval)
-            .expect("Something went terribly wrong while initializing the worker thread.");
+            .start(icallback, interval)
+            .expect("Unexpected error during start of timed worker");
     }
 
     fn stop(&mut self) {
@@ -42,7 +46,7 @@ impl TimedWorker for TimingWorker {
 #[derive(Debug, Clone, Copy)]
 enum WorkerState {
     CanRun,
-    CannotRun
+    CannotRun,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -57,63 +61,67 @@ enum ProgrammState {
 /// crash on the worker thread and the
 /// function call get's called anyway
 /// to stop any execution then.
-pub struct WorkerWrapper<W: TimedWorker> {
-    worker: W,
+pub struct WorkerWrapper {
+    worker: WasmWorker,
     /// If the run method had run with out problems
     state: Rc<Cell<ProgrammState>>,
-    shutdown: Rc<RefCell<Option<Box<dyn FnOnce() + Send + 'static>>>>,
+    shutdown: Rc<RefCell<Option<Box<dyn FnOnce() + 'static>>>>,
 }
 
-impl<W: TimedWorker> WorkerWrapper<W> {
-    pub fn new() -> Self {
-        Self {
-            worker: W::new(),
+impl WorkerWrapper {
+    pub fn new() -> Result<Self, JsValue> {
+        Ok(Self {
+            worker: WasmWorker::new()?,
             state: Rc::new(Cell::new(ProgrammState::Stop)),
             shutdown: Rc::new(RefCell::new(None)),
-        }
+        })
     }
 
     /// Will start the timed worker every the interval
-    pub fn start_with_shutdown<M, S>(&mut self, callback: M, shutdown: S, interval: Duration)
+    pub fn start_with_shutdown<M, S>(
+        &mut self,
+        callback: M,
+        shutdown: S,
+        interval: Duration,
+    ) -> Result<(), JsValue>
     where
-        M: Send + FnMut() -> Result<(), String> + 'static,
-        S: Send + FnOnce() + 'static,
+        M: FnMut() -> Result<(), String> + 'static,
+        S: FnOnce() + 'static,
     {
         {
             let state = self.state.get();
             if let ProgrammState::Running = state {
                 // Worker is already running
-                return;
+                return Err(JsValue::from("There is alread a worker running"));
             }
         }
         {
             let mut s = self.shutdown.borrow_mut();
             *s = Some(Box::new(shutdown));
         }
-        self.start(callback, interval);
+        self.start(callback, interval)
     }
 
     /// Will start the timed worker every the interval
-    pub fn start<T>(&mut self, mut callback: T, interval: Duration)
+    pub fn start<T>(&mut self, mut callback: T, interval: Duration) -> Result<(), JsValue>
     where
-        T: Send + FnMut() -> Result<(), String> + 'static,
+        T: FnMut() -> Result<(), String> + 'static,
     {
         let istate = self.state.clone();
         let ishutdown = self.shutdown.clone();
 
         // set up the state state
-        
+
         match self.set_start_state() {
             WorkerState::CanRun => {}
-            WorkerState::CannotRun => {return;}
+            WorkerState::CannotRun => {
+                return Err(JsValue::from("Cannot start the worker."));
+            }
         }
-        
+
         let internal_callback = move || {
             // check if state was poisoned => there was a crash
-            let state = match istate.read() {
-                Ok(s) => *s,
-                Err(_) => ProgrammState::Failure,
-            };
+            let state = istate.get();
 
             // check sucess state so that the system will not be overwhelem
             // and crash by error messages or that the thread continues to
@@ -137,60 +145,45 @@ impl<W: TimedWorker> WorkerWrapper<W> {
 
             if shutdown {
                 // try to call the shutdown process
-                let mut success = false;
-                if let Ok(mut shutdown_lock) = ishutdown.lock() {
-                    if let Some(shutdown_callback) = shutdown_lock.take() {
-                        shutdown_callback();
-                    }
-                    success = true;
+                if let Some(shutdown_callback) = ishutdown.borrow_mut().take() {
+                    shutdown_callback();
                 }
-                if let Ok(mut state) = istate.write() {
-                    *state = if success {
-                        ProgrammState::Shutdown
-                    } else {
-                        ProgrammState::Failure
-                    };
-                }
+
+                istate.set(ProgrammState::Shutdown);
                 return;
             }
 
             if let Err(err) = callback() {
                 log::error!("{}", err);
-                if let Ok(mut state) = istate.write() {
-                    *state = ProgrammState::Failure;
-                }
+                istate.set(ProgrammState::Failure);
             }
         };
 
-        self.worker.start(internal_callback, interval);
+        self.worker.start(internal_callback, interval)
     }
 
     /// Will stop the timed worker
     pub fn stop(&mut self) {
-        let mut state = self.state.write().expect("Unlocking went wrong.");
-        *state = ProgrammState::Stop;
-
+        self.state.set(ProgrammState::Stop);
         self.worker.stop();
     }
 
+    pub fn is_alive(&self) -> bool {
+        self.worker.is_alive()
+    }
+
     fn set_start_state(&mut self) -> WorkerState {
-        let mut state = self.state.get();
+        let state = self.state.get();
         if let ProgrammState::Running = state {
             // Worker is already running
-            WorkerState::CanRun
+            WorkerState::CannotRun
         } else {
             self.state.set(ProgrammState::Running);
-            WorkerState::CannotRun
+            WorkerState::CanRun
         }
     }
-
 }
 
-impl<W: TimedWorker> Drop for WorkerWrapper<W> {
-    fn drop(&mut self) {
-        self.stop()
-    }
-}
 /// The actuall worker for the peudo-wasm-thread.
 /// The start function in this version does not
 /// need the Send bound, as well as to send the
