@@ -21,7 +21,7 @@ web-sys = {version = "0.3", default-features = false, features = [
   'HtmlElement',
   'Node',
   'Window',
-  'console'
+  'console',
 ]}
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
@@ -38,6 +38,9 @@ console_error_panic_hook = {version = "0.1", optional = true}
 wee_alloc = {version = "0.4", optional = true}
 
 chip8 = {path = "../chip"}
+
+console_log = {version = "0.2", features = ["color"]}
+log = "0.4"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
