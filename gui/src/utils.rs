@@ -1,15 +1,4 @@
-use wasm_bindgen::JsValue;
 use web_sys::{Document, HtmlElement, Window};
-
-pub fn log(message: &str) {
-    // As RustAnalyzer keeps saying an unsafe block is neede here,
-    // although it's not i've added one and deactiveted clippy
-    // on this line only.
-    #[allow(unused_unsafe)]
-    unsafe {
-        web_sys::console::log_1(&JsValue::from(message));
-    }
-}
 
 pub(crate) struct BrowserWindow {
     window: Window,

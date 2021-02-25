@@ -10,13 +10,16 @@ version = "0.2.0"
 name = "chip"
 path = "src/lib.rs"
 
+[features]
+default = ["log"]
+
 [dependencies]
 getrandom = {version = "0.2", features = ["js"]}
 lazy_static = "1.4"
+log = "0.4"
 num = "0.3"
 rand = {version = "0.8", features = ["getrandom"]}
 zip = {version = "0.5", default-features = false, features = ["deflate"]}
-log = "0.4"
 
 [dev-dependencies]
 mockall = "0.9"

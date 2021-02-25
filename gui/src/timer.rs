@@ -11,13 +11,13 @@ use chip::timer::TimedWorker;
 pub(crate) struct TimingWorker {
     /// Wrapps the actuall implementation so that the TimedWorker thread condition,
     /// for the Timer can be fullfilled correctly.
-    worker: WorkerWrapper,
+    worker: ProcessWorker,
 }
 
 impl TimedWorker for TimingWorker {
     fn new() -> Self {
         Self {
-            worker: WorkerWrapper::new().expect("Error during WasmWorker creation."),
+            worker: ProcessWorker::new().expect("Error during WasmWorker creation."),
         }
     }
 
@@ -61,14 +61,14 @@ enum ProgrammState {
 /// crash on the worker thread and the
 /// function call get's called anyway
 /// to stop any execution then.
-pub struct WorkerWrapper {
+pub struct ProcessWorker {
     worker: WasmWorker,
     /// If the run method had run with out problems
     state: Rc<Cell<ProgrammState>>,
     shutdown: Rc<RefCell<Option<Box<dyn FnOnce() + 'static>>>>,
 }
 
-impl WorkerWrapper {
+impl ProcessWorker {
     pub fn new() -> Result<Self, JsValue> {
         Ok(Self {
             worker: WasmWorker::new()?,

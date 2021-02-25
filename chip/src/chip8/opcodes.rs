@@ -235,6 +235,8 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
         let coorx = coorx % display::HEIGHT;
         let coory = coory % display::WIDTH;
 
+        log::debug!("Drawing from \n\tx:{} - y: {}", coorx, coory);
+
         // Set VF to 0
         self.registers[cpu::register::LAST] = 0;
 

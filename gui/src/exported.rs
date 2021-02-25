@@ -1,17 +1,18 @@
-use crate::timer::WorkerWrapper;
+use console_log::init_with_level;
 
 use {
     crate::{
         adapters::{DisplayAdapter, KeyboardAdapter},
         definitions,
         observer::{EventSystem, Observer},
-        timer::TimingWorker,
+        timer::{TimingWorker, ProcessWorker},
         utils::{set_panic_hook, BrowserWindow},
     },
     chip::{definitions::display, devices::Key, resources::RomArchives, Controller},
     std::{
         cell::{Ref, RefCell, RefMut},
         rc::Rc,
+        sync::{Arc, Once, RwLock},
         time::Duration,
     },
     wasm_bindgen::prelude::*,
@@ -66,10 +67,26 @@ fn print_info(message: &str) -> Result<(), JsValue> {
     Ok(())
 }
 
+lazy_static::lazy_static! {
+    static ref START: Once = Once::new();
+    static ref START_RESULT: Arc<RwLock<Result<(), log::SetLoggerError>>> =
+        Arc::new(RwLock::new(Ok(())));
+}
+
 #[wasm_bindgen]
 pub fn setup() -> Result<JsBoundData, JsValue> {
-    // will set the panic hook to be the console logs
-    set_panic_hook();
+    // make sure that there will never be a setup call more then once
+    START.call_once(|| {
+        // will set the panic hook to be the console logs
+        set_panic_hook();
+
+        let mut res = START_RESULT.write().unwrap();
+        *res = console_log::init_with_level(log::STATIC_MAX_LEVEL.to_level().unwrap());
+    });
+
+    if let Err(err) = START_RESULT.read() {
+        return Err(JsValue::from(format!("{}", err)));
+    }
 
     let browser_window = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
     // create elements
@@ -88,6 +105,8 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
     let board = create_board(&browser_window)?;
 
     browser_window.body().append_child(&board)?;
+
+    log::info!("Online");
 
     JsBoundData::new()
 }
@@ -123,7 +142,7 @@ type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWork
 #[wasm_bindgen]
 pub struct JsBoundData {
     controller: Rc<RefCell<InternalController>>,
-    worker: Rc<RefCell<WorkerWrapper>>,
+    worker: Rc<RefCell<ProcessWorker>>,
     keypress_event: EventSystem<Key>,
 }
 
@@ -140,7 +159,7 @@ impl JsBoundData {
 
         let res = Self {
             controller: rc_controller,
-            worker: Rc::new(RefCell::new(WorkerWrapper::new()?)),
+            worker: Rc::new(RefCell::new(ProcessWorker::new()?)),
             keypress_event: eh,
         };
 
@@ -164,6 +183,8 @@ impl JsBoundData {
         let rom = ra
             .get_file_data(&rom_name)
             .map_err(|err| JsValue::from(format!("{}", err)))?;
+
+        log::debug!("Loading {}", rom_name);
 
         self.controller_mut().set_rom(rom);
 
@@ -207,7 +228,7 @@ impl JsBoundData {
     }
 }
 
-fn stop(worker: Rc<RefCell<WorkerWrapper>>, controller: Rc<RefCell<InternalController>>) {
+fn stop(worker: Rc<RefCell<ProcessWorker>>, controller: Rc<RefCell<InternalController>>) {
     // stop executing chip
     worker.borrow_mut().stop();
     controller.borrow_mut().remove_rom();

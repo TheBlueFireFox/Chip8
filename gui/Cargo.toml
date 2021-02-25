@@ -40,7 +40,8 @@ wee_alloc = {version = "0.4", optional = true}
 chip8 = {path = "../chip"}
 
 console_log = {version = "0.2", features = ["color"]}
-log = "0.4"
+lazy_static = "1.4"
+log = {version = "0.4", features = ["max_level_debug", "release_max_level_debug"]}
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
