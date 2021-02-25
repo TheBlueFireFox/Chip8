@@ -9,3 +9,25 @@ see [Chip8](https://en.wikipedia.org/wiki/CHIP-8) for more information
 ## Project 
 This is a project I am working on on the side. It's for me to learn Rust as well as the Chip8 infrastructure and of course 
 it is meant to teach myself cpu / language architecture.
+
+## Keyboard Layout:
+
+### Chip8 Keypad:
+|   |   |   |   |
+|---|---|---|---|
+| 1 | 2 | 3 | C |
+| 4 | 5 | 6 | D |
+| 7 | 8 | 9 | E |
+| A | 0 | B | F |
+
+### Emulator Keyboard Mapping:
+|   |   |   |   |
+|---|---|---|---|
+| 1 | 2 | 3 | 4 |
+| Q | W | E | R |
+| A | S | D | F |
+| Z | X | C | V |
+
+'esc' Key  : Close the Emulator<br>
+'Spacebar' : Pause / Resume the Emulator<br>
+'F5 Key'   : Reset the emulator
