@@ -116,14 +116,6 @@ impl Observer<Key> for ObservedKeypress {
 /// type is used to abriviate the given configuration.
 type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWorker>;
 
-#[derive(Debug, Clone, Copy)]
-enum State {
-    Failure,
-    Running,
-    Shutdown,
-    Stop,
-}
-
 /// This struct is the one that will be passed back and forth between
 /// JS and WASM, as WASM API only allow for `&T` or `T` and not `&mut T`  
 /// see [here](https://rustwasm.github.io/docs/wasm-bindgen/reference/types/jsvalue.html?highlight=JSV#jsvalue)
@@ -133,8 +125,6 @@ pub struct JsBoundData {
     controller: Rc<RefCell<InternalController>>,
     worker: Rc<RefCell<WorkerWrapper>>,
     keypress_event: EventSystem<Key>,
-    /// If the run method had run with out problems
-    state: Rc<RefCell<State>>,
 }
 
 #[wasm_bindgen]
@@ -152,7 +142,6 @@ impl JsBoundData {
             controller: rc_controller,
             worker: Rc::new(RefCell::new(WorkerWrapper::new()?)),
             keypress_event: eh,
-            state: Rc::new(RefCell::new(State::Running)),
         };
 
         Ok(res)
@@ -209,9 +198,7 @@ impl JsBoundData {
             callback,
             shutdown_callback,
             Duration::from_micros(chip::definitions::cpu::INTERVAL),
-        );
-
-        Ok(())
+        )
     }
 
     /// Will clear the interval that is running the application
