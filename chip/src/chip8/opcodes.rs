@@ -235,8 +235,6 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
         let coorx = coorx % display::HEIGHT;
         let coory = coory % display::WIDTH;
 
-        log::debug!("Drawing from \n\tx:{} - y: {}", coorx, coory);
-
         // Set VF to 0
         self.registers[cpu::register::LAST] = 0;
 
@@ -255,22 +253,28 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
             // - Or if the current pixel in the sprite row is 'on' and the screen pixel is 'not',
             //  draw the pixel at the X and Y coordinates.
 
+            // Attention about the endianess of the system.
+
             for j in 0..BYTE {
+                let mask = 0x80 >> j;
                 let x = coorx + j;
+
                 if x >= display::HEIGHT {
                     break;
                 }
 
-                let mask = 1 << j;
-
                 let cpixel = (*row & mask) == mask;
+
+                if !cpixel {
+                    continue;
+                }
+
                 let spixel = self.display[y][x];
 
-                if cpixel && spixel {
+                self.display[y][x] = !spixel;
+
+                if spixel {
                     self.registers[cpu::register::LAST] = 1;
-                    self.display[y][x] = false;
-                } else if cpixel && !spixel {
-                    self.display[y][x] = true;
                 }
             }
         }
