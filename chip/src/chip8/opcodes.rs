@@ -242,14 +242,13 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
 
         const BYTE: usize = 8;
 
-        for i in 0..n {
+        // Get one byte of sprite data from the memory address in the I register
+        for (i, row) in self.memory[index..(index + n)].iter().enumerate() {
             let y = coory + i;
 
             if y >= display::WIDTH {
                 break;
             }
-            // Get one byte of sprite data from the memory address in the I register
-            let row = self.memory[index + i];
 
             // - If the current pixel in the sprite row is 'on' and the pixel at coordinates X,Y
             //   on the screen is also 'on', turn 'off' the pixel and set VF to '1'.
@@ -264,7 +263,7 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
 
                 let mask = 1 << j;
 
-                let cpixel = (row & mask) == mask;
+                let cpixel = (*row & mask) == mask;
                 let spixel = self.display[y][x];
 
                 if cpixel && spixel {

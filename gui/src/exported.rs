@@ -1,18 +1,15 @@
-use console_log::init_with_level;
-
 use {
     crate::{
         adapters::{DisplayAdapter, KeyboardAdapter},
         definitions,
         observer::{EventSystem, Observer},
         timer::{TimingWorker, ProcessWorker},
-        utils::{set_panic_hook, BrowserWindow},
+        utils::{BrowserWindow},
     },
     chip::{definitions::display, devices::Key, resources::RomArchives, Controller},
     std::{
         cell::{Ref, RefCell, RefMut},
         rc::Rc,
-        sync::{Arc, Once, RwLock},
         time::Duration,
     },
     wasm_bindgen::prelude::*,
@@ -67,26 +64,10 @@ fn print_info(message: &str) -> Result<(), JsValue> {
     Ok(())
 }
 
-lazy_static::lazy_static! {
-    static ref START: Once = Once::new();
-    static ref START_RESULT: Arc<RwLock<Result<(), log::SetLoggerError>>> =
-        Arc::new(RwLock::new(Ok(())));
-}
 
 #[wasm_bindgen]
 pub fn setup() -> Result<JsBoundData, JsValue> {
-    // make sure that there will never be a setup call more then once
-    START.call_once(|| {
-        // will set the panic hook to be the console logs
-        set_panic_hook();
-
-        let mut res = START_RESULT.write().unwrap();
-        *res = console_log::init_with_level(log::STATIC_MAX_LEVEL.to_level().unwrap());
-    });
-
-    if let Err(err) = START_RESULT.read() {
-        return Err(JsValue::from(format!("{}", err)));
-    }
+    crate::utils::setup_systems()?;
 
     let browser_window = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
     // create elements
@@ -202,8 +183,9 @@ impl JsBoundData {
         let cworker = self.worker.clone();
 
         let shutdown_callback = move || {
-            stop(cworker.clone(), scontroller.clone());
+            stop(cworker, scontroller);
         };
+
         // Will convert the Data type into a mutable controller, so that
         // it can be used by the chip, this will run a single opcode of the
         // chip.

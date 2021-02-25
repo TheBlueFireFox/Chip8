@@ -1,3 +1,6 @@
+use std::sync::{Arc, Once, RwLock};
+
+use wasm_bindgen::JsValue;
 use web_sys::{Document, HtmlElement, Window};
 
 pub(crate) struct BrowserWindow {
@@ -26,6 +29,28 @@ impl BrowserWindow {
 
     pub fn body(&self) -> &HtmlElement {
         &self.body
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref START: Once = Once::new();
+    static ref START_RESULT: Arc<RwLock<Result<(), log::SetLoggerError>>> =
+        Arc::new(RwLock::new(Ok(())));
+}
+pub fn setup_systems() -> Result<(), JsValue> {
+    // make sure that there will never be a setup call more then once
+    START.call_once(|| {
+        // will set the panic hook to be the console logs
+        crate::utils::set_panic_hook();
+
+        let mut res = START_RESULT.write().unwrap();
+        *res = console_log::init_with_level(log::STATIC_MAX_LEVEL.to_level().unwrap());
+    });
+
+    if let Err(err) = START_RESULT.read() {
+        Err(JsValue::from(format!("{}", err)))
+    } else {
+        Ok(())
     }
 }
 
