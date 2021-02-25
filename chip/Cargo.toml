@@ -10,9 +10,6 @@ version = "0.2.0"
 name = "chip"
 path = "src/lib.rs"
 
-[features]
-default = ["log"]
-
 [dependencies]
 getrandom = {version = "0.2", features = ["js"]}
 lazy_static = "1.4"
