@@ -3,8 +3,8 @@ use {
         adapters::{DisplayAdapter, KeyboardAdapter},
         definitions,
         observer::{EventSystem, Observer},
-        timer::{TimingWorker, ProcessWorker},
-        utils::{BrowserWindow},
+        timer::{ProcessWorker, TimingWorker},
+        utils::BrowserWindow,
     },
     chip::{definitions::display, devices::Key, resources::RomArchives, Controller},
     std::{
@@ -20,11 +20,11 @@ fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     let table = window.document().create_element(definitions::field::TYPE)?;
     table.set_id(definitions::field::ID);
 
-    for i in 0..display::HEIGHT {
+    for i in 0..display::WIDTH {
         let tr = window
             .document()
             .create_element(definitions::field::TYPE_ROW)?;
-        for j in 0..display::WIDTH {
+        for j in 0..display::HEIGHT {
             let td = window
                 .document()
                 .create_element(definitions::field::TYPE_COLUMN)?;
@@ -63,7 +63,6 @@ fn print_info(message: &str) -> Result<(), JsValue> {
     bw.body().append_child(&pre)?;
     Ok(())
 }
-
 
 #[wasm_bindgen]
 pub fn setup() -> Result<JsBoundData, JsValue> {

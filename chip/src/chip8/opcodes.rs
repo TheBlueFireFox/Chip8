@@ -255,8 +255,8 @@ impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
 
             // Attention about the endianess of the system.
 
-            for j in 0..BYTE {
-                let mask = 0x80 >> j;
+            for (m, j) in (0..BYTE).rev().zip(0..BYTE) {
+                let mask = 1 << m;
                 let x = coorx + j;
 
                 if x >= display::HEIGHT {
