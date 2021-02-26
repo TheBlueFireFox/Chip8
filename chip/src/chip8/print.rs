@@ -1,3 +1,5 @@
+use crate::timer::TimerCallback;
+
 use {
     super::*,
     crate::{definitions::cpu, timer::TimedWorker},
@@ -237,7 +239,11 @@ mod bool_print {
     }
 }
 
-impl<W: TimedWorker> fmt::Display for ChipSet<W> {
+impl<W, S> fmt::Display for ChipSet<W, S>
+where
+    W: TimedWorker,
+    S: TimerCallback,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut nam = self.name.clone();
         // keeping the strings mutable so that they can be indented later on

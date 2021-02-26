@@ -1,25 +1,17 @@
 use std::{
     sync::{
         mpsc::{self, RecvTimeoutError, SyncSender},
-        Arc, RwLock,
+        Arc, Mutex, RwLock,
     },
     thread::{self, JoinHandle},
     time::Duration,
 };
 
-pub trait Timed<V>
-where
-    V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
-{
-    /// Will create a new timer with the given value.
-    fn new(value: V, interval: Duration) -> Self;
-
-    /// Will set the value from which the timer shall count down from.
-    fn set_value(&mut self, value: V);
-
-    /// Will get the value that the counter is currently at.
-    fn get_value(&self) -> V;
+pub trait TimerCallback {
+    fn new() -> Self;
+    fn handle(&mut self);
 }
+
 pub trait TimedWorker {
     /// Will create the respective timer
     /// The reason that this is a required method
@@ -36,11 +28,21 @@ pub trait TimedWorker {
     fn is_alive(&self) -> bool;
 }
 
+pub(crate) struct NoCallback;
+
+impl TimerCallback for NoCallback {
+    fn new() -> Self {
+        Self {}
+    }
+    fn handle(&mut self) {}
+}
+
 /// A timer that will count down to 0, from any type that does support it
-pub(crate) struct Timer<W, V>
+pub(crate) struct Timer<W, V, S>
 where
     W: TimedWorker,
     V: num::Unsigned,
+    S: TimerCallback,
 {
     /// will store the value of the timer
     value: Arc<RwLock<V>>,
@@ -49,23 +51,51 @@ where
     /// zero from what ever number given in
     /// the speck requireds 60Hz.
     _worker: W,
+    /// Is the optional function that might get called once the timer
+    /// reaches zero.
+    callback: Arc<Mutex<Option<S>>>,
 }
 
-impl<W, V> Timed<V> for Timer<W, V>
+impl<W, V> Timer<W, V, NoCallback>
 where
     W: TimedWorker,
     V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
 {
-    fn new(value: V, interval: Duration) -> Self {
+    pub fn new(value: V, interval: Duration) -> Self {
+        Self::internal_new(value, interval)
+    }
+}
+
+impl<W, V, S> Timer<W, V, S>
+where
+    W: TimedWorker,
+    V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
+    S: TimerCallback + Send + 'static,
+{
+    fn internal_new(value: V, interval: Duration) -> Self {
+        let cb: Arc<Mutex<Option<S>>> = Arc::new(Mutex::new(None));
         let mut worker = W::new();
 
         let value = Arc::new(RwLock::new(value));
         let rw_value = value.clone();
+        let ccb = cb.clone();
 
         let func = move || {
             let mut cvalue = rw_value.write().expect("We have a poisoned lock");
 
             let value = *cvalue;
+
+            // basically the last moment before the timer stops working
+            if value == V::one() {
+                // This is safe as this block will only ever once be called from a single
+                // other thread.
+                let mut lock = ccb.lock().unwrap();
+
+                if let Some(callback_handler) = lock.as_mut() {
+                    // TODO: Setup sound
+                    callback_handler.handle();
+                }
+            }
             if value > V::zero() {
                 *cvalue = value - V::one();
             }
@@ -76,10 +106,25 @@ where
         Self {
             value,
             _worker: worker,
+            callback: cb,
         }
     }
 
-    fn set_value(&mut self, value: V) {
+    pub fn with_callback(value: V, interval: Duration, sound_handler: S) -> Self {
+        let value = Self::internal_new(value, interval);
+        // using internal scope to remove uneeded borrow and to return value from
+        // function
+        {
+            let mut lock = value
+                .callback
+                .lock()
+                .expect("Poisoned lock after initialization.");
+            *lock = Some(sound_handler);
+        }
+        value
+    }
+
+    pub fn set_value(&mut self, value: V) {
         let mut val = self
             .value
             .write()
@@ -88,7 +133,7 @@ where
         *val = value;
     }
 
-    fn get_value(&self) -> V {
+    pub fn get_value(&self) -> V {
         *self
             .value
             .read()
@@ -205,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_timer() {
-        let mut timer: Timer<Worker, u8> =
+        let mut timer: Timer<Worker, u8, NoCallback> =
             Timer::new(timer::HERZ, Duration::from_millis(timer::INTERVAL));
         assert!(timer._worker.is_alive());
 

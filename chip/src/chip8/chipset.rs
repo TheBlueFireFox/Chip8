@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use crate::definitions;
+use crate::{
+    definitions,
+    timer::{NoCallback, TimerCallback},
+};
 
 use {
     crate::{
@@ -8,7 +11,7 @@ use {
         devices::Keyboard,
         opcode::{self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter, ProgramCounterStep},
         resources::Rom,
-        timer::{Timed, TimedWorker, Timer},
+        timer::{TimedWorker, Timer},
     },
     rand::RngCore,
 };
@@ -17,7 +20,11 @@ use {
 /// of the system, it contains all the structures
 /// needed for emulating an instant on the
 /// Chip8 CPU.
-pub struct ChipSet<W: TimedWorker> {
+pub struct ChipSet<W, S>
+where
+    W: TimedWorker,
+    S: TimerCallback,
+{
     /// name of the loaded rom
     pub(super) name: String,
     /// all two bytes long and stored big-endian
@@ -46,11 +53,11 @@ pub struct ChipSet<W: TimedWorker> {
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub(super) delay_timer: Timer<W, u8>,
+    pub(super) delay_timer: Timer<W, u8, NoCallback>,
     /// Sound timer: This timer is used for sound effects. When its value is nonzero, a beeping
     /// sound is made.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub(super) sound_timer: Timer<W, u8>,
+    pub(super) sound_timer: Timer<W, u8, S>,
     /// The graphics of the Chip 8 are black and white and the screen has a total of `2048` pixels
     /// `(64 x 32)`. This can easily be implemented using an array that hold the pixel state `(1 or 0)`:
     pub(super) display: Vec<Vec<bool>>,
@@ -70,7 +77,11 @@ pub struct ChipSet<W: TimedWorker> {
     pub(super) preprocessor: Option<Box<dyn FnOnce(&mut Self) + Send>>,
 }
 
-impl<W: TimedWorker> ChipSet<W> {
+impl<W, S> ChipSet<W, S>
+where
+    W: TimedWorker,
+    S: TimerCallback + Send + 'static,
+{
     /// will create a new chipset object
     pub fn new(rom: Rom) -> Self {
         // initialize all the memory with 0
@@ -95,7 +106,7 @@ impl<W: TimedWorker> ChipSet<W> {
             program_counter: cpu::PROGRAM_COUNTER,
             stack: Vec::with_capacity(cpu::stack::SIZE),
             delay_timer: Timer::new(0, Duration::from_millis(timer::INTERVAL)),
-            sound_timer: Timer::new(0, Duration::from_millis(timer::INTERVAL)),
+            sound_timer: Timer::with_callback(0, Duration::from_millis(timer::INTERVAL), S::new()),
             display: vec![vec![false; display::HEIGHT]; display::WIDTH],
             keyboard: Keyboard::new(),
             rng: Box::new(rand::rngs::OsRng {}),
@@ -185,7 +196,7 @@ impl<W: TimedWorker> ChipSet<W> {
     }
 }
 
-impl<W: TimedWorker> ProgramCounter for ChipSet<W> {
+impl<W: TimedWorker, S: TimerCallback> ProgramCounter for ChipSet<W, S> {
     fn step(&mut self, step: ProgramCounterStep) {
         match step {
             ProgramCounterStep::Next => self.program_counter += memory::opcodes::SIZE,
@@ -202,7 +213,7 @@ impl<W: TimedWorker> ProgramCounter for ChipSet<W> {
     }
 }
 
-impl<W: TimedWorker> ChipOpcodePreProcessHandler for ChipSet<W> {
+impl<W: TimedWorker, S: TimerCallback> ChipOpcodePreProcessHandler for ChipSet<W, S> {
     fn preprocess(&mut self) {
         if let Some(func) = self.preprocessor.take() {
             func(self);

@@ -3,26 +3,28 @@ use crate::{
     devices::{DisplayCommands, KeyboardCommands},
     opcode::Operation,
     resources::Rom,
-    timer::TimedWorker,
+    timer::{TimedWorker, TimerCallback},
 };
 
-pub struct Controller<D, K, W>
+pub struct Controller<D, K, W, S>
 where
     D: DisplayCommands,
     K: KeyboardCommands,
+    S: TimerCallback,
     W: TimedWorker,
 {
     display: D,
     keyboard: K,
-    chipset: Option<ChipSet<W>>,
+    chipset: Option<ChipSet<W, S>>,
     operation: Operation,
 }
 
-impl<D, K, W> Controller<D, K, W>
+impl<D, K, W, S> Controller<D, K, W, S>
 where
     D: DisplayCommands,
     K: KeyboardCommands,
     W: TimedWorker,
+    S: TimerCallback + Send + 'static,
 {
     pub fn new(dis: D, key: K) -> Self {
         Controller {
@@ -34,11 +36,11 @@ where
     }
 
     /// Get a reference to the controller's chipset.
-    pub fn chipset(&self) -> &Option<ChipSet<W>> {
+    pub fn chipset(&self) -> &Option<ChipSet<W, S>> {
         &self.chipset
     }
 
-    pub fn chipset_mut(&mut self) -> Option<&mut ChipSet<W>> {
+    pub fn chipset_mut(&mut self) -> Option<&mut ChipSet<W, S>> {
         self.chipset.as_mut()
     }
 
@@ -73,17 +75,18 @@ where
     }
 }
 
-pub fn run<D, K, W>(
+pub fn run<D, K, W, S>(
     Controller {
         display,
         keyboard,
         chipset,
         operation,
-    }: &mut Controller<D, K, W>,
+    }: &mut Controller<D, K, W, S>,
 ) -> Result<(), String>
 where
     D: DisplayCommands,
     K: KeyboardCommands,
+    S: TimerCallback + Send + 'static,
     W: TimedWorker,
 {
     // Checks if the last operation was a wait and if
@@ -112,8 +115,9 @@ where
 #[cfg(test)]
 mod tests {
 
+
     use super::*;
-    use crate::timer::Worker;
+    use crate::timer::{NoCallback, Worker};
     use mockall::predicate::*;
 
     #[mockall::automock]
@@ -174,7 +178,7 @@ mod tests {
 
         let ka = KeyboardAdapter { ka: mock_keyboard };
 
-        let mut controller: Controller<_, _, Worker> = Controller::new(da, ka);
+        let mut controller: Controller<_, _, Worker, NoCallback> = Controller::new(da, ka);
 
         assert_eq!(
             Err("There is no valid chipset initialized.".to_string()),

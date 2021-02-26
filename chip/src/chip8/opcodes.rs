@@ -1,12 +1,16 @@
 use crate::{
     definitions::{cpu, display},
     opcode::{ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep},
-    timer::{Timed, TimedWorker},
+    timer::{TimedWorker, TimerCallback},
 };
 
 use super::ChipSet;
 
-impl<W: TimedWorker> ChipOpcodes for ChipSet<W> {
+impl<W, S> ChipOpcodes for ChipSet<W, S>
+where
+    W: TimedWorker,
+    S: TimerCallback + Send + 'static,
+{
     fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         match opcode {
             0x00E0 => {

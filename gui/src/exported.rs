@@ -1,3 +1,5 @@
+use crate::adapters::SoundCallback;
+
 use {
     crate::{
         adapters::{DisplayAdapter, KeyboardAdapter},
@@ -113,7 +115,7 @@ impl Observer<Key> for ObservedKeypress {
 
 /// As the Controller has multiple long parameters, this
 /// type is used to abriviate the given configuration.
-type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWorker>;
+type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>;
 
 /// This struct is the one that will be passed back and forth between
 /// JS and WASM, as WASM API only allow for `&T` or `T` and not `&mut T`  

@@ -1,6 +1,5 @@
 use crate::definitions::keyboard;
 
-
 /// The traits responsible for the display based code
 pub trait DisplayCommands {
     /// Will display all from the pixels

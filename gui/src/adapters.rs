@@ -5,8 +5,20 @@ use crate::{
     observer::{EventSystem, Observer},
     utils::BrowserWindow,
 };
-use chip::devices::{DisplayCommands, Keyboard, KeyboardCommands};
+use chip::{devices::{DisplayCommands, Keyboard, KeyboardCommands}, timer::TimerCallback};
 use wasm_bindgen::prelude::*;
+
+pub(crate) struct SoundCallback;
+
+impl TimerCallback for SoundCallback {
+    fn new() -> Self {
+        todo!()
+    }
+
+    fn handle(&mut self) {
+        todo!()
+    }
+}
 
 pub(crate) struct DisplayAdapter;
 
