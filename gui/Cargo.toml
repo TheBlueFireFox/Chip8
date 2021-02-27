@@ -1,8 +1,11 @@
 [package]
 authors = ["TheBlueFireFox <adrian.hornung@yahoo.de>"]
+description = "A chip8 backend written in rust"
 edition = "2018"
+license = "GPL-3.0-only"
 name = "chip8-web"
-version = "0.1.0"
+repository = "https://github.com/TheBlueFireFox/Chip8"
+version = "0.2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -43,7 +46,7 @@ console_error_panic_hook = {version = "0.1", optional = true}
 # Unfortunately, `wee_alloc` requires nightly Rust when targeting wasm for now.
 wee_alloc = {version = "0.4", optional = true}
 
-chip8 = {path = "../chip"}
+chip8 = {path = "../chip", default-features = false, features=["js"]}
 
 console_log = {version = "0.2", features = ["color"]}
 lazy_static = "1.4"
@@ -54,7 +57,3 @@ wasm-bindgen-test = "0.3"
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-Os", "--enable-mutable-globals"]
-
-[profile.release]
-lto = true
-opt-level = 'z'

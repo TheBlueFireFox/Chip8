@@ -15,6 +15,7 @@ use chip::{
 };
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{AudioContext, GainNode, OscillatorNode};
+
 struct Oscillator {
     ctx: AudioContext,
     main: OscillatorNode,
