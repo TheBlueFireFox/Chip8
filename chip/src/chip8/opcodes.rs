@@ -9,7 +9,7 @@ use super::ChipSet;
 impl<W, S> ChipOpcodes for ChipSet<W, S>
 where
     W: TimedWorker,
-    S: TimerCallback + Send + 'static,
+    S: TimerCallback,
 {
     fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         log::debug!("opcode {:#X}", opcode);

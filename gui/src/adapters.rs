@@ -62,17 +62,23 @@ impl Oscillator {
 
 pub(crate) struct SoundCallback {
     timeout_id: Arc<Mutex<Option<i32>>>,
+    callback: Arc<Mutex<Option<Closure<dyn FnMut() -> Result<(), JsValue>>>>>,
 }
+
+/// SAFTY: This is okay, the callback will not be interacted with in a threaded situation
+/// as it is only used in the wasm context of this crate
+unsafe impl Send for SoundCallback {}
 
 impl SoundCallback {
     fn internal_new() -> Self {
         Self {
             timeout_id: Arc::new(Mutex::new(None)),
+            callback: Arc::new(Mutex::new(None)),
         }
     }
 
     fn start(&mut self, timeout: i32) -> Result<(), JsValue> {
-        let timeout_id = self
+        let mut timeout_id = self
             .timeout_id
             .lock()
             .or_else(|err| Err(JsValue::from(format!("{}", err))))?;
@@ -86,9 +92,8 @@ impl SoundCallback {
 
         let stop = move || {
             osci.stop()
-                .expect("Something went wrong while stopping the Oscillator");
+            //.expect("Something went wrong while stopping the Oscillator");
         };
-
         let callback = Closure::once(stop);
 
         let window = BrowserWindow::new()?;
@@ -99,6 +104,13 @@ impl SoundCallback {
                 timeout,
             )?;
 
+        *timeout_id = Some(id);
+
+        let mut my_callback = self
+            .callback
+            .lock()
+            .or_else(|err| Err(JsValue::from(format!("{:?}", err))))?;
+        *my_callback = Some(callback);
         Ok(())
     }
 
@@ -119,13 +131,6 @@ impl SoundCallback {
     }
 }
 
-impl Drop for SoundCallback {
-    fn drop(&mut self) {
-        self.stop()
-            .expect("Something went terribly wrong, while dropping the sound callback.")
-    }
-}
-
 impl TimerCallback for SoundCallback {
     fn new() -> Self {
         Self::internal_new()
@@ -136,6 +141,13 @@ impl TimerCallback for SoundCallback {
             Ok(_) => {}
             Err(err) => log::warn!("{:?}", err),
         }
+    }
+}
+
+impl Drop for SoundCallback {
+    fn drop(&mut self) {
+        self.stop()
+            .expect("Something went terribly wrong, while dropping the sound callback.")
     }
 }
 

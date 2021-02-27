@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-pub trait TimerCallback {
+pub trait TimerCallback: Send + 'static {
     fn new() -> Self;
     fn handle(&mut self);
 }
@@ -70,7 +70,7 @@ impl<W, V, S> Timer<W, V, S>
 where
     W: TimedWorker,
     V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
-    S: TimerCallback + Send + 'static,
+    S: TimerCallback,
 {
     fn internal_new(value: V, interval: Duration) -> Self {
         let cb: Arc<Mutex<Option<S>>> = Arc::new(Mutex::new(None));

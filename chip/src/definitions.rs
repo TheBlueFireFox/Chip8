@@ -46,7 +46,7 @@ pub mod timer {
 pub mod sound {
     use std::time::Duration;
 
-    pub const DURRATION: Duration = Duration::from_millis(500);
+    pub const DURRATION: Duration = Duration::from_millis(250);
 }
 
 /// The display definitions

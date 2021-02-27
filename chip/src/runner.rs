@@ -24,7 +24,7 @@ where
     D: DisplayCommands,
     K: KeyboardCommands,
     W: TimedWorker,
-    S: TimerCallback + Send + 'static,
+    S: TimerCallback,
 {
     pub fn new(dis: D, key: K) -> Self {
         Controller {
@@ -86,7 +86,7 @@ pub fn run<D, K, W, S>(
 where
     D: DisplayCommands,
     K: KeyboardCommands,
-    S: TimerCallback + Send + 'static,
+    S: TimerCallback,
     W: TimedWorker,
 {
     // Checks if the last operation was a wait and if
