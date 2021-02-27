@@ -176,7 +176,11 @@ mod zero {
 
         assert_eq!(Ok(Operation::None), chip.next());
 
-        assert_eq!(curr_pc, chip.program_counter)
+        assert_eq!(
+            curr_pc + ProgramCounterStep::Next.step(),
+            chip.program_counter,
+            "Comparing the programm counter value"
+        )
     }
 
     #[test]
@@ -228,7 +232,11 @@ mod two {
 
         assert_eq!(base as usize, chip.program_counter);
 
-        assert_eq!(curr_pc, chip.stack[0]);
+        assert_eq!(
+            curr_pc + ProgramCounterStep::Next.step(),
+            chip.stack[0],
+            "Checking the stack entries"
+        );
     }
 }
 
