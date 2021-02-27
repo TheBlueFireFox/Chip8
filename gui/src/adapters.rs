@@ -72,7 +72,7 @@ impl SoundCallback {
     }
 
     fn start(&mut self, timeout: i32) -> Result<(), JsValue> {
-        let mut timeout_id = self
+        let timeout_id = self
             .timeout_id
             .lock()
             .or_else(|err| Err(JsValue::from(format!("{}", err))))?;

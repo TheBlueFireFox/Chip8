@@ -98,10 +98,10 @@ mod tests {
         0x0F00, 0x0D00, 0x0102, 0x0405, 0x0608,
     ];
 
-    const ROM_NAMES: [&str; 24] = [
+    const ROM_NAMES: [&str; 25] = [
         "15PUZZLE", "BLINKY", "BLITZ", "BRIX", "CONNECT4", "GUESS", "HIDDEN", "IBMLOGO",
         "INVADERS", "KALEID", "MAZE", "MERLIN", "MISSILE", "PONG", "PONG2", "PUZZLE", "SYZYGY",
-        "TANK", "TETRIS", "TICTAC", "UFO", "VBRIX", "VERS", "WIPEOFF",
+        "TANK", "TESTOPCODE", "TETRIS", "TICTAC", "UFO", "VBRIX", "VERS", "WIPEOFF",
     ];
 
     #[test]

@@ -7,5 +7,5 @@ function change_rom(romName) {
     data.start(romName)
 }
 
-change_rom("IBMLOGO")
+change_rom("TESTOPCODE")
 // setup the callback for the rom drop down
