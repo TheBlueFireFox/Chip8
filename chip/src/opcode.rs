@@ -1,3 +1,5 @@
+use crate::definitions::{cpu, memory};
+
 /// the base mask used for generating all the other sub masks
 pub(crate) const OPCODE_MASK_FFFF: u16 = u16::MAX;
 
@@ -224,6 +226,21 @@ impl ProgramCounterStep {
             ProgramCounterStep::Skip
         } else {
             ProgramCounterStep::Next
+        }
+    }
+
+    pub fn step(&self) -> usize {
+        match self {
+            ProgramCounterStep::Next => memory::opcodes::SIZE,
+            ProgramCounterStep::Skip => 2 * memory::opcodes::SIZE,
+            ProgramCounterStep::None => {0}
+            ProgramCounterStep::Jump(pointer) => {
+                if cpu::PROGRAM_COUNTER <= *pointer && *pointer < memory::SIZE {
+                    *pointer
+                } else {
+                    panic!("Memory out of bounds error!")
+                }
+            }
         }
     }
 }

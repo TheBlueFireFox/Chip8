@@ -12,6 +12,7 @@ where
     S: TimerCallback + Send + 'static,
 {
     fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
+        log::debug!("opcode {:#X}", opcode);
         match opcode {
             0x00E0 => {
                 // 00E0
@@ -27,6 +28,7 @@ where
                 // 00EE
                 // Return from sub routine => pop from stack
                 let pc = self.pop_stack()?;
+                log::debug!("pc {:#X}", pc);
                 Ok((ProgramCounterStep::Jump(pc), Operation::None))
             }
             _ => Err(format!(
@@ -45,7 +47,7 @@ where
     fn two(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 2NNN
         // Calls subroutine at NNN
-        match self.push_stack(self.program_counter) {
+        match self.push_stack(self.program_counter + ProgramCounterStep::Next.step()) {
             Ok(_) => Ok(ProgramCounterStep::Jump(opcode.nnn())),
             Err(err) => Err(err.to_string()),
         }

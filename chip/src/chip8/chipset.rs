@@ -198,17 +198,10 @@ where
 
 impl<W: TimedWorker, S: TimerCallback> ProgramCounter for ChipSet<W, S> {
     fn step(&mut self, step: ProgramCounterStep) {
-        match step {
-            ProgramCounterStep::Next => self.program_counter += memory::opcodes::SIZE,
-            ProgramCounterStep::Skip => self.program_counter += 2 * memory::opcodes::SIZE,
-            ProgramCounterStep::None => {}
-            ProgramCounterStep::Jump(pointer) => {
-                if cpu::PROGRAM_COUNTER <= pointer && pointer < self.memory.len() {
-                    self.program_counter = pointer;
-                } else {
-                    panic!("Memory out of bounds error!")
-                }
-            }
+        self.program_counter = if let ProgramCounterStep::Jump(_) = step {
+            step.step()
+        } else {
+            self.program_counter + step.step()
         }
     }
 }
