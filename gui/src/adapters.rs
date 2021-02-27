@@ -1,22 +1,140 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 
 use crate::{
     definitions,
     observer::{EventSystem, Observer},
     utils::BrowserWindow,
 };
-use chip::{devices::{DisplayCommands, Keyboard, KeyboardCommands}, timer::TimerCallback};
-use wasm_bindgen::prelude::*;
+use chip::{
+    devices::{DisplayCommands, Keyboard, KeyboardCommands},
+    timer::TimerCallback,
+};
+use wasm_bindgen::{prelude::*, JsCast};
+use web_sys::{AudioContext, GainNode, OscillatorNode};
+struct Oscillator {
+    ctx: AudioContext,
+    main: OscillatorNode,
+    gain: GainNode,
+}
 
-pub(crate) struct SoundCallback;
+impl Oscillator {
+    fn new() -> Result<Self, JsValue> {
+        let ctx = AudioContext::new()?;
+        let main = ctx.create_oscillator()?;
+        let gain = ctx.create_gain()?;
+        let me = Self { ctx, main, gain };
+        me.setup()?;
+
+        Ok(me)
+    }
+
+    fn setup(&self) -> Result<(), JsValue> {
+        self.main.set_type(web_sys::OscillatorType::Sine);
+        self.main.frequency().set_value(440.0); // A4 note
+        self.gain.gain().set_value(0.5);
+
+        // Connect the nodes up!
+
+        // The primary oscillator is routed through the gain node, so that
+        // it can control the overall output volume.
+        self.main.connect_with_audio_node(&self.gain)?;
+
+        // Then connect the gain node to the AudioContext destination (aka
+        // your speakers).
+        self.gain.connect_with_audio_node(&self.ctx.destination())?;
+
+        Ok(())
+    }
+
+    fn start(&self) -> Result<(), JsValue> {
+        self.main.start()
+    }
+
+    fn stop(&self) -> Result<(), JsValue> {
+        self.main.stop()
+    }
+}
+
+pub(crate) struct SoundCallback {
+    timeout_id: Arc<Mutex<Option<i32>>>,
+}
+
+impl SoundCallback {
+    fn internal_new() -> Self {
+        Self {
+            timeout_id: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    fn start(&mut self, timeout: i32) -> Result<(), JsValue> {
+        let mut timeout_id = self
+            .timeout_id
+            .lock()
+            .or_else(|err| Err(JsValue::from(format!("{}", err))))?;
+
+        if timeout_id.is_some() {
+            return Err(JsValue::from("A soundcallback has already been send out"));
+        }
+
+        let osci = Oscillator::new()?;
+        osci.start()?;
+
+        let stop = move || {
+            osci.stop()
+                .expect("Something went wrong while stopping the Oscillator");
+        };
+
+        let callback = Closure::once(stop);
+
+        let window = BrowserWindow::new()?;
+        let id = window
+            .window()
+            .set_timeout_with_callback_and_timeout_and_arguments_0(
+                &callback.as_ref().unchecked_ref(),
+                timeout,
+            )?;
+
+        Ok(())
+    }
+
+    fn stop(&mut self) -> Result<(), JsValue> {
+        let mut timeout = self
+            .timeout_id
+            .lock()
+            .or_else(|err| Err(JsValue::from(format!("{}", err))))?;
+
+        // This is only ever be a problem when the sound callback get's dropped,
+        // before the timeout function ran.
+        if let Some(id) = timeout.take() {
+            let window = BrowserWindow::new()?;
+            window.window().clear_timeout_with_handle(id);
+        }
+
+        Ok(())
+    }
+}
+
+impl Drop for SoundCallback {
+    fn drop(&mut self) {
+        self.stop()
+            .expect("Something went terribly wrong, while dropping the sound callback.")
+    }
+}
 
 impl TimerCallback for SoundCallback {
     fn new() -> Self {
-        todo!()
+        Self::internal_new()
     }
 
     fn handle(&mut self) {
-        todo!()
+        match self.start(chip::definitions::sound::DURRATION.as_millis() as i32) {
+            Ok(_) => {}
+            Err(err) => log::warn!("{:?}", err),
+        }
     }
 }
 

@@ -50,7 +50,7 @@ pub struct Rom {
     /// The decompressed content data of the zip file
     /// stored as a u8 slice on the heap
     /// uses a box for simple execution
-    data: Vec<u8>
+    data: Vec<u8>,
 }
 
 impl Rom {
@@ -99,9 +99,9 @@ mod tests {
     ];
 
     const ROM_NAMES: [&str; 24] = [
-        "15PUZZLE", "BLINKY", "BLITZ", "BRIX", "CONNECT4", "GUESS", "HIDDEN", "IBMLOGO", "INVADERS", "KALEID",
-        "MAZE", "MERLIN", "MISSILE", "PONG", "PONG2", "PUZZLE", "SYZYGY", "TANK", "TETRIS",
-        "TICTAC", "UFO", "VBRIX", "VERS", "WIPEOFF", 
+        "15PUZZLE", "BLINKY", "BLITZ", "BRIX", "CONNECT4", "GUESS", "HIDDEN", "IBMLOGO",
+        "INVADERS", "KALEID", "MAZE", "MERLIN", "MISSILE", "PONG", "PONG2", "PUZZLE", "SYZYGY",
+        "TANK", "TETRIS", "TICTAC", "UFO", "VBRIX", "VERS", "WIPEOFF",
     ];
 
     #[test]

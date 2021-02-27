@@ -43,6 +43,12 @@ pub mod timer {
     pub const INTERVAL: u64 = 1000 / HERZ as u64;
 }
 
+pub mod sound {
+    use std::time::Duration;
+
+    pub const DURRATION: Duration = Duration::from_millis(500);
+}
+
 /// The display definitions
 pub mod display {
     /// The amount of pixels height

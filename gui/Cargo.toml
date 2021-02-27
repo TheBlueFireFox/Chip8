@@ -22,6 +22,12 @@ web-sys = {version = "0.3", default-features = false, features = [
   'Node',
   'Window',
   'console',
+  'AudioContext',
+  'AudioDestinationNode',
+  'AudioParam',
+  'GainNode',
+  'OscillatorNode',
+  'OscillatorType',
 ]}
 
 # The `console_error_panic_hook` crate provides better debugging of panics by

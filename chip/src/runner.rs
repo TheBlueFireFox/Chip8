@@ -115,7 +115,6 @@ where
 #[cfg(test)]
 mod tests {
 
-
     use super::*;
     use crate::timer::{NoCallback, Worker};
     use mockall::predicate::*;
