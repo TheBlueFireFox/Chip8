@@ -66,7 +66,9 @@ pub(crate) struct SoundCallback {
 }
 
 /// SAFTY: This is okay, the callback will not be interacted with in a threaded situation
-/// as it is only used in the wasm context of this crate
+/// as it is only ever used in the signle threaded wasm context.
+/// Attention using arc and mutex as added security.
+#[cfg(target_arch = "wasm32")]
 unsafe impl Send for SoundCallback {}
 
 impl SoundCallback {
