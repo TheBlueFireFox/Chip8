@@ -106,7 +106,7 @@ where
             program_counter: cpu::PROGRAM_COUNTER,
             stack: Vec::with_capacity(cpu::stack::SIZE),
             delay_timer: Timer::new(0, Duration::from_millis(timer::INTERVAL)),
-            sound_timer: Timer::with_callback(100, Duration::from_millis(timer::INTERVAL), S::new()),
+            sound_timer: Timer::with_callback(0, Duration::from_millis(timer::INTERVAL), S::new()),
             display: vec![vec![false; display::HEIGHT]; display::WIDTH],
             keyboard: Keyboard::new(),
             rng: Box::new(rand::rngs::OsRng {}),
