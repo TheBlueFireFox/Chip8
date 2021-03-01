@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-pub trait TimerCallback {
+pub trait TimerCallback: Send + 'static {
     fn new() -> Self;
     fn handle(&mut self);
 }
@@ -57,7 +57,7 @@ where
 }
 
 #[derive(Clone)]
-pub(crate) struct TimerValue<V>
+pub struct TimerValue<V>
 where
     V: num::Unsigned,
 {
@@ -65,7 +65,7 @@ where
     value: Arc<RwLock<V>>,
 }
 
-impl<V: num::Unsigned> TimerValue<V> {
+impl<V: num::Unsigned + Copy> TimerValue<V> {
     fn new(value: Arc<RwLock<V>>) -> Self {
         Self { value }
     }
@@ -101,7 +101,7 @@ impl<W, V, S> Timer<W, V, S>
 where
     W: TimedWorker,
     V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
-    S: TimerCallback,
+    S: TimerCallback + 'static,
 {
     fn internal_new(value: V, interval: Duration) -> (Self, TimerValue<V>) {
         let cb: Arc<Mutex<Option<S>>> = Arc::new(Mutex::new(None));

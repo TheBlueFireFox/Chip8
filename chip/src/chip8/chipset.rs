@@ -20,14 +20,14 @@ where
     S: TimerCallback,
 {
     pub(super) chipset: InternalChipSet,
-    pub(super) delay_timer: Timer<W, u8, NoCallback>,
-    pub(super) sound_timer: Timer<W, u8, S>,
+    _delay_timer: Timer<W, u8, NoCallback>,
+    _sound_timer: Timer<W, u8, S>,
 }
 
 impl<W, S> ChipSet<W, S>
 where
     W: TimedWorker,
-    S: TimerCallback,
+    S: TimerCallback + 'static,
 {
     pub fn new(rom: Rom) -> Self {
         let (delay_timer, delay_value) = Timer::new(0, Duration::from_millis(timer::INTERVAL));
@@ -37,8 +37,8 @@ where
 
         Self {
             chipset,
-            delay_timer,
-            sound_timer,
+            _delay_timer: delay_timer,
+            _sound_timer: sound_timer,
         }
     }
 
@@ -55,12 +55,12 @@ where
     }
 
     /// Get a reference to the chip set's chipset.
-    pub fn chipset(&self) -> &InternalChipSet {
+    pub(super) fn chipset(&self) -> &InternalChipSet {
         &self.chipset
     }
 
     /// Get a mutable reference to the chip set's chipset.
-    pub fn chipset_mut(&mut self) -> &mut InternalChipSet {
+    pub(super) fn chipset_mut(&mut self) -> &mut InternalChipSet {
         &mut self.chipset
     }
 }

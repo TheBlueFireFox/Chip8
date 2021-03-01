@@ -362,7 +362,7 @@ mod tests {
     /// the given module takes up a multitude of lines.
     fn test_full_print() {
         let mut chipset = tests::get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let keys: Vec<bool> = (0..keyboard::SIZE).map(|i| i % 2 != 0).collect();
 
         chip.set_keyboard(&keys);

@@ -1,7 +1,6 @@
 use crate::{
     definitions::{cpu, display},
     opcode::{ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep},
-    timer::{TimedWorker, TimerCallback},
 };
 
 use super::InternalChipSet;

@@ -32,7 +32,7 @@ pub(super) fn get_default_chip() -> ChipSet<Worker, NoCallback> {
 
 pub(super) fn setup_chip(rom: Rom) -> ChipSet<Worker, NoCallback> {
     let mut chipset = ChipSet::new(rom);
-    let mut chip = chipset.chipset_mut();
+    let chip = chipset.chipset_mut();
     // fill up register with random values
     assert_eq!(chip.registers.len(), 16);
     for reg in chip.registers.iter_mut() {
@@ -59,7 +59,7 @@ pub(super) fn write_slice_to_memory(memory: &mut [u8], from: usize, data: &[u8])
 /// test reading of the first opcode
 fn test_set_opcode() {
     let mut chipset = get_default_chip();
-    let mut chip = chipset.chipset_mut();
+    let chip = chipset.chipset_mut();
 
     let opcode = 0xA00A;
     write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
@@ -73,7 +73,7 @@ fn test_set_opcode() {
 /// testing internal functionality of popping and pushing into the stack
 fn test_push_pop_stack() {
     let mut chipset = get_default_chip();
-    let mut chip = chipset.chipset_mut();
+    let chip = chipset.chipset_mut();
 
     // check empty initial stack
     assert!(chip.stack.is_empty());
@@ -101,7 +101,7 @@ fn test_push_pop_stack() {
 #[test]
 fn test_step() {
     let mut chipset = get_default_chip();
-    let mut chip = chipset.chipset_mut();
+    let chip = chipset.chipset_mut();
 
     let mut pc = chip.program_counter;
 
@@ -126,7 +126,7 @@ fn test_step() {
 #[should_panic(expected = "Memory out of bounds error!")]
 fn test_step_panic_lower_bound() {
     let mut chipset = get_default_chip();
-    let mut chip = chipset.chipset_mut();
+    let chip = chipset.chipset_mut();
     let pc = cpu::PROGRAM_COUNTER - 1;
     chip.step(ProgramCounterStep::Jump(pc));
 }
@@ -135,7 +135,7 @@ fn test_step_panic_lower_bound() {
 #[should_panic(expected = "Memory out of bounds error!")]
 fn test_step_panic_upper_bound() {
     let mut chipset = get_default_chip();
-    let mut chip = chipset.chipset_mut();
+    let chip = chipset.chipset_mut();
     let pc = chip.memory.len();
     chip.step(ProgramCounterStep::Jump(pc));
 }
@@ -148,7 +148,7 @@ mod zero {
     /// `0x00E0`
     fn test_clear_display_opcode() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
 
         let curr_pc = chip.program_counter;
 
@@ -166,7 +166,7 @@ mod zero {
     /// `0x00EE`
     fn test_return_subrutine() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
         // set up test
         let base = 0x234;
@@ -194,7 +194,7 @@ mod zero {
     #[test]
     fn test_illigal_zero_opcode() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let opcode = 0x00EA;
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
         assert_eq!(
@@ -350,7 +350,7 @@ mod five {
     /// mainly for coverage, but still simple to test
     fn test_five_false_opcode() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let registery = 0x1;
         let registerx = 0x2;
         let pc = chip.program_counter;
@@ -723,7 +723,7 @@ mod eight {
     /// This test is mainly for correct coverage.
     fn test_eight_wrong_opcode() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let opcode: Opcode = 0x800A;
@@ -775,7 +775,7 @@ mod nine {
     /// This test is mainly for correct coverage.
     fn test_skip_if_reg_not_equals() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -820,7 +820,7 @@ mod a {
     #[test]
     fn test_set_index_reg_to_addr() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let addr = 0x420;
@@ -934,8 +934,6 @@ mod e {
         let mut keyboard = vec![false; keyboard::SIZE].into_boxed_slice();
         keyboard[reg1] = true;
 
-        let mut chip = setup_chip(rom);
-
         let mut chipset = setup_chip(rom);
         let mut chip = chipset.chipset_mut();
         chip.set_keyboard(&keyboard);
@@ -962,9 +960,8 @@ mod e {
         let mut keyboard = vec![false; keyboard::SIZE].into_boxed_slice();
         keyboard[reg] = true;
 
-        let mut chip = setup_chip(rom);
         let mut chipset = setup_chip(rom);
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         chip.set_keyboard(&keyboard);
 
         let pc = chip.program_counter;
@@ -1024,7 +1021,7 @@ mod f {
     // instruction halted until next key event)
     fn test_await_key_press() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let key = 4;
         let reg = 0xA;
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x0A;
@@ -1139,7 +1136,7 @@ mod f {
     #[test]
     fn test_set_i_to_given_font() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let mut test = |reg, val, loc| {
             let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x29;
 
@@ -1200,7 +1197,7 @@ mod f {
     #[test]
     fn test_store_register_into_memory() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
 
         const REG: usize = 0xB;
         const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x55;
@@ -1247,7 +1244,7 @@ mod f {
     #[test]
     fn test_wrong_opcode() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
 
         const REG: usize = 0xB;
         const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x45;
