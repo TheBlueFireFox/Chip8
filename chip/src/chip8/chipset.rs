@@ -1,16 +1,17 @@
-use std::time::Duration;
-
-use crate::{definitions, opcode::Operation, timer::{NoCallback, TimerCallback}};
+use crate::timer::TimerValue;
 
 use {
     crate::{
+        definitions,
         definitions::{cpu, display, memory, timer},
         devices::Keyboard,
         opcode::{self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter, ProgramCounterStep},
         resources::Rom,
+        timer::{NoCallback, TimerCallback},
         timer::{TimedWorker, Timer},
     },
     rand::RngCore,
+    std::time::Duration,
 };
 
 pub struct ChipSet<W, S>
@@ -18,18 +19,27 @@ where
     W: TimedWorker,
     S: TimerCallback,
 {
-    pub(super) chipset: InternalChipSet<W, S>,
+    pub(super) chipset: InternalChipSet,
     pub(super) delay_timer: Timer<W, u8, NoCallback>,
     pub(super) sound_timer: Timer<W, u8, S>,
 }
 
-impl<W, S> ChipSet<W, S> 
+impl<W, S> ChipSet<W, S>
 where
     W: TimedWorker,
     S: TimerCallback,
 {
     pub fn new(rom: Rom) -> Self {
-        todo!()
+        let (delay_timer, delay_value) = Timer::new(0, Duration::from_millis(timer::INTERVAL));
+        let (sound_timer, sound_value) =
+            Timer::with_callback(0, Duration::from_millis(timer::INTERVAL), S::new());
+        let chipset = InternalChipSet::new(rom, delay_value.clone(), sound_value.clone());
+
+        Self {
+            chipset,
+            delay_timer,
+            sound_timer,
+        }
     }
 
     pub fn get_display(&self) -> &[Vec<bool>] {
@@ -43,17 +53,23 @@ where
     pub fn set_key(&mut self, key: usize, to: bool) {
         self.chipset.set_key(key, to);
     }
+
+    /// Get a reference to the chip set's chipset.
+    pub fn chipset(&self) -> &InternalChipSet {
+        &self.chipset
+    }
+
+    /// Get a mutable reference to the chip set's chipset.
+    pub fn chipset_mut(&mut self) -> &mut InternalChipSet {
+        &mut self.chipset
+    }
 }
 
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
 /// needed for emulating an instant on the
 /// Chip8 CPU.
-pub(super) struct InternalChipSet<W, S>
-where
-    W: TimedWorker,
-    S: TimerCallback,
-{
+pub(super) struct InternalChipSet {
     /// name of the loaded rom
     pub(super) name: String,
     /// all two bytes long and stored big-endian
@@ -82,11 +98,11 @@ where
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub(super) delay_timer: Timer<W, u8, NoCallback>,
+    pub(super) delay_timer: TimerValue<u8>,
     /// Sound timer: This timer is used for sound effects. When its value is nonzero, a beeping
     /// sound is made.
     /// Counts down at 60 hertz, until it reaches 0.
-    pub(super) sound_timer: Timer<W, u8, S>,
+    pub(super) sound_timer: TimerValue<u8>,
     /// The graphics of the Chip 8 are black and white and the screen has a total of `2048` pixels
     /// `(64 x 32)`. This can easily be implemented using an array that hold the pixel state `(1 or 0)`:
     pub(super) display: Vec<Vec<bool>>,
@@ -106,13 +122,9 @@ where
     pub(super) preprocessor: Option<Box<dyn FnOnce(&mut Self) + Send>>,
 }
 
-impl<W, S> InternalChipSet<W, S>
-where
-    W: TimedWorker,
-    S: TimerCallback,
-{
+impl InternalChipSet {
     /// will create a new chipset object
-    pub fn new(rom: Rom) -> Self {
+    pub fn new(rom: Rom, delay_timer: TimerValue<u8>, sound_timer: TimerValue<u8>) -> Self {
         // initialize all the memory with 0
 
         let mut ram = vec![0; memory::SIZE];
@@ -134,8 +146,8 @@ where
             index_register: 0,
             program_counter: cpu::PROGRAM_COUNTER,
             stack: Vec::with_capacity(cpu::stack::SIZE),
-            delay_timer: Timer::new(0, Duration::from_millis(timer::INTERVAL)),
-            sound_timer: Timer::with_callback(0, Duration::from_millis(timer::INTERVAL), S::new()),
+            delay_timer, //
+            sound_timer, //
             display: vec![vec![false; display::HEIGHT]; display::WIDTH],
             keyboard: Keyboard::new(),
             rng: Box::new(rand::rngs::OsRng {}),
@@ -225,7 +237,7 @@ where
     }
 }
 
-impl<W: TimedWorker, S: TimerCallback> ProgramCounter for InternalChipSet<W, S> {
+impl ProgramCounter for InternalChipSet {
     fn step(&mut self, step: ProgramCounterStep) {
         self.program_counter = if let ProgramCounterStep::Jump(_) = step {
             step.step()
@@ -235,7 +247,7 @@ impl<W: TimedWorker, S: TimerCallback> ProgramCounter for InternalChipSet<W, S> 
     }
 }
 
-impl<W: TimedWorker, S: TimerCallback> ChipOpcodePreProcessHandler for InternalChipSet<W, S> {
+impl ChipOpcodePreProcessHandler for InternalChipSet {
     fn preprocess(&mut self) {
         if let Some(func) = self.preprocessor.take() {
             func(self);

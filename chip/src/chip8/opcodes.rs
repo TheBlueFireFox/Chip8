@@ -6,11 +6,7 @@ use crate::{
 
 use super::InternalChipSet;
 
-impl<W, S> ChipOpcodes for InternalChipSet<W, S>
-where
-    W: TimedWorker,
-    S: TimerCallback,
-{
+impl ChipOpcodes for InternalChipSet {
     fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
         log::debug!("opcode {:#X}", opcode);
         match opcode {
@@ -46,7 +42,7 @@ where
 
     fn two(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // 2NNN
-        // Calls subroutine at NNN 
+        // Calls subroutine at NNN
         // and set's the program counter to the next opcode after the given stack push
 
         match self.push_stack(self.program_counter + ProgramCounterStep::Next.step()) {

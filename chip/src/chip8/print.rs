@@ -6,10 +6,10 @@ use {
     std::fmt,
 };
 
-impl<W,S> fmt::Display for ChipSet<W,S> 
-where 
-W: TimedWorker,
-S: TimerCallback
+impl<W, S> fmt::Display for ChipSet<W, S>
+where
+    W: TimedWorker,
+    S: TimerCallback,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.chipset)
@@ -249,11 +249,7 @@ mod bool_print {
     }
 }
 
-impl<W, S> fmt::Display for InternalChipSet<W, S>
-where
-    W: TimedWorker,
-    S: TimerCallback,
-{
+impl fmt::Display for InternalChipSet {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut nam = self.name.clone();
         // keeping the strings mutable so that they can be indented later on
@@ -365,7 +361,8 @@ mod tests {
     /// this test is mainly for coverage purposes, as
     /// the given module takes up a multitude of lines.
     fn test_full_print() {
-        let mut chip = tests::get_default_chip();
+        let mut chipset = tests::get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let keys: Vec<bool> = (0..keyboard::SIZE).map(|i| i % 2 != 0).collect();
 
         chip.set_keyboard(&keys);

@@ -1,12 +1,10 @@
 use crate::timer::{NoCallback, Worker};
 
-use {
-    super::InternalChipSet,
-    crate::{
-        definitions::{cpu, memory},
-        opcode::{ChipOpcodes, Opcode, Operation, ProgramCounter, ProgramCounterStep},
-        resources::{Rom, RomArchives},
-    },
+use crate::{
+    chip8::ChipSet,
+    definitions::{cpu, memory},
+    opcode::{ChipOpcodes, Opcode, Operation, ProgramCounter, ProgramCounterStep},
+    resources::{Rom, RomArchives},
 };
 
 const ROM_NAME: &'static str = "15PUZZLE";
@@ -27,13 +25,14 @@ pub(super) fn get_base() -> Rom {
 }
 
 /// will setup the default configured chip
-pub(super) fn get_default_chip() -> InternalChipSet<Worker, NoCallback> {
+pub(super) fn get_default_chip() -> ChipSet<Worker, NoCallback> {
     let rom = get_base();
     setup_chip(rom)
 }
 
-pub(super) fn setup_chip(rom: Rom) -> InternalChipSet<Worker, NoCallback> {
-    let mut chip = InternalChipSet::new(rom);
+pub(super) fn setup_chip(rom: Rom) -> ChipSet<Worker, NoCallback> {
+    let mut chipset = ChipSet::new(rom);
+    let mut chip = chipset.chipset_mut();
     // fill up register with random values
     assert_eq!(chip.registers.len(), 16);
     for reg in chip.registers.iter_mut() {
@@ -41,7 +40,7 @@ pub(super) fn setup_chip(rom: Rom) -> InternalChipSet<Worker, NoCallback> {
     }
 
     assert_eq!(chip.registers.len(), 16);
-    chip
+    chipset
 }
 
 #[inline]
@@ -59,7 +58,9 @@ pub(super) fn write_slice_to_memory(memory: &mut [u8], from: usize, data: &[u8])
 #[test]
 /// test reading of the first opcode
 fn test_set_opcode() {
-    let mut chip = get_default_chip();
+    let mut chipset = get_default_chip();
+    let mut chip = chipset.chipset_mut();
+
     let opcode = 0xA00A;
     write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
 
@@ -71,7 +72,8 @@ fn test_set_opcode() {
 #[test]
 /// testing internal functionality of popping and pushing into the stack
 fn test_push_pop_stack() {
-    let mut chip = get_default_chip();
+    let mut chipset = get_default_chip();
+    let mut chip = chipset.chipset_mut();
 
     // check empty initial stack
     assert!(chip.stack.is_empty());
@@ -98,7 +100,9 @@ fn test_push_pop_stack() {
 
 #[test]
 fn test_step() {
-    let mut chip = get_default_chip();
+    let mut chipset = get_default_chip();
+    let mut chip = chipset.chipset_mut();
+
     let mut pc = chip.program_counter;
 
     let data = &[
@@ -121,7 +125,8 @@ fn test_step() {
 #[test]
 #[should_panic(expected = "Memory out of bounds error!")]
 fn test_step_panic_lower_bound() {
-    let mut chip = get_default_chip();
+    let mut chipset = get_default_chip();
+    let mut chip = chipset.chipset_mut();
     let pc = cpu::PROGRAM_COUNTER - 1;
     chip.step(ProgramCounterStep::Jump(pc));
 }
@@ -129,7 +134,8 @@ fn test_step_panic_lower_bound() {
 #[test]
 #[should_panic(expected = "Memory out of bounds error!")]
 fn test_step_panic_upper_bound() {
-    let mut chip = get_default_chip();
+    let mut chipset = get_default_chip();
+    let mut chip = chipset.chipset_mut();
     let pc = chip.memory.len();
     chip.step(ProgramCounterStep::Jump(pc));
 }
@@ -141,7 +147,8 @@ mod zero {
     /// test clear display opcode and next (for coverage)
     /// `0x00E0`
     fn test_clear_display_opcode() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
 
         let curr_pc = chip.program_counter;
 
@@ -158,7 +165,8 @@ mod zero {
     /// test return from subroutine
     /// `0x00EE`
     fn test_return_subrutine() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
         // set up test
         let base = 0x234;
@@ -185,7 +193,8 @@ mod zero {
 
     #[test]
     fn test_illigal_zero_opcode() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let opcode = 0x00EA;
         write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
         assert_eq!(
@@ -202,7 +211,8 @@ mod one {
     /// test a simple jump to the next address
     /// `1NNN`
     fn test_jump_address() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let base = 0x0234;
         let opcode = 0x1000 ^ base as Opcode;
         // let _ = chip.move_program_counter(base);
@@ -221,7 +231,8 @@ mod two {
     /// test inserting a location into the stack
     /// "2NNN"
     fn test_call_subrutine() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let base = 0x234;
         let opcode = 0x2000 ^ base;
         let curr_pc = chip.program_counter;
@@ -247,7 +258,8 @@ mod three {
     /// test the skip instruction if equal method
     /// `3XNN`
     fn test_skip_instruction_if_const_equals() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let register = 0x1;
         let solution = 0x3;
         // skip register 1 if it is equal to 03
@@ -274,7 +286,8 @@ mod four {
     /// Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a
     /// jump to skip a code block)
     fn test_skip_instruction_if_const_not_equals() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let register = 0x1;
         let solution = 0x3;
         // skip register 1 if it is not equal to 03
@@ -305,7 +318,8 @@ mod five {
     /// Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
     /// skip a code block)
     fn test_skip_instruction_if_register_equals() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let registery = 0x1;
         let registerx = 0x2;
         // skip register 1 if VY is not equals to VX
@@ -335,7 +349,8 @@ mod five {
     #[test]
     /// mainly for coverage, but still simple to test
     fn test_five_false_opcode() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let registery = 0x1;
         let registerx = 0x2;
         let pc = chip.program_counter;
@@ -361,7 +376,8 @@ mod six {
     /// 6XNN
     /// Sets VX to NN.
     fn test_set_vx_to_nn() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let register = 0x1;
         let value = 0x66 & chip.registers[register];
         let curr_pc = chip.program_counter;
@@ -384,7 +400,8 @@ mod seven {
     /// 7XNN
     /// Adds NN to VX. (Carry flag is not changed)
     fn test_add_nn_to_vx() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let register = 0x1;
         let value: u8 = 0x66;
         let value_reg: u8 = 0xFA;
@@ -409,7 +426,8 @@ mod eight {
     /// 8XY0
     /// Sets VX to the value of VY.
     fn test_move_value() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -442,7 +460,8 @@ mod eight {
     // 8XY1
     // Sets VX to VX or VY. (Bitwise OR operation)
     fn test_bitwise_or() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -474,7 +493,8 @@ mod eight {
     // 8XY1
     // Sets VX to VX or VY. (Bitwise OR operation)
     fn test_bitwise_and() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -506,7 +526,8 @@ mod eight {
     // 8XY3
     // Sets VX to VX xor VY.
     fn test_bitwise_xor() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -538,7 +559,8 @@ mod eight {
     // 8XY4
     // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
     fn test_addition_with_carry() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -571,7 +593,8 @@ mod eight {
     // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
     // isn't.
     fn test_substraction_with_borrow() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -604,7 +627,8 @@ mod eight {
     // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
     // isn't.
     fn test_least_sig_bit_and_shift_right() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -635,7 +659,8 @@ mod eight {
     // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there
     // isn't.
     fn test_reverse_substraction_with_carry() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -667,7 +692,8 @@ mod eight {
     // 8XYE
     // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
     fn test_most_sig_bit_and_shift_left() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -696,7 +722,8 @@ mod eight {
     #[test]
     /// This test is mainly for correct coverage.
     fn test_eight_wrong_opcode() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let opcode: Opcode = 0x800A;
@@ -717,7 +744,8 @@ mod nine {
     #[test]
     /// This test is mainly for correct coverage.
     fn test_nine_wrong_opcode() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -746,7 +774,8 @@ mod nine {
     #[test]
     /// This test is mainly for correct coverage.
     fn test_skip_if_reg_not_equals() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -790,7 +819,8 @@ mod a {
     use super::*;
     #[test]
     fn test_set_index_reg_to_addr() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let addr = 0x420;
@@ -813,7 +843,8 @@ mod b {
     /// BNNN
     /// Jumps to the address NNN plus V0.
     fn test_jump_to_nnn_with_offset() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
 
         let offset = 0x10;
 
@@ -838,7 +869,8 @@ mod c {
     /// Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
     /// and NN.
     fn test_bitwise_and_random() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         // creating a simple "random number generator" that will
         // allways return 0x42 for a simple test.
         let srng = StepRng::new(0x42, 0);
@@ -875,7 +907,8 @@ mod e {
         let mut keyboard = vec![false; keyboard::SIZE].into_boxed_slice();
         keyboard[reg1] = true;
 
-        let mut chip = setup_chip(rom);
+        let mut chipset = setup_chip(rom);
+        let mut chip = chipset.chipset_mut();
         chip.set_keyboard(&keyboard);
 
         for (i, reg) in [reg2, reg1].iter().enumerate() {
@@ -903,6 +936,8 @@ mod e {
 
         let mut chip = setup_chip(rom);
 
+        let mut chipset = setup_chip(rom);
+        let mut chip = chipset.chipset_mut();
         chip.set_keyboard(&keyboard);
 
         for (i, reg) in [reg1, reg2].iter().enumerate() {
@@ -928,6 +963,8 @@ mod e {
         keyboard[reg] = true;
 
         let mut chip = setup_chip(rom);
+        let mut chipset = setup_chip(rom);
+        let mut chip = chipset.chipset_mut();
         chip.set_keyboard(&keyboard);
 
         let pc = chip.program_counter;
@@ -960,7 +997,8 @@ mod f {
     // FX07
     // Sets VX to the value of the delay timer.
     fn test_reg_to_delay_timer() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let dt = timer::HERZ;
         let reg = 0xA;
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x07;
@@ -985,7 +1023,8 @@ mod f {
     // A key press is awaited, and then stored in VX. (Blocking Operation. All
     // instruction halted until next key event)
     fn test_await_key_press() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let key = 4;
         let reg = 0xA;
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x0A;
@@ -1023,7 +1062,8 @@ mod f {
     /// FX15
     /// Sets the delay timer to VX.   
     fn test_set_delay_timer() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let key = 44;
         let reg = 0xB;
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x15;
@@ -1050,7 +1090,8 @@ mod f {
     /// FX18
     /// Sets the sound timer to VX.
     fn test_set_sound_timer() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let key = 44;
         let reg = 0xB;
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x18;
@@ -1074,7 +1115,8 @@ mod f {
     /// Adds VX to I. VF is not affected.
     #[test]
     fn test_add_vx_to_i() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
 
         let key = 0x44;
         let reg = 0xB;
@@ -1096,7 +1138,8 @@ mod f {
     /// hexadecimal) are represented by a 4x5 font.
     #[test]
     fn test_set_i_to_given_font() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         let mut test = |reg, val, loc| {
             let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x29;
 
@@ -1123,7 +1166,8 @@ mod f {
     /// location I+1, and the ones digit at location I+2.)
     #[test]
     fn test_binary_coding() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
         chip.index_register = 0x1000;
         let mut test = |register, number, hundered, ten, one| {
             let key = number;
@@ -1155,7 +1199,8 @@ mod f {
     /// is increased by 1 for each value written, but I itself is left unmodified.
     #[test]
     fn test_store_register_into_memory() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
 
         const REG: usize = 0xB;
         const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x55;
@@ -1180,7 +1225,8 @@ mod f {
     /// unmodified.
     #[test]
     fn test_load_register_from_memory() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
 
         const REG: usize = 0xB;
         const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x65;
@@ -1200,7 +1246,8 @@ mod f {
 
     #[test]
     fn test_wrong_opcode() {
-        let mut chip = get_default_chip();
+        let mut chipset = get_default_chip();
+        let mut chip = chipset.chipset_mut();
 
         const REG: usize = 0xB;
         const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x45;

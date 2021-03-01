@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-pub trait TimerCallback: Send + 'static {
+pub trait TimerCallback {
     fn new() -> Self;
     fn handle(&mut self);
 }
@@ -56,12 +56,43 @@ where
     callback: Arc<Mutex<Option<S>>>,
 }
 
+#[derive(Clone)]
+pub(crate) struct TimerValue<V>
+where
+    V: num::Unsigned,
+{
+    /// will store the value of the timer
+    value: Arc<RwLock<V>>,
+}
+
+impl<V: num::Unsigned> TimerValue<V> {
+    fn new(value: Arc<RwLock<V>>) -> Self {
+        Self { value }
+    }
+
+    pub fn set_value(&mut self, value: V) {
+        let mut val = self
+            .value
+            .write()
+            .expect("something went wrong with the read write lock, while setting the value");
+
+        *val = value;
+    }
+
+    pub fn get_value(&self) -> V {
+        *self
+            .value
+            .read()
+            .expect("something went wrong, while returning from the RW-Lock.")
+    }
+}
+
 impl<W, V> Timer<W, V, NoCallback>
 where
     W: TimedWorker,
     V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
 {
-    pub fn new(value: V, interval: Duration) -> Self {
+    pub fn new(value: V, interval: Duration) -> (Self, TimerValue<V>) {
         Self::internal_new(value, interval)
     }
 }
@@ -72,7 +103,7 @@ where
     V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
     S: TimerCallback,
 {
-    fn internal_new(value: V, interval: Duration) -> Self {
+    fn internal_new(value: V, interval: Duration) -> (Self, TimerValue<V>) {
         let cb: Arc<Mutex<Option<S>>> = Arc::new(Mutex::new(None));
         let mut worker = W::new();
 
@@ -103,25 +134,28 @@ where
 
         worker.start(func, interval);
 
-        Self {
-            value,
-            _worker: worker,
-            callback: cb,
-        }
+        (
+            Self {
+                value: value.clone(),
+                _worker: worker,
+                callback: cb,
+            },
+            TimerValue::new(value),
+        )
     }
 
-    pub fn with_callback(value: V, interval: Duration, sound_handler: S) -> Self {
-        let value = Self::internal_new(value, interval);
+    pub fn with_callback(value: V, interval: Duration, sound_handler: S) -> (Self, TimerValue<V>) {
+        let (timer, value) = Self::internal_new(value, interval);
         // using internal scope to remove uneeded borrow and to return value from
         // function
         {
-            let mut lock = value
+            let mut lock = timer
                 .callback
                 .lock()
                 .expect("Poisoned lock after initialization.");
             *lock = Some(sound_handler);
         }
-        value
+        (timer, value)
     }
 
     pub fn set_value(&mut self, value: V) {
@@ -250,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_timer() {
-        let mut timer: Timer<Worker, u8, NoCallback> =
+        let (mut timer, _): (Timer<Worker, u8, NoCallback>, _) =
             Timer::new(timer::HERZ, Duration::from_millis(timer::INTERVAL));
         assert!(timer._worker.is_alive());
 
