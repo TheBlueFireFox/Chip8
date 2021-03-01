@@ -1,7 +1,7 @@
 use crate::timer::{NoCallback, Worker};
 
 use {
-    super::ChipSet,
+    super::InternalChipSet,
     crate::{
         definitions::{cpu, memory},
         opcode::{ChipOpcodes, Opcode, Operation, ProgramCounter, ProgramCounterStep},
@@ -27,13 +27,13 @@ pub(super) fn get_base() -> Rom {
 }
 
 /// will setup the default configured chip
-pub(super) fn get_default_chip() -> ChipSet<Worker, NoCallback> {
+pub(super) fn get_default_chip() -> InternalChipSet<Worker, NoCallback> {
     let rom = get_base();
     setup_chip(rom)
 }
 
-pub(super) fn setup_chip(rom: Rom) -> ChipSet<Worker, NoCallback> {
-    let mut chip = ChipSet::new(rom);
+pub(super) fn setup_chip(rom: Rom) -> InternalChipSet<Worker, NoCallback> {
+    let mut chip = InternalChipSet::new(rom);
     // fill up register with random values
     assert_eq!(chip.registers.len(), 16);
     for reg in chip.registers.iter_mut() {

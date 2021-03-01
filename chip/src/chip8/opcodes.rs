@@ -4,9 +4,9 @@ use crate::{
     timer::{TimedWorker, TimerCallback},
 };
 
-use super::ChipSet;
+use super::InternalChipSet;
 
-impl<W, S> ChipOpcodes for ChipSet<W, S>
+impl<W, S> ChipOpcodes for InternalChipSet<W, S>
 where
     W: TimedWorker,
     S: TimerCallback,

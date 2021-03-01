@@ -6,6 +6,16 @@ use {
     std::fmt,
 };
 
+impl<W,S> fmt::Display for ChipSet<W,S> 
+where 
+W: TimedWorker,
+S: TimerCallback
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.chipset)
+    }
+}
+
 /// The length of the pretty print data
 /// as a single instruction is u16 the octa
 /// size will show how often the block shall
@@ -239,7 +249,7 @@ mod bool_print {
     }
 }
 
-impl<W, S> fmt::Display for ChipSet<W, S>
+impl<W, S> fmt::Display for InternalChipSet<W, S>
 where
     W: TimedWorker,
     S: TimerCallback,

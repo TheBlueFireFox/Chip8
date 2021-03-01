@@ -1,9 +1,6 @@
 use std::time::Duration;
 
-use crate::{
-    definitions,
-    timer::{NoCallback, TimerCallback},
-};
+use crate::{definitions, opcode::Operation, timer::{NoCallback, TimerCallback}};
 
 use {
     crate::{
@@ -16,11 +13,43 @@ use {
     rand::RngCore,
 };
 
+pub struct ChipSet<W, S>
+where
+    W: TimedWorker,
+    S: TimerCallback,
+{
+    pub(super) chipset: InternalChipSet<W, S>,
+    pub(super) delay_timer: Timer<W, u8, NoCallback>,
+    pub(super) sound_timer: Timer<W, u8, S>,
+}
+
+impl<W, S> ChipSet<W, S> 
+where
+    W: TimedWorker,
+    S: TimerCallback,
+{
+    pub fn new(rom: Rom) -> Self {
+        todo!()
+    }
+
+    pub fn get_display(&self) -> &[Vec<bool>] {
+        self.chipset.get_display()
+    }
+
+    pub fn next(&mut self) -> Result<opcode::Operation, String> {
+        self.chipset.next()
+    }
+
+    pub fn set_key(&mut self, key: usize, to: bool) {
+        self.chipset.set_key(key, to);
+    }
+}
+
 /// The ChipSet struct represents the current state
 /// of the system, it contains all the structures
 /// needed for emulating an instant on the
 /// Chip8 CPU.
-pub struct ChipSet<W, S>
+pub(super) struct InternalChipSet<W, S>
 where
     W: TimedWorker,
     S: TimerCallback,
@@ -77,7 +106,7 @@ where
     pub(super) preprocessor: Option<Box<dyn FnOnce(&mut Self) + Send>>,
 }
 
-impl<W, S> ChipSet<W, S>
+impl<W, S> InternalChipSet<W, S>
 where
     W: TimedWorker,
     S: TimerCallback,
@@ -115,7 +144,7 @@ where
     }
 
     /// will get the next opcode from memory
-    pub(super) fn set_opcode(&mut self) -> Result<(), String> {
+    pub fn set_opcode(&mut self) -> Result<(), String> {
         // will build the opcode given from the pointer
         self.opcode = opcode::build_opcode(&self.memory, self.program_counter)?;
         Ok(())
@@ -170,7 +199,7 @@ where
     /// Will push the current pointer to the stack
     /// stack_counter is always one bigger then the
     /// entry it points to
-    pub(super) fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
+    pub fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
         if self.stack.len() == self.stack.capacity() {
             Err("Stack is full!")
         } else {
@@ -183,7 +212,7 @@ where
     /// Will pop from the counter
     /// stack_counter is always one bigger then the entry
     /// it points to
-    pub(super) fn pop_stack(&mut self) -> Result<usize, &'static str> {
+    pub fn pop_stack(&mut self) -> Result<usize, &'static str> {
         if self.stack.is_empty() {
             Err("Stack is empty!")
         } else {
@@ -196,7 +225,7 @@ where
     }
 }
 
-impl<W: TimedWorker, S: TimerCallback> ProgramCounter for ChipSet<W, S> {
+impl<W: TimedWorker, S: TimerCallback> ProgramCounter for InternalChipSet<W, S> {
     fn step(&mut self, step: ProgramCounterStep) {
         self.program_counter = if let ProgramCounterStep::Jump(_) = step {
             step.step()
@@ -206,7 +235,7 @@ impl<W: TimedWorker, S: TimerCallback> ProgramCounter for ChipSet<W, S> {
     }
 }
 
-impl<W: TimedWorker, S: TimerCallback> ChipOpcodePreProcessHandler for ChipSet<W, S> {
+impl<W: TimedWorker, S: TimerCallback> ChipOpcodePreProcessHandler for InternalChipSet<W, S> {
     fn preprocess(&mut self) {
         if let Some(func) = self.preprocessor.take() {
             func(self);

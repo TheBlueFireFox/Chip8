@@ -1,10 +1,4 @@
-use crate::{
-    chip8::ChipSet,
-    devices::{DisplayCommands, KeyboardCommands},
-    opcode::Operation,
-    resources::Rom,
-    timer::{TimedWorker, TimerCallback},
-};
+use crate::{chip8::ChipSet, devices::{DisplayCommands, KeyboardCommands}, opcode::Operation, resources::Rom, timer::{TimedWorker, TimerCallback}};
 
 pub struct Controller<D, K, W, S>
 where
