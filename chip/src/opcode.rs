@@ -233,7 +233,7 @@ impl ProgramCounterStep {
         match self {
             ProgramCounterStep::Next => memory::opcodes::SIZE,
             ProgramCounterStep::Skip => 2 * memory::opcodes::SIZE,
-            ProgramCounterStep::None => {0}
+            ProgramCounterStep::None => 0,
             ProgramCounterStep::Jump(pointer) => {
                 if cpu::PROGRAM_COUNTER <= *pointer && *pointer < memory::SIZE {
                     *pointer

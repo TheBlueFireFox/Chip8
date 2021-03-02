@@ -904,7 +904,7 @@ mod e {
         let reg1 = 0x1;
         let reg2 = 0x0;
 
-        let mut keyboard = vec![false; keyboard::SIZE].into_boxed_slice();
+        let mut keyboard = [false; keyboard::SIZE];
         keyboard[reg1] = true;
 
         let mut chipset = setup_chip(rom);
@@ -931,7 +931,7 @@ mod e {
         let reg1 = 0x0;
         let reg2 = 0x1;
 
-        let mut keyboard = vec![false; keyboard::SIZE].into_boxed_slice();
+        let mut keyboard = [false; keyboard::SIZE];
         keyboard[reg1] = true;
 
         let mut chipset = setup_chip(rom);
@@ -957,7 +957,7 @@ mod e {
         let rom = get_base();
         let reg = 0x0;
 
-        let mut keyboard = vec![false; keyboard::SIZE].into_boxed_slice();
+        let mut keyboard = [false; keyboard::SIZE];
         keyboard[reg] = true;
 
         let mut chipset = setup_chip(rom);

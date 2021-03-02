@@ -99,9 +99,31 @@ mod tests {
     ];
 
     const ROM_NAMES: [&str; 25] = [
-        "15PUZZLE", "BLINKY", "BLITZ", "BRIX", "CONNECT4", "GUESS", "HIDDEN", "IBMLOGO",
-        "INVADERS", "KALEID", "MAZE", "MERLIN", "MISSILE", "PONG", "PONG2", "PUZZLE", "SYZYGY",
-        "TANK", "TESTOPCODE", "TETRIS", "TICTAC", "UFO", "VBRIX", "VERS", "WIPEOFF",
+        "15PUZZLE",
+        "BLINKY",
+        "BLITZ",
+        "BRIX",
+        "CONNECT4",
+        "GUESS",
+        "HIDDEN",
+        "IBMLOGO",
+        "INVADERS",
+        "KALEID",
+        "MAZE",
+        "MERLIN",
+        "MISSILE",
+        "PONG",
+        "PONG2",
+        "PUZZLE",
+        "SYZYGY",
+        "TANK",
+        "TESTOPCODE",
+        "TETRIS",
+        "TICTAC",
+        "UFO",
+        "VBRIX",
+        "VERS",
+        "WIPEOFF",
     ];
 
     #[test]

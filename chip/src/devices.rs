@@ -94,7 +94,7 @@ impl Keyboard {
     }
 
     /// Will set multiple keys
-    pub fn set_mult(&mut self, keys: &[bool]) {
+    pub fn set_mult(&mut self, keys: &[bool; keyboard::SIZE]) {
         self.keys.copy_from_slice(keys);
         self.last = None;
     }

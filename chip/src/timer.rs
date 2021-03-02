@@ -38,7 +38,7 @@ impl TimerCallback for NoCallback {
 }
 
 /// A timer that will count down to 0, from any type that does support it
-pub(crate) struct Timer<W, V, S>
+pub struct Timer<W, V, S>
 where
     W: TimedWorker,
     V: num::Unsigned,

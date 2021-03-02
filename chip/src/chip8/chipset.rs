@@ -1,4 +1,4 @@
-use crate::timer::TimerValue;
+use crate::{definitions::keyboard, timer::TimerValue};
 
 use {
     crate::{
@@ -14,12 +14,15 @@ use {
     std::time::Duration,
 };
 
+/// The chipset struct containing the internal implementation of the chipset
+/// and the timers.
+/// The struct has been split up into two instances to simplyfiy the implementation.
 pub struct ChipSet<W, S>
 where
     W: TimedWorker,
     S: TimerCallback,
 {
-    pub(super) chipset: InternalChipSet,
+    chipset: InternalChipSet,
     _delay_timer: Timer<W, u8, NoCallback>,
     _sound_timer: Timer<W, u8, S>,
 }
@@ -60,8 +63,17 @@ where
     }
 
     /// Get a mutable reference to the chip set's chipset.
+    /// This function is only used in the context of tests
+    /// as there never is a need to expose the internal
+    /// chipset otherwise.
+    #[cfg(test)]
     pub(super) fn chipset_mut(&mut self) -> &mut InternalChipSet {
         &mut self.chipset
+    }
+
+    /// Will write keyboard data into interncal keyboard representation.
+    pub fn set_keyboard(&mut self, keys: &[bool; keyboard::SIZE]) {
+        self.chipset.set_keyboard(keys);
     }
 }
 
@@ -173,7 +185,7 @@ impl InternalChipSet {
     }
 
     /// Will write keyboard data into interncal keyboard representation.
-    pub fn set_keyboard(&mut self, keys: &[bool]) {
+    pub fn set_keyboard(&mut self, keys: &[bool; keyboard::SIZE]) {
         // copy_from_slice checks the keys lenght during copy
         self.keyboard.set_mult(keys);
     }

@@ -12,7 +12,7 @@ where
     S: TimerCallback,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.chipset)
+        write!(f, "{}", self.chipset())
     }
 }
 
@@ -363,7 +363,11 @@ mod tests {
     fn test_full_print() {
         let mut chipset = tests::get_default_chip();
         let chip = chipset.chipset_mut();
-        let keys: Vec<bool> = (0..keyboard::SIZE).map(|i| i % 2 != 0).collect();
+        let mut keys = [false; keyboard::SIZE];
+
+        for (index, key) in keys.iter_mut().enumerate() {
+            *key = index % 2 != 0;
+        }
 
         chip.set_keyboard(&keys);
 
