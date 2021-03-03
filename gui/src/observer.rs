@@ -43,7 +43,6 @@ impl<E> EventSystem<E> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,3 +1,7 @@
+//! The opcode implementation written for this [`chipset`](super::InternalChipSet).
+//! This implementation was split up into this file for smaller file sizes and higher
+//! cohesion.
+
 use crate::{
     definitions::{cpu, display},
     opcode::{ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep},

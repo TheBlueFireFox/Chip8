@@ -10,8 +10,8 @@ use wasm_bindgen::{prelude::*, JsCast};
 use crate::utils::BrowserWindow;
 use chip::timer::TimedWorker;
 
-    /// Wrapps the actuall implementation so that the TimedWorker thread condition,
-    /// for the Timer can be fullfilled correctly.
+/// Wrapps the actuall implementation so that the TimedWorker thread condition,
+/// for the Timer can be fullfilled correctly.
 pub(crate) struct TimingWorker {
     worker: ProcessWorker,
 }
@@ -53,8 +53,8 @@ enum WorkerState {
     CannotRun,
 }
 
-/// All the states that the running thread can take 
-/// This is used so that possible crashed or expected 
+/// All the states that the running thread can take
+/// This is used so that possible crashed or expected
 /// shutdowns can be logged.
 #[derive(Debug, Clone, Copy)]
 enum ProgrammState {
@@ -79,7 +79,6 @@ pub struct ProcessWorker {
 }
 
 impl ProcessWorker {
-
     /// Will init the struct.
     pub fn new() -> Result<Self, JsValue> {
         Ok(Self {
@@ -233,7 +232,9 @@ impl WasmWorker {
     {
         // stop any action around
         if self.is_alive() {
-            return Err(JsValue::from("Unable to start worker, as worker is already running."));
+            return Err(JsValue::from(
+                "Unable to start worker, as worker is already running.",
+            ));
         }
 
         let function = Closure::wrap(Box::new(callback) as Box<dyn FnMut()>);

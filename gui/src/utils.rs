@@ -1,7 +1,6 @@
 //! Contains functionality that initializes the console logging as well as the the panic hook.
 /// TODO: implement additional functionality over the internal values, so that running code is
 /// simpler.
-
 use std::sync::{Arc, Once, RwLock};
 
 use wasm_bindgen::JsValue;
@@ -32,7 +31,7 @@ impl BrowserWindow {
         &self.window
     }
 
-    /// Will return the document 
+    /// Will return the document
     pub fn document(&self) -> &Document {
         &self.document
     }
@@ -51,7 +50,7 @@ lazy_static::lazy_static! {
         Arc::new(RwLock::new(Ok(())));
 }
 
-/// Will setup the system 
+/// Will setup the system
 pub fn setup_systems() -> Result<(), JsValue> {
     // make sure that there will never be a setup call more then once
     START.call_once(|| {

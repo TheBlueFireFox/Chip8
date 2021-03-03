@@ -1,18 +1,17 @@
-use crate::{definitions::keyboard, timer::TimerValue};
+//! The main chip8 implementation module.
+//! The given implementation is based primatily on the [wikipedia
+//! page](https://en.wikipedia.org/wiki/CHIP-8) definitions.
 
-use {
-    crate::{
-        definitions,
-        definitions::{cpu, display, memory, timer},
-        devices::Keyboard,
-        opcode::{self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter, ProgramCounterStep},
-        resources::Rom,
-        timer::{NoCallback, TimerCallback},
-        timer::{TimedWorker, Timer},
-    },
-    rand::RngCore,
-    std::time::Duration,
+use crate::{
+    definitions::{cpu, display, keyboard, memory, timer},
+    devices::Keyboard,
+    opcode::{self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter, ProgramCounterStep},
+    resources::Rom,
+    timer::{NoCallback, TimerCallback},
+    timer::{TimedWorker, Timer, TimerValue},
 };
+use rand::RngCore;
+use std::time::Duration;
 
 /// The chipset struct containing the internal implementation of the chipset
 /// and the timers.
@@ -22,8 +21,12 @@ where
     W: TimedWorker,
     S: TimerCallback,
 {
+    /// The actuall chipset implementation.
     chipset: InternalChipSet,
+    /// Holds the delaytimer struct, so that the internal closures do not go out of scope and
+    /// then drop.
     _delay_timer: Timer<W, u8, NoCallback>,
+    /// Holds the sound timer struct, so that the internally used closures will not be dropped.
     _sound_timer: Timer<W, u8, S>,
 }
 
@@ -32,6 +35,7 @@ where
     W: TimedWorker,
     S: TimerCallback + 'static,
 {
+    /// Creates a new chip set from a given rom.
     pub fn new(rom: Rom) -> Self {
         let (delay_timer, delay_value) = Timer::new(0, Duration::from_millis(timer::INTERVAL));
         let (sound_timer, sound_value) =
@@ -45,14 +49,18 @@ where
         }
     }
 
+    /// Will return a slice of displays.
     pub fn get_display(&self) -> &[Vec<bool>] {
         self.chipset.get_display()
     }
 
+    /// Will execute the next operation.
+    /// Returns the operation that has to be run by the caller.
     pub fn next(&mut self) -> Result<opcode::Operation, String> {
         self.chipset.next()
     }
 
+    /// Will set the given key into the keyboard.
     pub fn set_key(&mut self, key: usize, to: bool) {
         self.chipset.set_key(key, to);
     }
@@ -94,7 +102,7 @@ pub(super) struct InternalChipSet {
     /// instructions; thus, it should be avoided. In an addition operation, `VF` is the carry flag,
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction `VF` is set upon
     /// pixel collision.
-    pub(super) registers: [u8; definitions::cpu::register::SIZE],
+    pub(super) registers: [u8; cpu::register::SIZE],
     /// The index for the register, this is a special register entry
     /// called index `I`
     pub(super) index_register: usize,

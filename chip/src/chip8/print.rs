@@ -1,10 +1,9 @@
-use crate::timer::TimerCallback;
-
-use {
-    super::*,
-    crate::{definitions::cpu, timer::TimedWorker},
-    std::fmt,
+use super::*;
+use crate::{
+    definitions::cpu,
+    timer::{TimedWorker, TimerCallback},
 };
+use std::fmt;
 
 impl<W, S> fmt::Display for ChipSet<W, S>
 where
@@ -22,9 +21,8 @@ where
 /// be repeated has to be bigger then 0
 const HEX_PRINT_STEP: usize = 8;
 
-/// will add an indent post processing
-///
-/// Example
+/// Will add an indent post processing
+/// TODO: optimize implementation to remove uneeded allocation.
 fn indent_helper(text: &str, indent: usize) -> String {
     const END_OF_LINE: &str = "\n";
     let indent = "\t".repeat(indent);
@@ -39,6 +37,7 @@ fn indent_helper(text: &str, indent: usize) -> String {
         .collect::<String>()
 }
 
+/// Handles all the printing of the pointer values.
 mod pointer_print {
     use super::integer_print;
     /// will formatt the pointers according to definition
@@ -52,19 +51,18 @@ mod pointer_print {
 }
 
 mod opcode_print {
-    use {
-        super::{integer_print, pointer_print, HEX_PRINT_STEP},
-        crate::{
-            definitions::memory,
-            opcode::{self, Opcode},
-        },
-        std::fmt,
+    use super::{integer_print, pointer_print, HEX_PRINT_STEP};
+    use crate::{
+        definitions::memory,
+        opcode::{self, Opcode},
     };
+    use std::fmt;
 
     /// The internal length of the given data
     /// as the data is stored as u8 and an opcode
     /// is u16 long
     const POINTER_INCREMENT: usize = HEX_PRINT_STEP * memory::opcodes::SIZE;
+    /// The values that are used when there are at lease two rows of zeros.
     const FILLER_BASE: &str = "...";
 
     lazy_static::lazy_static! {

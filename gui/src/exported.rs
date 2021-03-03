@@ -98,7 +98,7 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
     JsBoundData::new()
 }
 
-/// Represents the observed keybpresses 
+/// Represents the observed keybpresses
 /// TODO: Write documentation, what it is for.
 struct ObservedKeypress {
     controller: Rc<RefCell<InternalController>>,
