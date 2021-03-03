@@ -9,7 +9,7 @@ pub trait DisplayCommands {
 /// The trait responsible for writing the keyboard data
 pub trait KeyboardCommands {
     fn was_pressed(&self) -> bool;
-    fn get_keyboard(&self) -> &[bool];
+    fn get_keyboard(&self) -> &Keyboard;
 }
 
 /// Will represent the last set key with the previous
@@ -107,5 +107,9 @@ impl Keyboard {
     /// Will get the last changes key
     pub fn get_last(&self) -> Option<Key> {
         self.last
+    }
+
+    pub fn get_keyboard(&self) -> &[bool] {
+        &self.keys
     }
 }

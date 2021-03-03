@@ -1,17 +1,30 @@
-//! The definitions needed to run the application.
+//! The constant definitions needed to run the application.
+
+/// The selector with the overview of the supported roms.
 pub mod selector {
+    /// Represents the id used inside of the html, so that the selector element can be found by id.
     pub const ID: &str = "name-selector";
+    /// The type of the selector.
     pub const TYPE: &str = "select";
 }
 
+/// The board in which the chip implementation runs.
 pub mod field {
+    /// The upper most id.
     pub const ID: &str = "board";
+    /// The type of the board is a standard html table
     pub const TYPE: &str = "table";
+    /// A html row type.
     pub const TYPE_ROW: &str = "tr";
+    /// A html cell.
     pub const TYPE_COLUMN: &str = "td";
+    /// The state of which the values exist on.
+    /// Attention the implemtnation is in reverse, so a not `active` cell is per this definition
+    /// `alive`.
     pub const ACTIVE: &str = "alive";
 }
 
+/// The keyboard constants.
 pub mod keyboard {
     use std::collections::HashMap;
 

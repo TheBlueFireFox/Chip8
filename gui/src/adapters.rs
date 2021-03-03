@@ -161,14 +161,18 @@ impl Drop for SoundCallback {
             .expect("Something went terribly wrong, while dropping the sound callback.")
     }
 }
-
+/// Translates the internal commands into the external ones.
 pub(crate) struct DisplayAdapter;
 
 impl DisplayAdapter {
+    /// Creates a new DisplayAdapter
     pub fn new() -> Self {
         DisplayAdapter {}
     }
 
+    /// Will draw the actuall board this function is generic
+    /// over all the parameters that deref first into an array / slice of array/slices of bool,
+    /// then secondly into a pointer to a boolean.
     fn draw_board<M, V>(pixels: M) -> Result<(), JsValue>
     where
         M: AsRef<[V]>,
@@ -213,12 +217,18 @@ impl DisplayCommands for DisplayAdapter {
     }
 }
 
+/// Abstracts away the awkward js keyboard interface
+/// TODO: implement the js adaption.
 pub(crate) struct KeyboardAdapter {
+    /// Stores the keyboard into to which the values are changed.
     keyboard: Keyboard,
+    /// The registered keyboard events to dispatch.
+    /// TODO: implement dispatch
     event_system: EventSystem<usize>,
 }
 
 impl KeyboardAdapter {
+    /// Generates a new keyboard interface.
     pub fn new() -> Self {
         Self {
             keyboard: Keyboard::new(),
@@ -226,6 +236,8 @@ impl KeyboardAdapter {
         }
     }
 
+    /// Will register any callback that implements the Observer<usize> trait.
+    /// Where usize represents an internal representation of the keyboard value.
     pub fn register_callback<T>(&mut self, data: Rc<RefCell<T>>)
     where
         T: Observer<usize> + 'static,
@@ -244,7 +256,7 @@ impl KeyboardCommands for KeyboardAdapter {
         self.keyboard.get_last().is_some()
     }
 
-    fn get_keyboard(&self) -> &[bool] {
-        todo!()
+    fn get_keyboard(&self) -> &Keyboard {
+        &self.keyboard
     }
 }

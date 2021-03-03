@@ -1,24 +1,23 @@
 //! The functions that will be exported later on
 use crate::adapters::SoundCallback;
 
-use {
-    crate::{
-        adapters::{DisplayAdapter, KeyboardAdapter},
-        definitions,
-        observer::{EventSystem, Observer},
-        timer::{ProcessWorker, TimingWorker},
-        utils::BrowserWindow,
-    },
-    chip::{definitions::display, devices::Key, resources::RomArchives, Controller},
-    std::{
-        cell::{Ref, RefCell, RefMut},
-        rc::Rc,
-        time::Duration,
-    },
-    wasm_bindgen::prelude::*,
-    web_sys::Element,
+use crate::{
+    adapters::{DisplayAdapter, KeyboardAdapter},
+    definitions,
+    observer::{EventSystem, Observer},
+    timer::{ProcessWorker, TimingWorker},
+    utils::BrowserWindow,
 };
+use chip::{definitions::display, devices::Key, resources::RomArchives, Controller};
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    rc::Rc,
+    time::Duration,
+};
+use wasm_bindgen::prelude::*;
+use web_sys::Element;
 
+/// Will draw the empty board 
 fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     let table = window.document().create_element(definitions::field::TYPE)?;
     table.set_id(definitions::field::ID);
