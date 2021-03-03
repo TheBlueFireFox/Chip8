@@ -1,10 +1,13 @@
 //! Contains functionality that initializes the console logging as well as the the panic hook.
+/// TODO: implement additional functionality over the internal values, so that running code is
+/// simpler.
 
 use std::sync::{Arc, Once, RwLock};
 
 use wasm_bindgen::JsValue;
 use web_sys::{Document, HtmlElement, Window};
 
+/// An abstraction to the browser window, makes using the `wasm_bindgen` api simpler.
 pub(crate) struct BrowserWindow {
     window: Window,
     document: Document,
@@ -12,6 +15,7 @@ pub(crate) struct BrowserWindow {
 }
 
 impl BrowserWindow {
+    /// Create a new browser window
     pub fn new() -> Result<Self, &'static str> {
         let window = web_sys::window().ok_or("no global `window` exists.")?;
         let document = window.document().ok_or("no document available")?;
@@ -23,24 +27,31 @@ impl BrowserWindow {
         })
     }
 
+    /// Will return the window struct
     pub fn window(&self) -> &Window {
         &self.window
     }
+
+    /// Will return the document 
     pub fn document(&self) -> &Document {
         &self.document
     }
 
+    /// Will return the body
     pub fn body(&self) -> &HtmlElement {
         &self.body
     }
 }
 
 lazy_static::lazy_static! {
+    /// Will make sure that given unic call setup function can only be calles a single time.
     static ref START: Once = Once::new();
+    /// Will store the result of the of the setup function
     static ref START_RESULT: Arc<RwLock<Result<(), log::SetLoggerError>>> =
         Arc::new(RwLock::new(Ok(())));
 }
 
+/// Will setup the system 
 pub fn setup_systems() -> Result<(), JsValue> {
     // make sure that there will never be a setup call more then once
     START.call_once(|| {

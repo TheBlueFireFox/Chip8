@@ -1,4 +1,5 @@
-//! The wasm timer implementations
+//! All the workers for the WASM target.
+//! The timers are based on the JS functions `setInterval` and `setTimeout`.
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
@@ -9,9 +10,9 @@ use wasm_bindgen::{prelude::*, JsCast};
 use crate::utils::BrowserWindow;
 use chip::timer::TimedWorker;
 
-pub(crate) struct TimingWorker {
     /// Wrapps the actuall implementation so that the TimedWorker thread condition,
     /// for the Timer can be fullfilled correctly.
+pub(crate) struct TimingWorker {
     worker: ProcessWorker,
 }
 
@@ -44,12 +45,17 @@ impl TimedWorker for TimingWorker {
     }
 }
 
+/// The states of the worker if it is running or not.
+/// This is primarily for redability usage.
 #[derive(Debug, Clone, Copy)]
 enum WorkerState {
     CanRun,
     CannotRun,
 }
 
+/// All the states that the running thread can take 
+/// This is used so that possible crashed or expected 
+/// shutdowns can be logged.
 #[derive(Debug, Clone, Copy)]
 enum ProgrammState {
     Failure,
@@ -63,13 +69,18 @@ enum ProgrammState {
 /// function call get's called anyway
 /// to stop any execution then.
 pub struct ProcessWorker {
+    /// The worker registration used for getting the chip running every few milliseconds.
     worker: WasmWorker,
     /// If the run method had run with out problems
     state: Rc<Cell<ProgrammState>>,
+    /// A possible clean up function called once the worker
+    /// exists processing.
     shutdown: Rc<RefCell<Option<Box<dyn FnOnce() + 'static>>>>,
 }
 
 impl ProcessWorker {
+
+    /// Will init the struct.
     pub fn new() -> Result<Self, JsValue> {
         Ok(Self {
             worker: WasmWorker::new()?,
@@ -78,7 +89,7 @@ impl ProcessWorker {
         })
     }
 
-    /// Will start the timed worker every the interval
+    /// Will start the timed worker at every interval
     pub fn start_with_shutdown<M, S>(
         &mut self,
         callback: M,
@@ -169,10 +180,13 @@ impl ProcessWorker {
         self.worker.stop();
     }
 
+    /// If the worker is alive.
     pub fn is_alive(&self) -> bool {
         self.worker.is_alive()
     }
 
+    /// Will setup the struct so that the worker can run, in case that there is already a worker
+    /// running a `WorkerState::CannotRun` is returned.
     fn set_start_state(&mut self) -> WorkerState {
         let state = self.state.get();
         if let ProgrammState::Running = state {
@@ -202,6 +216,7 @@ pub(crate) struct WasmWorker {
 }
 
 impl WasmWorker {
+    /// Will create the wasm worker
     pub(crate) fn new() -> Result<Self, JsValue> {
         Ok(Self {
             interval_id: None,
@@ -210,12 +225,16 @@ impl WasmWorker {
         })
     }
 
+    /// Will start to run the process.
+    /// Will return an error, if there is already a running worker.
     pub(crate) fn start<T>(&mut self, callback: T, interval: Duration) -> Result<(), JsValue>
     where
         T: FnMut() + 'static,
     {
         // stop any action around
-        self.stop();
+        if self.is_alive() {
+            return Err(JsValue::from("Unable to start worker, as worker is already running."));
+        }
 
         let function = Closure::wrap(Box::new(callback) as Box<dyn FnMut()>);
 
@@ -231,14 +250,21 @@ impl WasmWorker {
         Ok(())
     }
 
+    /// Will stop the worker
     pub(crate) fn stop(&mut self) {
+        // stop the interval call
         if let Some(id) = self.interval_id.take() {
             self.browser.window().clear_interval_with_handle(id);
         }
+        // remove the closure struct to return the memory
+        if let Some(function) = self.function.take() {
+            drop(function);
+        }
     }
 
+    /// Checks if the worker is alive
     pub(crate) fn is_alive(&self) -> bool {
-        self.interval_id.is_some()
+        self.interval_id.is_some() && self.function.is_some()
     }
 }
 

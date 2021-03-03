@@ -1,12 +1,19 @@
 //! The observer responsible for communacation and such
-use std::{cell::RefCell, collections::HashMap, rc::Rc, usize};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+/// The observer trait that is requiered for handle event.
+pub trait Observer<E> {
+    fn on_notify(&mut self, event: &E);
+}
+/// The event system handler stores the observer functionality.
+/// It is generic over any type.
 pub struct EventSystem<E> {
     observers: HashMap<usize, Rc<RefCell<dyn Observer<E>>>>,
     counter: usize,
 }
 
 impl<E> EventSystem<E> {
+    /// initializes the event system
     pub fn new() -> Self {
         EventSystem {
             observers: HashMap::new(),
@@ -14,17 +21,21 @@ impl<E> EventSystem<E> {
         }
     }
 
+    /// Registes an observer that shall be called in case something happens.
+    /// Will return an id, with that the observer can be removed.
     pub fn register_observer(&mut self, observer: Rc<RefCell<dyn Observer<E>>>) -> usize {
         self.counter += 1;
         self.observers.insert(self.counter, observer);
         self.counter
     }
 
+    /// Will remove the observed callback, with the id given by register.
     pub fn remove_observer(&mut self, index: usize) -> Option<Rc<RefCell<dyn Observer<E>>>> {
         // remove the index of the map
         self.observers.remove_entry(&index).map(|(_, val)| val)
     }
 
+    /// Forces the event handler to run the given envent by all the observers.
     pub fn handle_event(&mut self, event: &E) {
         for (_, observer) in self.observers.iter_mut() {
             observer.borrow_mut().on_notify(event);
@@ -32,9 +43,6 @@ impl<E> EventSystem<E> {
     }
 }
 
-pub trait Observer<E> {
-    fn on_notify(&mut self, event: &E);
-}
 
 #[cfg(test)]
 mod tests {

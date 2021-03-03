@@ -143,7 +143,7 @@ mod tests {
     #[mockall::automock]
     trait InternalKCommands {
         fn was_pressed(&self) -> bool;
-        fn get_keyboard(&self) -> &[bool];
+        fn get_keyboard(&self) -> &crate::devices::Keyboard;
     }
 
     struct KeyboardAdapter<M>
@@ -158,7 +158,7 @@ mod tests {
             self.ka.was_pressed()
         }
 
-        fn get_keyboard(&self) -> &[bool] {
+        fn get_keyboard(&self) -> &crate::devices::Keyboard {
             self.ka.get_keyboard()
         }
     }
