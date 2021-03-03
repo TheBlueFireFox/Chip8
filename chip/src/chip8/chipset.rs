@@ -158,8 +158,8 @@ impl InternalChipSet {
             index_register: 0,
             program_counter: cpu::PROGRAM_COUNTER,
             stack: Vec::with_capacity(cpu::stack::SIZE),
-            delay_timer, //
-            sound_timer, //
+            delay_timer,
+            sound_timer,
             display: vec![vec![false; display::HEIGHT]; display::WIDTH],
             keyboard: Keyboard::new(),
             rng: Box::new(rand::rngs::OsRng {}),

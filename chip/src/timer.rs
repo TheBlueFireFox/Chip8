@@ -28,6 +28,7 @@ pub trait TimedWorker {
     fn is_alive(&self) -> bool;
 }
 
+/// Empty implementation (default where there is no callback)
 pub(crate) struct NoCallback;
 
 impl TimerCallback for NoCallback {
@@ -35,25 +36,6 @@ impl TimerCallback for NoCallback {
         Self {}
     }
     fn handle(&mut self) {}
-}
-
-/// A timer that will count down to 0, from any type that does support it
-pub struct Timer<W, V, S>
-where
-    W: TimedWorker,
-    V: num::Unsigned,
-    S: TimerCallback,
-{
-    /// will store the value of the timer
-    value: Arc<RwLock<V>>,
-    /// Represents a timer inside of the chip
-    /// infrastruture, it will count down to
-    /// zero from what ever number given in
-    /// the speck requireds 60Hz.
-    _worker: W,
-    /// Is the optional function that might get called once the timer
-    /// reaches zero.
-    callback: Arc<Mutex<Option<S>>>,
 }
 
 #[derive(Clone)]
@@ -87,6 +69,24 @@ impl<V: num::Unsigned + Copy> TimerValue<V> {
     }
 }
 
+/// A timer that will count down to 0, from any type that does support it
+pub struct Timer<W, V, S>
+where
+    W: TimedWorker,
+    V: num::Unsigned,
+    S: TimerCallback,
+{
+    /// will store the value of the timer
+    value: Arc<RwLock<V>>,
+    /// Represents a timer inside of the chip
+    /// infrastruture, it will count down to
+    /// zero from what ever number given in
+    /// the speck requireds 60Hz.
+    _worker: W,
+    /// Is the optional function that might get called once the timer
+    /// reaches zero.
+    callback: Arc<Mutex<Option<S>>>,
+}
 impl<W, V> Timer<W, V, NoCallback>
 where
     W: TimedWorker,
@@ -101,7 +101,7 @@ impl<W, V, S> Timer<W, V, S>
 where
     W: TimedWorker,
     V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
-    S: TimerCallback + 'static,
+    S: TimerCallback,
 {
     fn internal_new(value: V, interval: Duration) -> (Self, TimerValue<V>) {
         let cb: Arc<Mutex<Option<S>>> = Arc::new(Mutex::new(None));

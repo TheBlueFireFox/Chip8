@@ -62,23 +62,9 @@ impl Oscillator {
 
 pub(crate) struct SoundCallback {
     timeout_id: Arc<Mutex<Option<i32>>>,
-    callback: Arc<Mutex<Option<Closure<dyn FnMut() -> Result<(), JsValue>>>>>,
 }
 
-/// SAFTY: This is okay, the callback will not be interacted with in a threaded situation
-/// as it is only ever used in the signle threaded wasm context.
-/// Attention using arc and mutex as added security.
-#[cfg(target_arch = "wasm32")]
-unsafe impl Send for SoundCallback {}
-
 impl SoundCallback {
-    fn internal_new() -> Self {
-        Self {
-            timeout_id: Arc::new(Mutex::new(None)),
-            callback: Arc::new(Mutex::new(None)),
-        }
-    }
-
     fn start(&mut self, timeout: i32) -> Result<(), JsValue> {
         let mut timeout_id = self
             .timeout_id
@@ -92,11 +78,13 @@ impl SoundCallback {
         let osci = Oscillator::new()?;
         osci.start()?;
 
-        let stop = move || {
-            osci.stop()
-            //.expect("Something went wrong while stopping the Oscillator");
-        };
-        let callback = Closure::once(stop);
+        // moving the osci into this closure keeps it alive
+        let stop = move || osci.stop();
+
+        // SAFETY: As stopping the callback is rare to the point of never
+        // being used, this might leak memory although only rarely and never
+        // in large amounts.
+        let callback = Closure::once_into_js(stop);
 
         let window = BrowserWindow::new()?;
         let id = window
@@ -108,11 +96,6 @@ impl SoundCallback {
 
         *timeout_id = Some(id);
 
-        let mut my_callback = self
-            .callback
-            .lock()
-            .or_else(|err| Err(JsValue::from(format!("{:?}", err))))?;
-        *my_callback = Some(callback);
         Ok(())
     }
 
@@ -135,7 +118,9 @@ impl SoundCallback {
 
 impl TimerCallback for SoundCallback {
     fn new() -> Self {
-        Self::internal_new()
+        Self {
+            timeout_id: Arc::new(Mutex::new(None)),
+        }
     }
 
     fn handle(&mut self) {
