@@ -1,3 +1,4 @@
+//! The definitions needed to run the application.
 pub mod selector {
     pub const ID: &str = "name-selector";
     pub const TYPE: &str = "select";

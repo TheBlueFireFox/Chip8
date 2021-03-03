@@ -1,3 +1,5 @@
+//! Contains functionality that initializes the console logging as well as the the panic hook.
+
 use std::sync::{Arc, Once, RwLock};
 
 use wasm_bindgen::JsValue;
@@ -20,6 +22,7 @@ impl BrowserWindow {
             body,
         })
     }
+
     pub fn window(&self) -> &Window {
         &self.window
     }
@@ -37,6 +40,7 @@ lazy_static::lazy_static! {
     static ref START_RESULT: Arc<RwLock<Result<(), log::SetLoggerError>>> =
         Arc::new(RwLock::new(Ok(())));
 }
+
 pub fn setup_systems() -> Result<(), JsValue> {
     // make sure that there will never be a setup call more then once
     START.call_once(|| {
@@ -56,7 +60,7 @@ pub fn setup_systems() -> Result<(), JsValue> {
 
 /// This is the panic hook it will be called by the JS runtime itself
 /// if something happends.
-pub fn set_panic_hook() {
+fn set_panic_hook() {
     // When the `console_error_panic_hook` feature is enabled, we can call the
     // `set_panic_hook` function at least once during initialization, and then
     // we will get better error messages if our code ever panics.

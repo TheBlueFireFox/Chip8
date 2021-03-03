@@ -1,3 +1,4 @@
+//! The wasm timer implementations
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,

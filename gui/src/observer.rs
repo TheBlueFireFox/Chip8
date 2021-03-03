@@ -1,3 +1,4 @@
+//! The observer responsible for communacation and such
 use std::{cell::RefCell, collections::HashMap, rc::Rc, usize};
 
 pub struct EventSystem<E> {

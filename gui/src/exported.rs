@@ -1,3 +1,4 @@
+//! The functions that will be exported later on
 use crate::adapters::SoundCallback;
 
 use {

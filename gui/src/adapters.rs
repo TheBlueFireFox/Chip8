@@ -1,3 +1,6 @@
+//! The adapters used to interface with the display, keyboard and sound system of the browser.
+//! All of the given functionality is based on `wam_bindgen` abstractions.
+
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -16,13 +19,19 @@ use chip::{
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::{AudioContext, GainNode, OscillatorNode};
 
+/// The Oscillator implementation, it contains structs that allow for live sound generation.
 struct Oscillator {
+    /// The AudioContext interface represents an audio-processing graph built from audio modules
+    /// linked together.
     ctx: AudioContext,
+    /// The OscillatorNode interface represents a periodic waveform, such as a sine wave.
     main: OscillatorNode,
+    /// The GainNode interface represents a change in volume.
     gain: GainNode,
 }
 
 impl Oscillator {
+    /// Initializes the oscillator node and sets it up.
     fn new() -> Result<Self, JsValue> {
         let ctx = AudioContext::new()?;
         let main = ctx.create_oscillator()?;
@@ -33,6 +42,7 @@ impl Oscillator {
         Ok(me)
     }
 
+    /// The node setup
     fn setup(&self) -> Result<(), JsValue> {
         self.main.set_type(web_sys::OscillatorType::Sine);
         self.main.frequency().set_value(440.0); // A4 note
@@ -51,20 +61,24 @@ impl Oscillator {
         Ok(())
     }
 
+    /// Starts the sound production.
     fn start(&self) -> Result<(), JsValue> {
         self.main.start()
     }
 
+    /// Stops the sound production.
     fn stop(&self) -> Result<(), JsValue> {
         self.main.stop()
     }
 }
 
+/// A struct that only contains the timeout id needed to stop sound execution.
 pub(crate) struct SoundCallback {
     timeout_id: Arc<Mutex<Option<i32>>>,
 }
 
 impl SoundCallback {
+    /// Starts to create the sound.
     fn start(&mut self, timeout: i32) -> Result<(), JsValue> {
         let mut timeout_id = self
             .timeout_id
@@ -75,12 +89,21 @@ impl SoundCallback {
             return Err(JsValue::from("A soundcallback has already been send out"));
         }
 
+        let ctimeout_id = self.timeout_id.clone();
         let osci = Oscillator::new()?;
         osci.start()?;
 
         // moving the osci into this closure keeps it alive
-        let stop = move || osci.stop();
+        let stop = move || {
+            let mut timeout_id = ctimeout_id
+                .lock()
+                .or_else(|err| Err(JsValue::from(format!("{}", err))))?;
 
+            osci.stop();
+            *timeout_id = None;
+
+            Ok(())
+        };
         // SAFETY: As stopping the callback is rare to the point of never
         // being used, this might leak memory although only rarely and never
         // in large amounts.
@@ -99,6 +122,7 @@ impl SoundCallback {
         Ok(())
     }
 
+    /// Stops to create the sound if possible.
     fn stop(&mut self) -> Result<(), JsValue> {
         let mut timeout = self
             .timeout_id
