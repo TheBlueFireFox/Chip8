@@ -17,7 +17,9 @@ use std::{
 use wasm_bindgen::prelude::*;
 use web_sys::Element;
 
-/// Will draw the empty board 
+/// Will draw the empty initial board. For visual confirmation, that the process started
+/// the board will be drawn in a chess like pattern.
+/// TODO: refactor this function into untils.
 fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     let table = window.document().create_element(definitions::field::TYPE)?;
     table.set_id(definitions::field::ID);
@@ -42,6 +44,8 @@ fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     Ok(table)
 }
 
+/// Will initialize the drop down with the included rom names.
+/// TODO: refactor this function into untils.
 fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsValue> {
     let dropdown = window
         .document()
@@ -66,6 +70,7 @@ fn print_info(message: &str) -> Result<(), JsValue> {
     Ok(())
 }
 
+/// The first function that has to be run or else no chip like functionality is available.
 #[wasm_bindgen]
 pub fn setup() -> Result<JsBoundData, JsValue> {
     crate::utils::setup_systems()?;
@@ -93,11 +98,14 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
     JsBoundData::new()
 }
 
+/// Represents the observed keybpresses 
+/// TODO: Write documentation, what it is for.
 struct ObservedKeypress {
     controller: Rc<RefCell<InternalController>>,
 }
 
 impl ObservedKeypress {
+    /// The standard new instance.
     fn new(controller: Rc<RefCell<InternalController>>) -> Self {
         Self { controller }
     }
@@ -130,6 +138,7 @@ pub struct JsBoundData {
 
 #[wasm_bindgen]
 impl JsBoundData {
+    /// Will initialize the data structure with the required default values.
     pub(crate) fn new() -> Result<Self, JsValue> {
         let controller = Controller::new(DisplayAdapter::new(), KeyboardAdapter::new());
         let rc_controller = Rc::new(RefCell::new(controller));
@@ -211,6 +220,7 @@ impl JsBoundData {
     }
 }
 
+/// Will stop execution of any and all processes.
 fn stop(worker: Rc<RefCell<ProcessWorker>>, controller: Rc<RefCell<InternalController>>) {
     // stop executing chip
     worker.borrow_mut().stop();
