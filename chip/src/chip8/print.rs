@@ -1,3 +1,6 @@
+//! The pretty print implementation written for both the  [`internal chipset`](super::InternalChipSet) and the [`external`](super::ChipSet).
+//! This implementation was split up into this file for smaller file sizes and higher
+//! cohesion.
 use super::*;
 use crate::{
     definitions::cpu,
@@ -50,6 +53,7 @@ mod pointer_print {
     }
 }
 
+/// Handles all the opcode prints
 mod opcode_print {
     use super::{integer_print, pointer_print, HEX_PRINT_STEP};
     use crate::{
@@ -66,8 +70,9 @@ mod opcode_print {
     const FILLER_BASE: &str = "...";
 
     lazy_static::lazy_static! {
-        // preparing for the 0 block fillers
+        /// Prepares the line that will be used, in the case that there is at least two lines of only zeros.
         static ref ZERO_FILLER : String = {
+        // preparing for the 0 block fillers
             let formatted = integer_print::formatter(0u16);
             match HEX_PRINT_STEP {
                 1 => formatted,
@@ -177,6 +182,7 @@ mod opcode_print {
     }
 }
 
+/// handles printting of any and all of intergers.
 mod integer_print {
     use {
         super::{pointer_print, HEX_PRINT_STEP},
@@ -209,13 +215,16 @@ mod integer_print {
     }
 }
 
+/// Handles all the boolean data types.
 mod bool_print {
     use super::{integer_print, pointer_print, HEX_PRINT_STEP};
 
     lazy_static::lazy_static! {
         /// is used internally for lenght adjustment
         static ref INTEGER_LEN : usize = integer_print::formatter(0u16).len();
+        /// the prepared true string 
         static ref TRUE : String = formatter("true");
+        /// the prepared false string 
         static ref FALSE: String = formatter("false");
     }
 

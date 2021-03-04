@@ -1,3 +1,4 @@
+//! Opcode abstractions, functionality and constants.
 use crate::definitions::{cpu, memory};
 
 /// the base mask used for generating all the other sub masks
@@ -229,6 +230,7 @@ impl ProgramCounterStep {
         }
     }
 
+    /// Maps the [`ProgramCounterStep`](ProgramCounterStep) to the corresponding movement distanz.
     pub fn step(&self) -> usize {
         match self {
             ProgramCounterStep::Next => memory::opcodes::SIZE,
@@ -265,14 +267,24 @@ pub enum Operation {
     Draw,
 }
 
+/// Handles the preprocessing before opcode execution.
+///
+/// As there are opcodes, where the execution is midway stoped, until a given event happens. There is a need to restart execution from the that position, so this trait handles those cases.
 pub trait ChipOpcodePreProcessHandler {
+    /// Runs the preprocessed functionality.
     fn preprocess(&mut self);
 }
 
 /// These are the traits that have to be full filled for a working opcode
 /// table.
-/// This required the implementation of the ProgramCounter trait as
-/// the step functionality has to be implemented as well.
+///
+/// This trait requires the implementation of the  [`ProgramCounter`](ProgramCounter) trait for the step 
+/// functionality has to be implemented as well.
+/// Additionally the
+/// [`ChipOpcodePreProcessHandler`](ChipOpcodePreProcessHandler) is needed as to handle a different aspect of opcode handling.
+///
+/// Attention: These three traits have been split up into three, so to simplify the respective
+/// implementations.
 pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// will calculate the programs step by a single step
     fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {

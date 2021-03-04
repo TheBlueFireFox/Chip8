@@ -1,3 +1,6 @@
+//! The main interface out of the crate.
+//! 
+//! Handles part of the execution and interaction with the display, keyboard and sound system.
 use crate::{
     chip8::ChipSet,
     devices::{DisplayCommands, KeyboardCommands},
@@ -6,6 +9,8 @@ use crate::{
     timer::{TimedWorker, TimerCallback},
 };
 
+/// A collection of all the important interfaces.
+/// Is primarily used to simplify the crate api.
 pub struct Controller<D, K, W, S>
 where
     D: DisplayCommands,
@@ -13,9 +18,13 @@ where
     S: TimerCallback,
     W: TimedWorker,
 {
+    /// The display adapter, so that is can be controlled during execution.
     display: D,
+    /// The keyboard adapter, so that the keypresses can be registred and red.
     keyboard: K,
+    /// The all important chipset implementation.
     chipset: Option<ChipSet<W, S>>,
+    /// The next run operation.
     operation: Operation,
 }
 
@@ -26,6 +35,7 @@ where
     W: TimedWorker,
     S: TimerCallback,
 {
+    /// Creates a new constroller.
     pub fn new(dis: D, key: K) -> Self {
         Controller {
             display: dis,
@@ -40,6 +50,7 @@ where
         &self.chipset
     }
 
+    /// Get a mutable reference to the controller's chipset.
     pub fn chipset_mut(&mut self) -> Option<&mut ChipSet<W, S>> {
         self.chipset.as_mut()
     }
@@ -50,8 +61,10 @@ where
         self.chipset = Some(chipset);
     }
 
+    /// Remove the rom and resets the internal state of the chip to the new state.
     pub fn remove_rom(&mut self) {
         self.chipset = None;
+        self.operation = Operation::None;
     }
 
     /// Get a reference to the controller's keyboard.
@@ -75,6 +88,11 @@ where
     }
 }
 
+/// The main function that has to be called every
+/// [`interval`](super::definitions::cpu::INTERVAL).
+///
+/// This function handles all of the heavy lifing required by the operations and 
+/// interact with the different adapters.
 pub fn run<D, K, W, S>(
     Controller {
         display,

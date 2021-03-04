@@ -1,5 +1,8 @@
-/// The definitions
+//! All the constants that rule the execution.
+//!
+//! Most definitions are based on the wikipedia definitions.
 
+/// The memory definitions such as ram size or opcode size.
 pub mod memory {
     /// The size of the chipset ram
     pub const SIZE: usize = 0x1000; // 4096
@@ -43,9 +46,11 @@ pub mod timer {
     pub const INTERVAL: u64 = 1000 / HERZ as u64;
 }
 
+/// The sound definitions.
 pub mod sound {
     use std::time::Duration;
 
+    /// How long the sound shall be played for.
     pub const DURRATION: Duration = Duration::from_millis(250);
 }
 

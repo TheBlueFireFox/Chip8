@@ -1,3 +1,5 @@
+//! Abstractions over the keyboard and display.
+
 use crate::definitions::keyboard;
 
 /// The traits responsible for the display based code

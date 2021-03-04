@@ -1,3 +1,8 @@
+//! Abstractions over the resource handeling.
+//!
+//! There are multiple different paths on how to orginize the Chip8 roms. Given the small size of the
+//! rom themselves and the limited opcodes supported zipping them enables enough savings so
+//! that embeding the rom archive directly into the binary actually is worth the simplicty.
 use std::{
     self,
     io::{prelude::*, Cursor},

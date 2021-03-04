@@ -1,3 +1,4 @@
+//! The countdown timers required by the Chip8 specification.
 use std::{
     sync::{
         mpsc::{self, RecvTimeoutError, SyncSender},
@@ -7,11 +8,16 @@ use std::{
     time::Duration,
 };
 
+/// Handles the callback onces the timer reaches zero.
 pub trait TimerCallback: Send + 'static {
+    /// Creates a new callback instance.
     fn new() -> Self;
+    /// Handles the callback.
     fn handle(&mut self);
 }
 
+/// An abstraction over the internal timer, so that
+/// different worker implementations, can be used.
 pub trait TimedWorker {
     /// Will create the respective timer
     /// The reason that this is a required method
@@ -38,20 +44,25 @@ impl TimerCallback for NoCallback {
     fn handle(&mut self) {}
 }
 
+/// The clonable value holder of the timer.
 #[derive(Clone)]
 pub struct TimerValue<V>
 where
     V: num::Unsigned,
 {
-    /// will store the value of the timer
+    /// will store the value of the timer.
     value: Arc<RwLock<V>>,
 }
 
 impl<V: num::Unsigned + Copy> TimerValue<V> {
+    /// This create the TimerValue instance.
+    /// Attention is is set to private, so that there can not be an instance created execept from
+    /// [`Timer::new`](Timer::new).
     fn new(value: Arc<RwLock<V>>) -> Self {
         Self { value }
     }
 
+    /// Setter for the internal value.
     pub fn set_value(&mut self, value: V) {
         let mut val = self
             .value
@@ -61,6 +72,7 @@ impl<V: num::Unsigned + Copy> TimerValue<V> {
         *val = value;
     }
 
+    /// Getter for the internal value.
     pub fn get_value(&self) -> V {
         *self
             .value
@@ -92,6 +104,7 @@ where
     W: TimedWorker,
     V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
 {
+    /// generates the default timer.
     pub fn new(value: V, interval: Duration) -> (Self, TimerValue<V>) {
         Self::internal_new(value, interval)
     }
@@ -103,6 +116,8 @@ where
     V: num::Unsigned + std::cmp::PartialOrd<V> + Send + Sync + Copy + 'static,
     S: TimerCallback,
 {
+    /// Will actually generate the timer.
+    /// This function has been abstracted out for simplicity.
     fn internal_new(value: V, interval: Duration) -> (Self, TimerValue<V>) {
         let cb: Arc<Mutex<Option<S>>> = Arc::new(Mutex::new(None));
         let mut worker = W::new();
@@ -144,6 +159,7 @@ where
         )
     }
 
+    /// Will create a new timer that has an internal callback.
     pub fn with_callback(value: V, interval: Duration, sound_handler: S) -> (Self, TimerValue<V>) {
         let (timer, value) = Self::internal_new(value, interval);
         // using internal scope to remove uneeded borrow and to return value from
@@ -158,6 +174,7 @@ where
         (timer, value)
     }
 
+    /// The setter for the timer value.
     pub fn set_value(&mut self, value: V) {
         let mut val = self
             .value
@@ -167,6 +184,7 @@ where
         *val = value;
     }
 
+    /// The getter fo the timer value at this current moment.
     pub fn get_value(&self) -> V {
         *self
             .value
