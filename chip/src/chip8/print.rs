@@ -236,12 +236,11 @@ mod integer_print {
         for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
             let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
             // Copy into the string
-            // TODO: implement the pointer print with for a writer
             res.push_str(&pointer_print::formatter(i, n));
             res.push(' ');
 
-            for j in &data[i..=n] {
-                if let Err(err) = write!(res, concat!(intformat!(), " "), j) {
+            for entry in &data[i..=n] {
+                if let Err(err) = write!(res, concat!(intformat!(), " "), *entry) {
                     panic!("{}", err);
                 }
             }
