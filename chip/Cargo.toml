@@ -25,4 +25,9 @@ rand = {version = "0.8", features = ["getrandom"]}
 zip = {version = "0.5", default-features = false, features = ["deflate"]}
 
 [dev-dependencies]
+criterion = "0.3"
 mockall = "0.9"
+
+[[bench]]
+name = "my_benchmark"
+harness = false

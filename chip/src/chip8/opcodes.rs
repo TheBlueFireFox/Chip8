@@ -367,7 +367,6 @@ impl ChipOpcodes for InternalChipSet {
                 // FX29
                 // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
                 // hexadecimal) are represented by a 4x5 font.
-                // TODO: implement sprite offset
                 let val = self.registers[x] as usize;
                 assert!(
                     val <= 0xF,

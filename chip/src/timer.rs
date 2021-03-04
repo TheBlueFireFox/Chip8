@@ -35,7 +35,7 @@ pub trait TimedWorker {
 }
 
 /// Empty implementation (default where there is no callback)
-pub(crate) struct NoCallback;
+pub struct NoCallback;
 
 impl TimerCallback for NoCallback {
     fn new() -> Self {
@@ -138,7 +138,6 @@ where
                 let mut lock = ccb.lock().unwrap();
 
                 if let Some(callback_handler) = lock.as_mut() {
-                    // TODO: Setup sound
                     callback_handler.handle();
                 }
             }
@@ -195,7 +194,7 @@ where
 
 /// Is the internal worker, that exists on the
 /// second thread.
-pub(super) struct Worker {
+pub struct Worker {
     /// Contains the actuall thread, that is running.
     thread: Option<JoinHandle<()>>,
     /// Contains the sync sender used to gracefull shutdown the thread.

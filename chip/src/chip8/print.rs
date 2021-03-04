@@ -1,6 +1,9 @@
 //! The pretty print implementation written for both the  [`internal chipset`](super::InternalChipSet) and the [`external`](super::ChipSet).
 //! This implementation was split up into this file for smaller file sizes and higher
 //! cohesion.
+
+// TODO: optimize implementation to remove uneeded allocation.
+
 use super::*;
 use crate::{
     definitions::cpu,
@@ -25,31 +28,53 @@ where
 const HEX_PRINT_STEP: usize = 8;
 
 /// Will add an indent post processing
-/// TODO: optimize implementation to remove uneeded allocation.
 fn indent_helper(text: &str, indent: usize) -> String {
-    const END_OF_LINE: &str = "\n";
-    let indent = "\t".repeat(indent);
-    let parts = text.matches(END_OF_LINE).count();
+    const END_OF_LINE: char = '\n';
 
-    text.split(END_OF_LINE)
-        .enumerate()
-        .map(|(i, x)| {
-            let end = if i < parts { "\n" } else { "" };
-            format!("{}{}{}", indent, x, end)
-        })
-        .collect::<String>()
+    // Will calculate the size that the string will have in the end
+    let size = text
+        .split(END_OF_LINE)
+        .fold(0, |acc, line| acc + line.len() + indent + 1);
+
+    let mut res = String::with_capacity(size);
+
+    for line in text.split(END_OF_LINE) {
+        for _ in 0..indent {
+            res.push('\t');
+        }
+        res.push_str(line);
+        res.push(END_OF_LINE);
+    }
+
+    // replace the last false end of line
+    if let Some(index) = res.rfind(END_OF_LINE) {
+        res.truncate(res.len() - (res.len() - index));
+    }
+
+    res
 }
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! intformat {
+    () => {
+        "{:#06X}"
+    };
+}
+
+lazy_static::lazy_static! {
+    static ref POINTER_LEN : usize = pointer_print::formatter(0,0).len();
+    static ref INTEGER_LEN : usize = integer_print::formatter(0u8).len();
+    // calculate a line lenght (This is a bit bigger then the actual line will be)
+    static ref LENLINE : usize = {
+        HEX_PRINT_STEP * (*INTEGER_LEN + 1) + 1 + *POINTER_LEN
+    };
+}
 /// Handles all the printing of the pointer values.
 mod pointer_print {
-    use super::integer_print;
     /// will formatt the pointers according to definition
     pub(super) fn formatter(from: usize, to: usize) -> String {
-        format!(
-            "{} - {} :",
-            integer_print::formatter(from),
-            integer_print::formatter(to)
-        )
+        format!(concat!(intformat!(), " - ", intformat!(), " :"), from, to)
     }
 }
 
@@ -60,7 +85,7 @@ mod opcode_print {
         definitions::memory,
         opcode::{self, Opcode},
     };
-    use std::fmt;
+    use std::fmt::{self, Write};
 
     /// The internal length of the given data
     /// as the data is stored as u8 and an opcode
@@ -76,7 +101,7 @@ mod opcode_print {
             let formatted = integer_print::formatter(0u16);
             match HEX_PRINT_STEP {
                 1 => formatted,
-                2 => vec![formatted; 2].join(" "),
+                2 => format!("{} {}", formatted, formatted),
                 _ => {
                     let lenght = formatted.len() * (HEX_PRINT_STEP - 2) + (HEX_PRINT_STEP - 1)
                          - FILLER_BASE.len();
@@ -105,17 +130,22 @@ mod opcode_print {
     /// using the fmt::Display` for simple printing of the data later on
     impl fmt::Display for Row {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            let mut res = Vec::with_capacity(HEX_PRINT_STEP + 1);
-            res.push(pointer_print::formatter(self.from, self.to));
+            let mut res = String::with_capacity(*super::LENLINE);
+            res.push_str(&pointer_print::formatter(self.from, self.to));
+            res.push(' ');
 
             if !self.only_null {
                 for entry in self.data.iter() {
-                    res.push(integer_print::formatter(*entry));
+                    res.push_str(&integer_print::formatter(*entry));
+                    res.push(' ');
+                }
+                if let Some(index) = res.rfind(' ') {
+                    res.truncate(index);
                 }
             } else {
-                res.push(ZERO_FILLER.clone());
+                res.push_str(&ZERO_FILLER)
             }
-            write!(f, "{}", res.join(" "))
+            write!(f, "{}", res)
         }
     }
 
@@ -168,70 +198,85 @@ mod opcode_print {
             rows.push(row)
         }
         // create the end structure to be used for calculations
-        let max = rows.len() - 1;
-        rows.iter()
-            .enumerate()
-            .map(|(i, x)| {
-                if i < max {
-                    format!("{}\n", x)
-                } else {
-                    format!("{}", x)
-                }
-            })
-            .collect()
+        let mut string = String::with_capacity((*super::LENLINE + 1) * rows.len());
+        for row in rows {
+            if let Err(err) = write!(string, "{}\n", row) {
+                panic!(err);
+            }
+        }
+        if let Some(index) = string.rfind("\n") {
+            string.truncate(index);
+        }
+        string
     }
 }
 
 /// handles printting of any and all of intergers.
 mod integer_print {
-    use {
-        super::{pointer_print, HEX_PRINT_STEP},
-        num,
-        std::fmt,
-    };
+    use super::{pointer_print, HEX_PRINT_STEP};
+    use num;
+    use std::fmt::{self, Write};
+
     /// will format all integer types
-    pub(super) fn formatter<T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy>(
-        data: T,
-    ) -> String {
-        format!("{:#06X}", data)
+    pub(super) fn formatter<T>(data: T) -> String
+    where
+        T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy,
+    {
+        format!(intformat!(), data)
     }
 
     /// will pretty print all the integer data given
-    pub(super) fn printer<T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy>(
-        data: &[T],
-        offset: usize,
-    ) -> String {
-        let mut res = Vec::new();
+    pub(super) fn printer<T>(data: &[T], offset: usize) -> String
+    where
+        T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy,
+    {
+        let result_size = *super::LENLINE * ((data.len() - offset) / HEX_PRINT_STEP);
+
+        let mut res = String::with_capacity(result_size);
         for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
             let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
-            let mut row = vec![pointer_print::formatter(i, n)];
+            // Copy into the string
+            // TODO: implement the pointer print with for a writer
+            res.push_str(&pointer_print::formatter(i, n));
+            res.push(' ');
 
-            for j in i..=n {
-                row.push(formatter(data[j]));
+            for j in &data[i..=n] {
+                if let Err(err) = write!(res, concat!(intformat!(), " "), j) {
+                    panic!("{}", err);
+                }
             }
-            res.push(row.join(" "));
+
+            // remove unneded whitespace and replace it with a newline
+            let index = res.rfind(' ').unwrap();
+            res.truncate(index);
+            res.push('\n');
         }
-        res.join("\n")
+
+        // Remove unneded new line
+        if let Some(index) = res.rfind('\n') {
+            res.truncate(index);
+        }
+
+        res
     }
 }
 
 /// Handles all the boolean data types.
 mod bool_print {
-    use super::{integer_print, pointer_print, HEX_PRINT_STEP};
+    use super::{pointer_print, HEX_PRINT_STEP};
 
     lazy_static::lazy_static! {
-        /// is used internally for lenght adjustment
-        static ref INTEGER_LEN : usize = integer_print::formatter(0u16).len();
-        /// the prepared true string 
+        /// the prepared true string
         static ref TRUE : String = formatter("true");
-        /// the prepared false string 
+        /// the prepared false string
         static ref FALSE: String = formatter("false");
     }
 
     /// a function to keep the correct format length
-    pub(super) fn formatter(string: &str) -> String {
-        let mut string = string.to_string();
-        while string.len() < *INTEGER_LEN {
+    pub(super) fn formatter(message: &str) -> String {
+        let mut string = String::with_capacity(*super::INTEGER_LEN);
+        string.push_str(message);
+        while string.len() < *super::INTEGER_LEN {
             string.push(' ');
         }
         string
@@ -241,18 +286,30 @@ mod bool_print {
     /// the offset will be calculated automatically from
     /// the data block
     pub(super) fn printer(data: &[bool], offset: usize) -> String {
-        let mut res = Vec::new();
+
+        let result_size = *super::LENLINE * ((data.len() - offset) / HEX_PRINT_STEP);
+
+        let mut res = String::with_capacity(result_size);
+
+        let check_type = |val: bool | if val { &*TRUE } else { &*FALSE };
 
         for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
             let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
-            let mut row = vec![pointer_print::formatter(i, n)];
+            res.push_str(&pointer_print::formatter(i, n));
+            res.push(' ');
 
-            for j in i..=n {
-                row.push(if data[j] { TRUE.clone() } else { FALSE.clone() });
+            for value in &data[i..=(n-1)] {
+                res.push_str(check_type(*value));
+                res.push(' ');
             }
-            res.push(row.join(" ").trim_end().to_string());
+            res.push_str(check_type(data[n]).trim_end());
+            res.push('\n');
         }
-        res.join("\n")
+        if let Some(index) = res.rfind('\n') {
+            res.truncate(index);
+        }
+
+        res
     }
 }
 
