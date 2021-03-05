@@ -12,5 +12,6 @@ mod exported;
 mod observer;
 mod timer;
 mod utils;
+mod setup;
 
 pub use exported::*;

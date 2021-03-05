@@ -16,27 +16,9 @@ use wasm_bindgen::prelude::*;
 /// The first function that has to be run or else no chip like functionality is available.
 #[wasm_bindgen]
 pub fn setup() -> Result<JsBoundData, JsValue> {
-    utils::setup_systems()?;
+    log::info!("Initializing");
 
-    let browser_window = utils::BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
-    // create elements
-    let val = browser_window.create_element("p")?;
-    val.set_inner_html("Hello from Rust");
-    browser_window.append_child(&val)?;
-
-    // get rom names
-    let ra = RomArchives::new();
-    let mut files = ra.file_names();
-    files.sort();
-
-    let select = utils::crate_dropdown(&browser_window, &files)?;
-    browser_window.append_child(&select)?;
-
-    let board = utils::create_board(&browser_window)?;
-
-    browser_window.append_child(&board)?;
-
-    log::info!("Online");
+    crate::setup::setup()?;
 
     JsBoundData::new()
 }
