@@ -1,81 +1,24 @@
 //! The functions that will be exported later on
-use crate::adapters::SoundCallback;
-
 use crate::{
-    adapters::{DisplayAdapter, KeyboardAdapter},
-    definitions,
+    adapters::{DisplayAdapter, KeyboardAdapter, SoundCallback},
     observer::{EventSystem, Observer},
     timer::{ProcessWorker, TimingWorker},
-    utils::BrowserWindow,
+    utils 
 };
-use chip::{definitions::display, devices::Key, resources::RomArchives, Controller};
+use chip::{devices::Key, resources::RomArchives, Controller};
 use std::{
     cell::{Ref, RefCell, RefMut},
     rc::Rc,
     time::Duration,
 };
 use wasm_bindgen::prelude::*;
-use web_sys::Element;
-
-/// Will draw the empty initial board. For visual confirmation, that the process started
-/// the board will be drawn in a chess like pattern.
-/// TODO: refactor this function into untils.
-fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
-    let table = window.document().create_element(definitions::field::TYPE)?;
-    table.set_id(definitions::field::ID);
-
-    for i in 0..display::WIDTH {
-        let tr = window
-            .document()
-            .create_element(definitions::field::TYPE_ROW)?;
-        for j in 0..display::HEIGHT {
-            let td = window
-                .document()
-                .create_element(definitions::field::TYPE_COLUMN)?;
-            if (i + j) % 2 == 0 {
-                td.set_class_name(definitions::field::ACTIVE);
-            }
-
-            tr.append_child(&td)?;
-        }
-        table.append_child(&tr)?;
-    }
-
-    Ok(table)
-}
-
-/// Will initialize the drop down with the included rom names.
-/// TODO: refactor this function into untils.
-fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsValue> {
-    let dropdown = window
-        .document()
-        .create_element(definitions::selector::TYPE)?;
-    dropdown.set_id(definitions::selector::ID);
-    for file in files.into_iter() {
-        let option = window.document().create_element("option")?;
-        option.set_attribute("value", *file)?;
-        option.set_text_content(Some(*file));
-        dropdown.append_child(&option)?;
-    }
-    Ok(dropdown)
-}
-
-fn print_info(message: &str) -> Result<(), JsValue> {
-    let bw = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
-    let doc = bw.document();
-    let pre = doc.create_element("pre")?;
-    pre.set_text_content(Some(message));
-
-    bw.body().append_child(&pre)?;
-    Ok(())
-}
 
 /// The first function that has to be run or else no chip like functionality is available.
 #[wasm_bindgen]
 pub fn setup() -> Result<JsBoundData, JsValue> {
-    crate::utils::setup_systems()?;
+    utils::setup_systems()?;
 
-    let browser_window = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
+    let browser_window = utils::BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
     // create elements
     let val = browser_window.document().create_element("p")?;
     val.set_inner_html("Hello from Rust");
@@ -86,10 +29,10 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
     let mut files = ra.file_names();
     files.sort();
 
-    let select = crate_dropdown(&browser_window, &files)?;
+    let select = utils::crate_dropdown(&browser_window, &files)?;
     browser_window.body().append_child(&select)?;
 
-    let board = create_board(&browser_window)?;
+    let board = utils::create_board(&browser_window)?;
 
     browser_window.body().append_child(&board)?;
 
@@ -179,7 +122,7 @@ impl JsBoundData {
 
         self.controller_mut().set_rom(rom);
 
-        print_info(&format!(
+        utils::print_info(&format!(
             "{}",
             self.controller()
                 .chipset()
