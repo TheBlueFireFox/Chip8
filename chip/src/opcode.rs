@@ -278,7 +278,7 @@ pub trait ChipOpcodePreProcessHandler {
 /// These are the traits that have to be full filled for a working opcode
 /// table.
 ///
-/// This trait requires the implementation of the  [`ProgramCounter`](ProgramCounter) trait for the step 
+/// This trait requires the implementation of the  [`ProgramCounter`](ProgramCounter) trait for the step
 /// functionality has to be implemented as well.
 /// Additionally the
 /// [`ChipOpcodePreProcessHandler`](ChipOpcodePreProcessHandler) is needed as to handle a different aspect of opcode handling.

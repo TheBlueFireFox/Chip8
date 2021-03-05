@@ -1,5 +1,5 @@
 //! The full implementation of the chip8 enumalator, from the opcodes to an option to pretty
-//! print them. 
+//! print them.
 mod chipset;
 mod opcodes;
 mod print;

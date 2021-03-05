@@ -1,5 +1,5 @@
 //! The main interface out of the crate.
-//! 
+//!
 //! Handles part of the execution and interaction with the display, keyboard and sound system.
 use crate::{
     chip8::ChipSet,
@@ -91,7 +91,7 @@ where
 /// The main function that has to be called every
 /// [`interval`](super::definitions::cpu::INTERVAL).
 ///
-/// This function handles all of the heavy lifing required by the operations and 
+/// This function handles all of the heavy lifing required by the operations and
 /// interact with the different adapters.
 pub fn run<D, K, W, S>(
     Controller {

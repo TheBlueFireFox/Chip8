@@ -61,7 +61,14 @@ macro_rules! intformat {
 }
 
 lazy_static::lazy_static! {
-    static ref POINTER_LEN : usize = pointer_print::formatter(0,0).len();
+    static ref POINTER_LEN : usize = {
+        let mut line = String::with_capacity(20);
+        // If there was an error panicing here is correct,
+        // as some essential component of printing went
+        // wrongly.
+        pointer_print::formatter(&mut line, 0,0).unwrap();
+        line.len()
+    };
     static ref INTEGER_LEN : usize = integer_print::formatter(0u8).len();
     // calculate a line lenght (This is a bit bigger then the actual line will be)
     static ref LENLINE : usize = {
@@ -70,9 +77,18 @@ lazy_static::lazy_static! {
 }
 /// Handles all the printing of the pointer values.
 mod pointer_print {
+    use std::fmt::Write;
     /// will formatt the pointers according to definition
-    pub(super) fn formatter(from: usize, to: usize) -> String {
-        format!(concat!(intformat!(), " - ", intformat!(), " :"), from, to)
+    pub(super) fn formatter(
+        line: &mut String,
+        from: usize,
+        to: usize,
+    ) -> Result<(), std::fmt::Error> {
+        write!(
+            line,
+            concat!(intformat!(), " - ", intformat!(), " :"),
+            from, to
+        )
     }
 }
 
@@ -129,7 +145,7 @@ mod opcode_print {
     impl fmt::Display for Row {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             let mut res = String::with_capacity(*super::LENLINE);
-            res.push_str(&pointer_print::formatter(self.from, self.to));
+            pointer_print::formatter(&mut res, self.from, self.to)?;
             res.push(' ');
 
             if !self.only_null {
@@ -151,6 +167,7 @@ mod opcode_print {
     /// this functions assumes the full data to be passed
     /// as the offset is calculated from the beginning of the
     /// memory block
+    /// TODO: change code to return vec of rows.
     pub(super) fn printer(memory: &[u8], offset: usize) -> String {
         // using the offset
         let data_last_index = memory.len() - 1;
@@ -195,6 +212,7 @@ mod opcode_print {
             }
             rows.push(row)
         }
+
         // create the end structure to be used for calculations
         let mut string = String::with_capacity((*super::LENLINE + 1) * rows.len());
         for row in rows {
@@ -224,7 +242,7 @@ mod integer_print {
     }
 
     /// will pretty print all the integer data given
-    pub(super) fn printer<T>(data: &[T], offset: usize) -> String
+    pub(super) fn printer<T>(data: &[T], offset: usize) -> Result<String, std::fmt::Error>
     where
         T: fmt::Display + fmt::UpperHex + num::Unsigned + Copy,
     {
@@ -234,7 +252,7 @@ mod integer_print {
         for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
             let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
             // Copy into the string
-            res.push_str(&pointer_print::formatter(i, n));
+            pointer_print::formatter(&mut res, i, n)?;
             res.push(' ');
 
             for entry in &data[i..=n] {
@@ -254,7 +272,7 @@ mod integer_print {
             res.truncate(index);
         }
 
-        res
+        Ok(res)
     }
 }
 
@@ -282,20 +300,19 @@ mod bool_print {
     /// will pretty print all the boolean data given
     /// the offset will be calculated automatically from
     /// the data block
-    pub(super) fn printer(data: &[bool], offset: usize) -> String {
-
+    pub(super) fn printer(data: &[bool], offset: usize) -> Result<String, std::fmt::Error> {
         let result_size = *super::LENLINE * ((data.len() - offset) / HEX_PRINT_STEP);
 
         let mut res = String::with_capacity(result_size);
 
-        let check_type = |val: bool | if val { &*TRUE } else { &*FALSE };
+        let check_type = |val: bool| if val { &*TRUE } else { &*FALSE };
 
         for i in (offset..data.len()).step_by(HEX_PRINT_STEP) {
             let n = (i + HEX_PRINT_STEP - 1).min(data.len() - 1);
-            res.push_str(&pointer_print::formatter(i, n));
+            pointer_print::formatter(&mut res, i, n)?;
             res.push(' ');
 
-            for value in &data[i..=(n-1)] {
+            for value in &data[i..=(n - 1)] {
                 res.push_str(check_type(*value));
                 res.push(' ');
             }
@@ -306,7 +323,7 @@ mod bool_print {
             res.truncate(index);
         }
 
-        res
+        Ok(res)
     }
 }
 
@@ -315,14 +332,14 @@ impl fmt::Display for InternalChipSet {
         let mut nam = self.name.clone();
         // keeping the strings mutable so that they can be indented later on
         let mut mem = opcode_print::printer(&self.memory, 0);
-        let mut reg = integer_print::printer(&self.registers, 0);
+        let mut reg = integer_print::printer(&self.registers, 0)?;
 
         // handle stack specially as it needes to be filled up if empty
         let mut stack = [0; cpu::stack::SIZE];
         stack[0..self.stack.len()].copy_from_slice(&self.stack);
 
-        let mut sta = integer_print::printer(&stack, 0);
-        let mut key = bool_print::printer(self.keyboard.get_keys(), 0);
+        let mut sta = integer_print::printer(&stack, 0)?;
+        let mut key = bool_print::printer(self.keyboard.get_keys(), 0)?;
 
         let mut opc = integer_print::formatter(self.opcode);
         let mut prc = integer_print::formatter(self.program_counter);
