@@ -1,6 +1,4 @@
 //! Contains functionality that initializes the console logging as well as the the panic hook.
-/// TODO: implement additional functionality over the internal values, so that running code is
-/// simpler.
 use std::sync::{Arc, Once, RwLock};
 
 use chip::definitions::display;
@@ -68,7 +66,6 @@ impl BrowserWindow {
 
 /// Will draw the empty initial board. For visual confirmation, that the process started
 /// the board will be drawn in a chess like pattern.
-/// TODO: refactor this function into untils.
 pub(crate) fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
     let table = window.create_element(definitions::field::TYPE)?;
     table.set_id(definitions::field::ID);
@@ -90,7 +87,6 @@ pub(crate) fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
 }
 
 /// Will initialize the drop down with the included rom names.
-/// TODO: refactor this function into untils.
 pub(crate) fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsValue> {
     let dropdown = window.create_element(definitions::selector::TYPE)?;
     dropdown.set_id(definitions::selector::ID);

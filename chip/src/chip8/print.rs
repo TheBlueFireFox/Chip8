@@ -2,8 +2,6 @@
 //! This implementation was split up into this file for smaller file sizes and higher
 //! cohesion.
 
-// TODO: optimize implementation to remove uneeded allocation.
-
 use super::*;
 use crate::{
     definitions::cpu,
