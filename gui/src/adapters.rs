@@ -99,7 +99,7 @@ impl SoundCallback {
                 .lock()
                 .or_else(|err| Err(JsValue::from(format!("{}", err))))?;
 
-            osci.stop();
+            osci.stop()?;
             *timeout_id = None;
 
             Ok(())
@@ -110,12 +110,7 @@ impl SoundCallback {
         let callback = Closure::once_into_js(stop);
 
         let window = BrowserWindow::new()?;
-        let id = window
-            .window()
-            .set_timeout_with_callback_and_timeout_and_arguments_0(
-                &callback.as_ref().unchecked_ref(),
-                timeout,
-            )?;
+        let id = window.set_timeout(&callback.as_ref().unchecked_ref(), timeout)?;
 
         *timeout_id = Some(id);
 
@@ -132,8 +127,7 @@ impl SoundCallback {
         // This is only ever be a problem when the sound callback get's dropped,
         // before the timeout function ran.
         if let Some(id) = timeout.take() {
-            let window = BrowserWindow::new()?;
-            window.window().clear_timeout_with_handle(id);
+            BrowserWindow::new()?.clear_timeout(id);
         }
 
         Ok(())
@@ -179,15 +173,14 @@ impl DisplayAdapter {
         V: AsRef<[bool]>,
     {
         let html = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
-        let document = html.document();
 
-        let table = document.create_element(definitions::field::TYPE)?;
+        let table = html.create_element(definitions::field::TYPE)?;
         table.set_id(definitions::field::ID);
 
         for row in pixels.as_ref().iter() {
-            let tr = document.create_element(definitions::field::TYPE_ROW)?;
+            let tr = html.create_element(definitions::field::TYPE_ROW)?;
             for value in row.as_ref().iter() {
-                let td = document.create_element(definitions::field::TYPE_COLUMN)?;
+                let td = html.create_element(definitions::field::TYPE_COLUMN)?;
 
                 if !*value {
                     td.set_class_name(definitions::field::ACTIVE);
@@ -199,10 +192,10 @@ impl DisplayAdapter {
         }
 
         // check if already exists, if exists replace element
-        if let Some(element) = document.get_element_by_id(definitions::field::ID) {
-            let _ = html.body().replace_child(&table, &element)?;
+        if let Some(oldtable) = html.get_element_by_id(definitions::field::ID) {
+            html.replace_child(&oldtable, &table)?;
         } else {
-            html.body().append_child(&table)?;
+            html.append_child(&table)?;
         }
 
         Ok(())

@@ -239,13 +239,10 @@ impl WasmWorker {
 
         let function = Closure::wrap(Box::new(callback) as Box<dyn FnMut()>);
 
-        let interval_id = self
-            .browser
-            .window()
-            .set_interval_with_callback_and_timeout_and_arguments_0(
-                function.as_ref().unchecked_ref(),
-                interval.as_millis() as i32,
-            )?;
+        let interval_id = self.browser.set_interval(
+            function.as_ref().unchecked_ref(),
+            interval.as_millis() as i32,
+        )?;
         self.interval_id = Some(interval_id);
         self.function = Some(function);
         Ok(())
@@ -255,7 +252,7 @@ impl WasmWorker {
     pub(crate) fn stop(&mut self) {
         // stop the interval call
         if let Some(id) = self.interval_id.take() {
-            self.browser.window().clear_interval_with_handle(id);
+            self.browser.clear_interval(id);
         }
         // remove the closure struct to return the memory
         if let Some(function) = self.function.take() {

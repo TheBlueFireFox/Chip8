@@ -20,9 +20,9 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
 
     let browser_window = utils::BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
     // create elements
-    let val = browser_window.document().create_element("p")?;
+    let val = browser_window.create_element("p")?;
     val.set_inner_html("Hello from Rust");
-    browser_window.body().append_child(&val)?;
+    browser_window.append_child(&val)?;
 
     // get rom names
     let ra = RomArchives::new();
@@ -30,11 +30,11 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
     files.sort();
 
     let select = utils::crate_dropdown(&browser_window, &files)?;
-    browser_window.body().append_child(&select)?;
+    browser_window.append_child(&select)?;
 
     let board = utils::create_board(&browser_window)?;
 
-    browser_window.body().append_child(&board)?;
+    browser_window.append_child(&board)?;
 
     log::info!("Online");
 
