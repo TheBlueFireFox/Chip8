@@ -34,27 +34,6 @@ fn indent_helper(text: &mut String, indent: usize) {
     for _ in 0..indent {
         text.push(INDENT_FILLAMENT);
     }
-    // // Will calculate the size that the string will have in the end
-    // let size = text
-    //     .split(END_OF_LINE)
-    //     .fold(0, |acc, line| acc + line.len() + indent + 1);
-
-    // let mut res = String::with_capacity(size);
-
-    // for line in text.split(END_OF_LINE) {
-    //     for _ in 0..indent {
-    //         res.push('\t');
-    //     }
-    //     res.push_str(line);
-    //     res.push(END_OF_LINE);
-    // }
-
-    // // replace the last false end of line
-    // if let Some(index) = res.rfind(END_OF_LINE) {
-    //     res.truncate(res.len() - (res.len() - index));
-    // }
-
-    // res
 }
 
 macro_rules! intsize {
@@ -240,7 +219,7 @@ mod opcode_print {
         for row in rows {
             super::indent_helper(&mut string, indent);
 
-            if let Err(err) = write!(string, "{}\n", row) {
+            if let Err(err) = write!(string, "{}{}", row, super::END_OF_LINE) {
                 panic!(err);
             }
         }
@@ -290,7 +269,7 @@ mod integer_print {
             // remove unneded whitespace and replace it with a newline
             let index = res.rfind(' ').unwrap();
             res.truncate(index);
-            res.push('\n');
+            res.push(super::END_OF_LINE);
         }
 
         // Remove unneded new line
@@ -304,7 +283,7 @@ mod integer_print {
 
 /// Handles all the boolean data types.
 mod bool_print {
-    use super::{pointer_print, HEX_PRINT_STEP};
+    use super::{pointer_print, END_OF_LINE, HEX_PRINT_STEP};
 
     lazy_static::lazy_static! {
         /// the prepared true string
@@ -347,10 +326,10 @@ mod bool_print {
             }
             // Append the last missing entry
             res.push_str(check_type(data[n]).trim_end());
-            res.push('\n');
+            res.push(END_OF_LINE);
         }
         // Remove unneeded new line
-        if let Some(index) = res.rfind('\n') {
+        if let Some(index) = res.rfind(END_OF_LINE) {
             res.truncate(index);
         }
 

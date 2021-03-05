@@ -3,7 +3,7 @@ use crate::{
     adapters::{DisplayAdapter, KeyboardAdapter, SoundCallback},
     observer::{EventSystem, Observer},
     timer::{ProcessWorker, TimingWorker},
-    utils 
+    utils,
 };
 use chip::{devices::Key, resources::RomArchives, Controller};
 use std::{

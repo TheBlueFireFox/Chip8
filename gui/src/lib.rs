@@ -10,8 +10,8 @@ mod adapters;
 mod definitions;
 mod exported;
 mod observer;
+mod setup;
 mod timer;
 mod utils;
-mod setup;
 
 pub use exported::*;
