@@ -1,7 +1,7 @@
 //! The functions that will be exported later on
 use crate::{
     adapters::{DisplayAdapter, KeyboardAdapter, SoundCallback},
-    setup::KeyboardClosures,
+    setup::{self, KeyboardClosures},
     timer::{ProcessWorker, TimingWorker},
     utils,
 };
@@ -20,13 +20,12 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
 
     let bw = utils::BrowserWindow::new()?;
 
-    let elements = crate::setup::setup(&bw)?;
+    let elements = setup::setup(&bw)?;
 
     let mut jd = JsBoundData::new()?;
 
-    jd.keyboard_closures = Some(crate::setup::setup_keyboard(
-        jd.controller.clone(),
-        elements.table(),
+    jd.keyboard_closures = Some(setup::setup_keyboard( &bw,
+        jd.controller.clone()
     )?);
 
     Ok(jd)

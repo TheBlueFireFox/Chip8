@@ -85,7 +85,7 @@ fn setup_systems() -> Result<(), JsValue> {
     }
 }
 
-type KeyboardClosure = Closure<dyn FnMut(web_sys::KeyboardEvent)>;
+type KeyboardClosure = Closure<dyn FnMut(web_sys::Event)>;
 
 pub(crate) struct KeyboardClosures {
     _keydown: KeyboardClosure,
@@ -93,19 +93,23 @@ pub(crate) struct KeyboardClosures {
 }
 
 pub(crate) fn setup_keyboard(
+    browser_window: &BrowserWindow,
     controller: Rc<RefCell<InternalController>>,
-    table: &Element,
 ) -> Result<KeyboardClosures, JsValue> {
     // The actuall callback that is executed every time a key event is called
-    fn callback(event: web_sys::KeyboardEvent, controller: &mut InternalController, to: bool) {
-        // let mut controller = keydown_controller.borrow_mut();
+    fn callback(event: &str, controller: &mut InternalController, to: bool) {
+
         let keyboard = controller.keyboard();
-        let event = &event.code();
-        log::debug!("was pressed {}", event);
+
         for (i, row) in definitions::keyboard::BROWSER_LAYOUT.iter().enumerate() {
             for (j, cell) in row.iter().enumerate() {
                 if *cell == event {
                     let key = i * 4 + j;
+                    log::debug!(
+                        "{} key was registered and mapped to {}",
+                        event,
+                        definitions::keyboard::LAYOUT[i][j]
+                    );
                     keyboard.set_key(key, to);
                     return;
                 }
@@ -122,21 +126,29 @@ pub(crate) fn setup_keyboard(
         state: true,
     };
     let keyup = KeyEvent {
-        name: "keydown",
+        name: "keyup",
         state: false,
     };
 
     let register = move |KeyEvent { name, state }| -> Result<KeyboardClosure, JsValue> {
         let event_controller = controller.clone();
         let istate = state;
-        let callback = move |event: web_sys::KeyboardEvent| {
+        let callback = move |event: web_sys::Event| {
+            let event: web_sys::KeyboardEvent = event.dyn_into().unwrap();
+
+            log::debug!("was registered {} for {}", event.code(), name);
+
             let mut controller = event_controller.borrow_mut();
-            callback(event, &mut controller, istate);
+            callback(&event.code(), &mut controller, istate);
         };
 
-        let closure = Closure::wrap(Box::new(callback) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
+        let closure = Closure::wrap(Box::new(callback) as Box<dyn FnMut(web_sys::Event)>);
 
-        table.add_event_listener_with_callback(name, closure.as_ref().unchecked_ref())?;
+        log::debug!("registering event {}", name);
+
+        browser_window
+            .body()
+            .add_event_listener_with_callback(name, closure.as_ref().unchecked_ref())?;
 
         Ok(closure)
     };

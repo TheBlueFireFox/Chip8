@@ -32,6 +32,8 @@ impl BrowserWindow {
         })
     }
 
+
+
     pub fn append_child(&self, element: &Element) -> Result<(), JsValue> {
         self.body.append_child(element).and_then(|_| Ok(()))
     }
@@ -64,5 +66,10 @@ impl BrowserWindow {
 
     pub fn clear_interval(&self, handle: i32) {
         self.window.clear_interval_with_handle(handle);
+    }
+
+    /// Get a reference to the browser window's body.
+    pub(crate) fn body(&self) -> &HtmlElement {
+        &self.body
     }
 }

@@ -3,7 +3,7 @@
 //! Handles part of the execution and interaction with the display, keyboard and sound system.
 use crate::{
     chip8::ChipSet,
-    devices::{DisplayCommands, Keyboard, KeyboardCommands},
+    devices::{DisplayCommands, KeyboardCommands},
     opcode::Operation,
     resources::Rom,
     timer::{TimedWorker, TimerCallback},
