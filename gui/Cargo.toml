@@ -15,13 +15,14 @@ crate-type = ["cdylib", "rlib"]
 [features]
 default = ["console_error_panic_hook", "wee_alloc"]
 
-
 [dependencies]
 js-sys = "0.3"
 wasm-bindgen = "0.2.70"
 web-sys = {version = "0.3", default-features = false, features = [
   'Document',
   'Element',
+  'KeyboardEvent',
+  'Event',
   'HtmlElement',
   'Node',
   'Window',
@@ -47,7 +48,7 @@ console_error_panic_hook = {version = "0.1", optional = true}
 # Unfortunately, `wee_alloc` requires nightly Rust when targeting wasm for now.
 wee_alloc = {version = "0.4", optional = true}
 
-chip8 = {path = "../chip", default-features = false, features=["js"]}
+chip8 = {path = "../chip", default-features = false, features = ["js"]}
 
 console_log = {version = "0.2", features = ["color"]}
 lazy_static = "1.4"

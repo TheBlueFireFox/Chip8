@@ -216,11 +216,6 @@ impl KeyboardAdapter {
             keyboard: Keyboard::new(),
         }
     }
-
-    /// Get a reference to the keyboard adapter's keyboard.
-    pub fn keyboard(&self) -> &Keyboard {
-        &self.keyboard
-    }
 }
 
 impl KeyboardCommands for KeyboardAdapter {
@@ -228,7 +223,11 @@ impl KeyboardCommands for KeyboardAdapter {
         self.keyboard.get_last().is_some()
     }
 
-    fn get_keyboard(&self) -> &Keyboard {
-        &self.keyboard
+    fn get_keyboard(&mut self) -> &mut Keyboard {
+        &mut self.keyboard
+    }
+
+    fn set_key(&mut self, key: usize, to: bool) {
+        self.keyboard.set_key(key, to);
     }
 }

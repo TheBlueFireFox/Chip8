@@ -37,6 +37,13 @@ pub mod keyboard {
         ['Y', 'X', 'C', 'V'],
     ];
 
+    pub const BROWSER_LAYOUT : [[&str; 4]; 4] = [
+        ["Digit1", "Digit2", "Digit3", "Digit4"],
+        ["KeyQ", "KeyW", "KeyE", "KeyR"],
+        ["KeyA", "KeyS", "KeyD", "KeyF"],
+        ["KeyY", "KeyX", "KeyC", "KeyV"],
+    ];
+
     lazy_static::lazy_static! {
         /// maps the external keyboard layout to the internaly given.
         pub static ref LAYOUT_MAP : HashMap<char, usize> = {

@@ -3,7 +3,7 @@
 //! Handles part of the execution and interaction with the display, keyboard and sound system.
 use crate::{
     chip8::ChipSet,
-    devices::{DisplayCommands, KeyboardCommands},
+    devices::{DisplayCommands, Keyboard, KeyboardCommands},
     opcode::Operation,
     resources::Rom,
     timer::{TimedWorker, TimerCallback},
@@ -68,8 +68,8 @@ where
     }
 
     /// Get a reference to the controller's keyboard.
-    pub fn keyboard(&self) -> &K {
-        &self.keyboard
+    pub fn keyboard(&mut self) -> &mut K{
+        &mut self.keyboard
     }
 
     /// Get a reference to the controller's display.
@@ -160,8 +160,9 @@ mod tests {
 
     #[mockall::automock]
     trait InternalKCommands {
+        fn set_key(&mut self, key: usize, to: bool);
         fn was_pressed(&self) -> bool;
-        fn get_keyboard(&self) -> &crate::devices::Keyboard;
+        fn get_keyboard(&mut self) -> &mut crate::devices::Keyboard;
     }
 
     struct KeyboardAdapter<M>
@@ -172,11 +173,15 @@ mod tests {
     }
 
     impl<M: InternalKCommands> KeyboardCommands for KeyboardAdapter<M> {
+        fn set_key(&mut self, key: usize, to: bool) {
+            self.ka.set_key(key, to);
+        }
+
         fn was_pressed(&self) -> bool {
             self.ka.was_pressed()
         }
 
-        fn get_keyboard(&self) -> &crate::devices::Keyboard {
+        fn get_keyboard(&mut self) -> &mut crate::devices::Keyboard {
             self.ka.get_keyboard()
         }
     }

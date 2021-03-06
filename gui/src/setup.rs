@@ -1,10 +1,14 @@
-use std::sync::{Arc, Once, RwLock};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, Once, RwLock},
+};
 
-use chip::{definitions::display, resources::RomArchives};
-use wasm_bindgen::JsValue;
+use chip::{definitions::display, devices::KeyboardCommands, resources::RomArchives};
+use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use web_sys::Element;
 
-use crate::{definitions, utils::BrowserWindow};
+use crate::{definitions, utils::BrowserWindow, InternalController};
 
 lazy_static::lazy_static! {
     /// Will make sure that given unic call setup function can only be calles a single time.
@@ -14,12 +18,30 @@ lazy_static::lazy_static! {
         Arc::new(RwLock::new(Ok(())));
 }
 
-pub(crate) fn setup() -> Result<(), JsValue> {
+pub(crate) struct Elements {
+    table: Element,
+    dropdown: Element,
+}
+
+impl Elements {
+    /// Get a reference to the elements's table.
+    pub(crate) fn table(&self) -> &Element {
+        &self.table
+    }
+
+    /// Get a reference to the elements's dropdown.
+    pub(crate) fn dropdown(&self) -> &Element {
+        &self.dropdown
+    }
+}
+
+pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<Elements, JsValue> {
     log::debug!("Setting up the system");
 
     setup_systems()?;
 
-    let browser_window = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
+    // let browser_window = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
+
     // create elements
     let val = browser_window.create_element("p")?;
     val.set_inner_html("Hello from Rust");
@@ -35,9 +57,14 @@ pub(crate) fn setup() -> Result<(), JsValue> {
 
     let board = create_board(&browser_window)?;
 
+    // setup_keyboard(&browser_window, &board)?;
+
     browser_window.append_child(&board)?;
 
-    Ok(())
+    Ok(Elements {
+        table: board,
+        dropdown: select,
+    })
 }
 
 /// Will setup the system
@@ -56,6 +83,68 @@ fn setup_systems() -> Result<(), JsValue> {
     } else {
         Ok(())
     }
+}
+
+type KeyboardClosure = Closure<dyn FnMut(web_sys::KeyboardEvent)>;
+
+pub(crate) struct KeyboardClosures {
+    _keydown: KeyboardClosure,
+    _keyup: KeyboardClosure,
+}
+
+pub(crate) fn setup_keyboard(
+    controller: Rc<RefCell<InternalController>>,
+    table: &Element,
+) -> Result<KeyboardClosures, JsValue> {
+    // The actuall callback that is executed every time a key event is called
+    fn callback(event: web_sys::KeyboardEvent, controller: &mut InternalController, to: bool) {
+        // let mut controller = keydown_controller.borrow_mut();
+        let keyboard = controller.keyboard();
+        let event = &event.code();
+        log::debug!("was pressed {}", event);
+        for (i, row) in definitions::keyboard::BROWSER_LAYOUT.iter().enumerate() {
+            for (j, cell) in row.iter().enumerate() {
+                if *cell == event {
+                    let key = i * 4 + j;
+                    keyboard.set_key(key, to);
+                    return;
+                }
+            }
+        }
+    }
+    struct KeyEvent<'a> {
+        name: &'a str,
+        state: bool,
+    }
+
+    let keydown = KeyEvent {
+        name: "keydown",
+        state: true,
+    };
+    let keyup = KeyEvent {
+        name: "keydown",
+        state: false,
+    };
+
+    let register = move |KeyEvent { name, state }| -> Result<KeyboardClosure, JsValue> {
+        let event_controller = controller.clone();
+        let istate = state;
+        let callback = move |event: web_sys::KeyboardEvent| {
+            let mut controller = event_controller.borrow_mut();
+            callback(event, &mut controller, istate);
+        };
+
+        let closure = Closure::wrap(Box::new(callback) as Box<dyn FnMut(web_sys::KeyboardEvent)>);
+
+        table.add_event_listener_with_callback(name, closure.as_ref().unchecked_ref())?;
+
+        Ok(closure)
+    };
+
+    Ok(KeyboardClosures {
+        _keydown: register(keydown)?,
+        _keyup: register(keyup)?,
+    })
 }
 
 /// This is the panic hook it will be called by the JS runtime itself

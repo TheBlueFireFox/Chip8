@@ -1,6 +1,7 @@
 //! The functions that will be exported later on
 use crate::{
     adapters::{DisplayAdapter, KeyboardAdapter, SoundCallback},
+    setup::KeyboardClosures,
     timer::{ProcessWorker, TimingWorker},
     utils,
 };
@@ -17,14 +18,24 @@ use wasm_bindgen::prelude::*;
 pub fn setup() -> Result<JsBoundData, JsValue> {
     log::info!("Initializing");
 
-    crate::setup::setup()?;
+    let bw = utils::BrowserWindow::new()?;
 
-    JsBoundData::new()
+    let elements = crate::setup::setup(&bw)?;
+
+    let mut jd = JsBoundData::new()?;
+
+    jd.keyboard_closures = Some(crate::setup::setup_keyboard(
+        jd.controller.clone(),
+        elements.table(),
+    )?);
+
+    Ok(jd)
 }
 
 /// As the Controller has multiple long parameters, this
 /// type is used to abriviate the given configuration.
-type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>;
+pub(crate) type InternalController =
+    Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>;
 
 /// This struct is the one that will be passed back and forth between
 /// JS and WASM, as WASM API only allow for `&T` or `T` and not `&mut T`  
@@ -34,6 +45,7 @@ type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWork
 pub struct JsBoundData {
     controller: Rc<RefCell<InternalController>>,
     worker: Rc<RefCell<ProcessWorker>>,
+    keyboard_closures: Option<KeyboardClosures>,
 }
 
 #[wasm_bindgen]
@@ -46,6 +58,7 @@ impl JsBoundData {
         let res = Self {
             controller: rc_controller,
             worker: Rc::new(RefCell::new(ProcessWorker::new()?)),
+            keyboard_closures: None,
         };
 
         Ok(res)

@@ -10,8 +10,9 @@ pub trait DisplayCommands {
 
 /// The trait responsible for writing the keyboard data
 pub trait KeyboardCommands {
+    fn set_key(&mut self, key: usize, to: bool);
     fn was_pressed(&self) -> bool;
-    fn get_keyboard(&self) -> &Keyboard;
+    fn get_keyboard(&mut self) -> &mut Keyboard;
 }
 
 /// Will represent the last set key with the previous
@@ -74,11 +75,6 @@ impl Keyboard {
         Keyboard::default()
     }
 
-    /// Will reset the keyboard to it's false state.
-    fn reset(&mut self) {
-        self.keys.fill(false);
-    }
-
     /// Will toggle a given key on or off.
     pub fn toggle_key(&mut self, key: usize) {
         self.set_key(key, !self.keys[key])
@@ -86,8 +82,11 @@ impl Keyboard {
 
     /// Will set the given key to a state
     pub fn set_key(&mut self, key: usize, to: bool) {
-        self.reset();
 
+        // check if the key state has changed or not
+        if self.keys[key] == to {
+            return;
+        }
         // setup last
         self.last = Some(Key::new(key, self.keys[key], to));
 
