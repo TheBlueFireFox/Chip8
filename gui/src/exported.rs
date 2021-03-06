@@ -20,7 +20,7 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
 
     let bw = utils::BrowserWindow::new()?;
 
-    let elements = setup::setup(&bw)?;
+    setup::setup(&bw)?;
 
     let mut jd = JsBoundData::new()?;
 

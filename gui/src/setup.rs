@@ -17,25 +17,7 @@ lazy_static::lazy_static! {
     static ref START_RESULT: Arc<RwLock<Result<(), log::SetLoggerError>>> =
         Arc::new(RwLock::new(Ok(())));
 }
-
-pub(crate) struct Elements {
-    table: Element,
-    dropdown: Element,
-}
-
-impl Elements {
-    /// Get a reference to the elements's table.
-    pub(crate) fn table(&self) -> &Element {
-        &self.table
-    }
-
-    /// Get a reference to the elements's dropdown.
-    pub(crate) fn dropdown(&self) -> &Element {
-        &self.dropdown
-    }
-}
-
-pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<Elements, JsValue> {
+pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<(), JsValue> {
     log::debug!("Setting up the system");
 
     setup_systems()?;
@@ -61,10 +43,7 @@ pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<Elements, JsValue>
 
     browser_window.append_child(&board)?;
 
-    Ok(Elements {
-        table: board,
-        dropdown: select,
-    })
+    Ok(())
 }
 
 /// Will setup the system
@@ -98,7 +77,6 @@ pub(crate) fn setup_keyboard(
 ) -> Result<KeyboardClosures, JsValue> {
     // The actuall callback that is executed every time a key event is called
     fn callback(event: &str, controller: &mut InternalController, to: bool) {
-
         let keyboard = controller.keyboard();
 
         for (i, row) in definitions::keyboard::BROWSER_LAYOUT.iter().enumerate() {
