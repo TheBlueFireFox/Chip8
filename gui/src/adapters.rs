@@ -1,17 +1,9 @@
 //! The adapters used to interface with the display, keyboard and sound system of the browser.
 //! All of the given functionality is based on `wam_bindgen` abstractions.
 
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
-use crate::{
-    definitions,
-    observer::{EventSystem, Observer},
-    utils::BrowserWindow,
-};
+use crate::{definitions, utils::BrowserWindow};
 use chip::{
     devices::{DisplayCommands, Keyboard, KeyboardCommands},
     timer::TimerCallback,
@@ -215,9 +207,6 @@ impl DisplayCommands for DisplayAdapter {
 pub(crate) struct KeyboardAdapter {
     /// Stores the keyboard into to which the values are changed.
     keyboard: Keyboard,
-    /// The registered keyboard events to dispatch.
-    /// TODO: implement dispatch
-    event_system: EventSystem<usize>,
 }
 
 impl KeyboardAdapter {
@@ -225,17 +214,7 @@ impl KeyboardAdapter {
     pub fn new() -> Self {
         Self {
             keyboard: Keyboard::new(),
-            event_system: EventSystem::new(),
         }
-    }
-
-    /// Will register any callback that implements the Observer<usize> trait.
-    /// Where usize represents an internal representation of the keyboard value.
-    pub fn register_callback<T>(&mut self, data: Rc<RefCell<T>>)
-    where
-        T: Observer<usize> + 'static,
-    {
-        self.event_system.register_observer(data);
     }
 
     /// Get a reference to the keyboard adapter's keyboard.

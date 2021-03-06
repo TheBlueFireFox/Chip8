@@ -1,11 +1,10 @@
 //! The functions that will be exported later on
 use crate::{
     adapters::{DisplayAdapter, KeyboardAdapter, SoundCallback},
-    observer::{EventSystem, Observer},
     timer::{ProcessWorker, TimingWorker},
     utils,
 };
-use chip::{devices::Key, resources::RomArchives, Controller};
+use chip::{resources::RomArchives, Controller};
 use std::{
     cell::{Ref, RefCell, RefMut},
     rc::Rc,
@@ -23,29 +22,6 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
     JsBoundData::new()
 }
 
-/// Represents the observed keybpresses
-/// TODO: Write documentation, what it is for.
-struct ObservedKeypress {
-    controller: Rc<RefCell<InternalController>>,
-}
-
-impl ObservedKeypress {
-    /// The standard new instance.
-    fn new(controller: Rc<RefCell<InternalController>>) -> Self {
-        Self { controller }
-    }
-}
-
-impl Observer<Key> for ObservedKeypress {
-    fn on_notify(&mut self, event: &Key) {
-        self.controller
-            .borrow_mut()
-            .chipset_mut()
-            .expect("Extracting the chipset from the controller, went terribly wrong!")
-            .set_key(event.get_index(), event.get_current());
-    }
-}
-
 /// As the Controller has multiple long parameters, this
 /// type is used to abriviate the given configuration.
 type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>;
@@ -58,7 +34,6 @@ type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWork
 pub struct JsBoundData {
     controller: Rc<RefCell<InternalController>>,
     worker: Rc<RefCell<ProcessWorker>>,
-    keypress_event: EventSystem<Key>,
 }
 
 #[wasm_bindgen]
@@ -67,16 +42,10 @@ impl JsBoundData {
     pub(crate) fn new() -> Result<Self, JsValue> {
         let controller = Controller::new(DisplayAdapter::new(), KeyboardAdapter::new());
         let rc_controller = Rc::new(RefCell::new(controller));
-        let mut eh = EventSystem::new();
-
-        let keypress = ObservedKeypress::new(rc_controller.clone());
-        let keypress = Rc::new(RefCell::new(keypress));
-        eh.register_observer(keypress);
 
         let res = Self {
             controller: rc_controller,
             worker: Rc::new(RefCell::new(ProcessWorker::new()?)),
-            keypress_event: eh,
         };
 
         Ok(res)

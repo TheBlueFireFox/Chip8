@@ -9,7 +9,6 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 mod adapters;
 mod definitions;
 mod exported;
-mod observer;
 mod setup;
 mod timer;
 mod utils;
