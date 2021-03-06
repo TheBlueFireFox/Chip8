@@ -3,7 +3,7 @@ use chip::{
     resources::{Rom, RomArchives},
     timer::{NoCallback, Worker},
 };
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 
 const ROM_NAME: &'static str = "15PUZZLE";
 

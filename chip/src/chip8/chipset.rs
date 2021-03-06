@@ -83,6 +83,21 @@ where
     pub fn set_keyboard(&mut self, keys: &[bool; keyboard::SIZE]) {
         self.chipset.set_keyboard(keys);
     }
+
+    /// Will toggle the given key
+    pub fn toggle_key(&mut self, key: usize) {
+        self.chipset.toggle_key(key)
+    }
+
+    /// will return the sound timer
+    pub fn get_sound_timer(&self) -> u8 {
+        self.chipset.get_sound_timer()
+    }
+
+    /// Will get the current state of the keyboard
+    pub fn get_keyboard(&self) -> &[bool] {
+        self.chipset.get_keyboard()
+    }
 }
 
 /// The ChipSet struct represents the current state
