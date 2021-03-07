@@ -296,13 +296,17 @@ impl ChipOpcodes for InternalChipSet {
                 // EX9E
                 // Skips the next instruction if the key stored in VX is pressed. (Usually the next
                 // instruction is a jump to skip a code block)
-                ProgramCounterStep::cond(self.keyboard.get_keys()[self.registers[x] as usize])
+                ProgramCounterStep::cond(
+                    self.get_keyboard_read().get_keys()[self.registers[x] as usize],
+                )
             }
             0xA1 => {
                 // EXA1
                 // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
                 // next instruction is a jump to skip a code block)
-                ProgramCounterStep::cond(!self.keyboard.get_keys()[self.registers[x] as usize])
+                ProgramCounterStep::cond(
+                    !self.get_keyboard_read().get_keys()[self.registers[x] as usize],
+                )
             }
             _ => {
                 // directly return with the given error
@@ -330,7 +334,7 @@ impl ChipOpcodes for InternalChipSet {
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
                 let callback_after_keypress = move |chip: &mut Self| {
-                    let last = chip.keyboard.get_last().expect(
+                    let last = chip.get_keyboard_read().get_last().expect(
                         "The contract that states a last key has to be set was not fullfilled.",
                     );
                     chip.registers[x] = last.get_index() as u8;

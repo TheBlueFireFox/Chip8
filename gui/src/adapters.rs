@@ -1,7 +1,7 @@
 //! The adapters used to interface with the display, keyboard and sound system of the browser.
 //! All of the given functionality is based on `wam_bindgen` abstractions.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{definitions, utils::BrowserWindow};
 use chip::{
@@ -206,28 +206,36 @@ impl DisplayCommands for DisplayAdapter {
 /// TODO: implement the js adaption.
 pub(crate) struct KeyboardAdapter {
     /// Stores the keyboard into to which the values are changed.
-    keyboard: Keyboard,
+    keyboard: Arc<RwLock<Keyboard>>,
 }
 
 impl KeyboardAdapter {
     /// Generates a new keyboard interface.
     pub fn new() -> Self {
         Self {
-            keyboard: Keyboard::new(),
+            keyboard: Arc::new(RwLock::new(Keyboard::new())),
         }
+    }
+
+    fn get_keyboard_read(&self) -> RwLockReadGuard<Keyboard> {
+        self.keyboard.read().expect("Keyboard lock poisoned")
+    }
+
+    fn get_keyboard_write(&self) -> RwLockWriteGuard<Keyboard> {
+        self.keyboard.write().expect("Keyboard lock poisoned")
     }
 }
 
 impl KeyboardCommands for KeyboardAdapter {
     fn was_pressed(&self) -> bool {
-        self.keyboard.get_last().is_some()
+        self.get_keyboard_read().get_last().is_some()
     }
 
-    fn get_keyboard(&mut self) -> &mut Keyboard {
-        &mut self.keyboard
+    fn get_keyboard(&mut self) -> Arc<RwLock<Keyboard>> {
+        self.keyboard.clone()
     }
 
     fn set_key(&mut self, key: usize, to: bool) {
-        self.keyboard.set_key(key, to);
+        self.get_keyboard_write().set_key(key, to);
     }
 }

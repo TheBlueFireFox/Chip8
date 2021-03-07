@@ -57,7 +57,7 @@ where
 
     /// Set the controller's chipset.
     pub fn set_rom(&mut self, rom: Rom) {
-        let chipset = ChipSet::new(rom);
+        let chipset = ChipSet::with_keyboard(rom, self.keyboard.get_keyboard());
         self.chipset = Some(chipset);
     }
 
@@ -133,8 +133,10 @@ where
 #[cfg(test)]
 mod tests {
 
+    use std::sync::{Arc, RwLock};
+
     use super::*;
-    use crate::timer::{NoCallback, Worker};
+    use crate::{devices::Keyboard, timer::{NoCallback, Worker}};
     use mockall::predicate::*;
 
     #[mockall::automock]
@@ -162,7 +164,7 @@ mod tests {
     trait InternalKCommands {
         fn set_key(&mut self, key: usize, to: bool);
         fn was_pressed(&self) -> bool;
-        fn get_keyboard(&mut self) -> &mut crate::devices::Keyboard;
+        fn get_keyboard(&mut self) -> Arc<RwLock<Keyboard>>;
     }
 
     struct KeyboardAdapter<M>
@@ -181,7 +183,7 @@ mod tests {
             self.ka.was_pressed()
         }
 
-        fn get_keyboard(&mut self) -> &mut crate::devices::Keyboard {
+        fn get_keyboard(&mut self) -> Arc<RwLock<Keyboard>> {
             self.ka.get_keyboard()
         }
     }

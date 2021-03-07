@@ -353,7 +353,7 @@ impl fmt::Display for InternalChipSet {
         stack[0..self.stack.len()].copy_from_slice(&self.stack);
 
         let sta = integer_print::printer(&stack, INDENT_SIZE)?;
-        let key = bool_print::printer(self.keyboard.get_keys(), INDENT_SIZE)?;
+        let key = bool_print::printer(&self.get_keyboard_read().get_keys(), INDENT_SIZE)?;
 
         let mut opc = String::with_capacity(INTSIZE + INDENT_SIZE);
         indent_helper(&mut opc, INDENT_SIZE);

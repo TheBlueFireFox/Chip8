@@ -1,5 +1,7 @@
 //! Abstractions over the keyboard and display.
 
+use std::sync::{Arc, RwLock};
+
 use crate::definitions::keyboard;
 
 /// The traits responsible for the display based code
@@ -12,7 +14,7 @@ pub trait DisplayCommands {
 pub trait KeyboardCommands {
     fn set_key(&mut self, key: usize, to: bool);
     fn was_pressed(&self) -> bool;
-    fn get_keyboard(&mut self) -> &mut Keyboard;
+    fn get_keyboard(&mut self) -> Arc<RwLock<Keyboard>>;
 }
 
 /// Will represent the last set key with the previous
@@ -82,6 +84,7 @@ impl Keyboard {
 
     /// Will set the given key to a state
     pub fn set_key(&mut self, key: usize, to: bool) {
+        log::debug!("key press {} - state {}", key, to);
 
         // check if the key state has changed or not
         if self.keys[key] == to {

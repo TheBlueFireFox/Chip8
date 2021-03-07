@@ -1038,15 +1038,18 @@ mod f {
         assert_eq!(Ok(Operation::Wait), chip.next());
         assert_eq!(chip.program_counter, pc);
 
-        assert!(chip.keyboard.get_last().is_none());
-        assert_eq!(&[false; keyboard::SIZE], chip.keyboard.get_keys());
-        assert!(chip.keyboard.get_last().is_none());
+        assert!(chip.get_keyboard_read().get_last().is_none());
+        assert_eq!(
+            &[false; keyboard::SIZE],
+            chip.get_keyboard_read().get_keys()
+        );
+        assert!(chip.get_keyboard_read().get_last().is_none());
 
         chip.toggle_key(key);
 
-        assert!(chip.keyboard.get_last().is_some());
-        assert!(!chip.keyboard.get_last().unwrap().get_last());
-        assert!(chip.keyboard.get_last().unwrap().get_current());
+        assert!(chip.get_keyboard_read().get_last().is_some());
+        assert!(!chip.get_keyboard_read().get_last().unwrap().get_last());
+        assert!(chip.get_keyboard_read().get_last().unwrap().get_current());
 
         assert_ne!(chip.registers[reg] as usize, key);
         assert_eq!(Ok(Operation::Wait), chip.next());

@@ -11,7 +11,10 @@ use crate::{
     timer::{TimedWorker, Timer, TimerValue},
 };
 use rand::RngCore;
-use std::time::Duration;
+use std::{
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    time::Duration,
+};
 
 /// The chipset struct containing the internal implementation of the chipset
 /// and the timers.
@@ -37,10 +40,15 @@ where
 {
     /// Creates a new chip set from a given rom.
     pub fn new(rom: Rom) -> Self {
+        Self::with_keyboard(rom, Arc::new(RwLock::new(Keyboard::new())))
+    }
+
+    /// Crates a new chip with an external keyboard.
+    pub fn with_keyboard(rom: Rom, keyboard: Arc<RwLock<Keyboard>>) -> Self {
         let (delay_timer, delay_value) = Timer::new(0, Duration::from_millis(timer::INTERVAL));
         let (sound_timer, sound_value) =
             Timer::with_callback(0, Duration::from_millis(timer::INTERVAL), S::new());
-        let chipset = InternalChipSet::new(rom, delay_value.clone(), sound_value.clone());
+        let chipset = InternalChipSet::new(rom, delay_value.clone(), sound_value.clone(), keyboard);
 
         Self {
             chipset,
@@ -93,11 +101,6 @@ where
     pub fn get_sound_timer(&self) -> u8 {
         self.chipset.get_sound_timer()
     }
-
-    /// Will get the current state of the keyboard
-    pub fn get_keyboard(&self) -> &[bool] {
-        self.chipset.get_keyboard()
-    }
 }
 
 /// The ChipSet struct represents the current state
@@ -146,7 +149,7 @@ pub(super) struct InternalChipSet {
     /// One skips an instruction if a specific key is pressed, while another does the same if a
     /// specific key is not pressed. The third waits for a key press, and then stores it in one of
     /// the data registers.
-    pub(super) keyboard: Keyboard,
+    pub(super) keyboard: Arc<RwLock<Keyboard>>,
     /// This stores the random number generator, used by the chipset.
     /// It is stored into the chipset, so as to enable simple mocking
     /// of the given type.
@@ -159,7 +162,12 @@ pub(super) struct InternalChipSet {
 
 impl InternalChipSet {
     /// will create a new chipset object
-    pub fn new(rom: Rom, delay_timer: TimerValue<u8>, sound_timer: TimerValue<u8>) -> Self {
+    pub fn new(
+        rom: Rom,
+        delay_timer: TimerValue<u8>,
+        sound_timer: TimerValue<u8>,
+        keyboard: Arc<RwLock<Keyboard>>,
+    ) -> Self {
         // initialize all the memory with 0
 
         let mut ram = vec![0; memory::SIZE];
@@ -184,7 +192,7 @@ impl InternalChipSet {
             delay_timer,
             sound_timer,
             display: vec![vec![false; display::HEIGHT]; display::WIDTH],
-            keyboard: Keyboard::new(),
+            keyboard,
             rng: Box::new(rand::rngs::OsRng {}),
             preprocessor: None,
         }
@@ -207,25 +215,28 @@ impl InternalChipSet {
         self.calc(self.opcode)
     }
 
+    pub(super) fn get_keyboard_write(&mut self) -> RwLockWriteGuard<Keyboard> {
+        self.keyboard.write().expect("Keyboard lock is poisoned.")
+    }
+
+    pub(super) fn get_keyboard_read(&self) -> RwLockReadGuard<Keyboard> {
+        self.keyboard.read().expect("Keyboard lock is poisoned.")
+    }
+
     /// Will write keyboard data into interncal keyboard representation.
     pub fn set_keyboard(&mut self, keys: &[bool; keyboard::SIZE]) {
         // copy_from_slice checks the keys lenght during copy
-        self.keyboard.set_mult(keys);
+        self.get_keyboard_write().set_mult(keys);
     }
 
     /// Will set the value of the given key
     pub fn set_key(&mut self, key: usize, to: bool) {
-        self.keyboard.set_key(key, to)
+        self.get_keyboard_write().set_key(key, to)
     }
 
     /// Will toggle the given key
     pub fn toggle_key(&mut self, key: usize) {
-        self.keyboard.toggle_key(key)
-    }
-
-    /// Will get the current state of the keyboard
-    pub fn get_keyboard(&self) -> &[bool] {
-        self.keyboard.get_keys()
+        self.get_keyboard_write().toggle_key(key)
     }
 
     /// will return the sound timer
