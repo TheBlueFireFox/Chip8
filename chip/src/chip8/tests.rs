@@ -1045,7 +1045,7 @@ mod f {
         );
         assert!(chip.get_keyboard_read().get_last().is_none());
 
-        chip.toggle_key(key);
+        chip.set_key(key, true);
 
         assert!(chip.get_keyboard_read().get_last().is_some());
         assert!(!chip.get_keyboard_read().get_last().unwrap().get_last());

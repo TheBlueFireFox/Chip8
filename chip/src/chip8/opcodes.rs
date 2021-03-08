@@ -11,7 +11,7 @@ use super::InternalChipSet;
 
 impl ChipOpcodes for InternalChipSet {
     fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
-        log::debug!("opcode {:#X}", opcode);
+        log::trace!("opcode {:#X}", opcode);
         match opcode {
             0x00E0 => {
                 // 00E0
@@ -27,7 +27,7 @@ impl ChipOpcodes for InternalChipSet {
                 // 00EE
                 // Return from sub routine => pop from stack
                 let pc = self.pop_stack()?;
-                log::debug!("pc {:#X}", pc);
+                log::trace!("pc {:#X}", pc);
                 Ok((ProgramCounterStep::Jump(pc), Operation::None))
             }
             _ => Err(format!(

@@ -68,7 +68,7 @@ where
     }
 
     /// Get a reference to the controller's keyboard.
-    pub fn keyboard(&mut self) -> &mut K{
+    pub fn keyboard(&mut self) -> &mut K {
         &mut self.keyboard
     }
 
@@ -136,7 +136,10 @@ mod tests {
     use std::sync::{Arc, RwLock};
 
     use super::*;
-    use crate::{devices::Keyboard, timer::{NoCallback, Worker}};
+    use crate::{
+        devices::Keyboard,
+        timer::{NoCallback, Worker},
+    };
     use mockall::predicate::*;
 
     #[mockall::automock]
@@ -198,7 +201,10 @@ mod tests {
 
         let da = DisplayAdapter { da: mock_display };
 
-        let mock_keyboard = MockInternalKCommands::new();
+        let mut mock_keyboard = MockInternalKCommands::new();
+        mock_keyboard
+            .expect_get_keyboard()
+            .returning(|| Arc::new(RwLock::new(Keyboard::new())));
 
         let ka = KeyboardAdapter { ka: mock_keyboard };
 

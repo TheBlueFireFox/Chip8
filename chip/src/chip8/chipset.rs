@@ -92,11 +92,6 @@ where
         self.chipset.set_keyboard(keys);
     }
 
-    /// Will toggle the given key
-    pub fn toggle_key(&mut self, key: usize) {
-        self.chipset.toggle_key(key)
-    }
-
     /// will return the sound timer
     pub fn get_sound_timer(&self) -> u8 {
         self.chipset.get_sound_timer()
@@ -232,11 +227,6 @@ impl InternalChipSet {
     /// Will set the value of the given key
     pub fn set_key(&mut self, key: usize, to: bool) {
         self.get_keyboard_write().set_key(key, to)
-    }
-
-    /// Will toggle the given key
-    pub fn toggle_key(&mut self, key: usize) {
-        self.get_keyboard_write().toggle_key(key)
     }
 
     /// will return the sound timer

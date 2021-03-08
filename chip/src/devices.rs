@@ -77,14 +77,13 @@ impl Keyboard {
         Keyboard::default()
     }
 
-    /// Will toggle a given key on or off.
-    pub fn toggle_key(&mut self, key: usize) {
-        self.set_key(key, !self.keys[key])
-    }
-
     /// Will set the given key to a state
     pub fn set_key(&mut self, key: usize, to: bool) {
-        log::debug!("key press {} - state {}", key, to);
+        log::debug!(
+            "key presses {:#X} - state {}",
+            crate::definitions::keyboard::LAYOUT[key / 4][key % 4],
+            to
+        );
 
         // check if the key state has changed or not
         if self.keys[key] == to {

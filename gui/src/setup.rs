@@ -82,7 +82,8 @@ pub(crate) fn setup_keyboard(
         for (i, row) in definitions::keyboard::BROWSER_LAYOUT.iter().enumerate() {
             for (j, cell) in row.iter().enumerate() {
                 if *cell == event {
-                    let key = i * 4 + j;
+                    // translate from the 2d matrix to the 1d
+                    let key = i * row.len() + j;
                     log::debug!(
                         "{} key was registered and mapped to {}",
                         event,
@@ -94,35 +95,21 @@ pub(crate) fn setup_keyboard(
             }
         }
     }
-    struct KeyEvent<'a> {
-        name: &'a str,
-        state: bool,
-    }
 
-    let keydown = KeyEvent {
-        name: "keydown",
-        state: true,
-    };
-    let keyup = KeyEvent {
-        name: "keyup",
-        state: false,
-    };
-
-    let register = move |KeyEvent { name, state }| -> Result<KeyboardClosure, JsValue> {
+    let register = move |name, state| -> Result<KeyboardClosure, JsValue> {
         let event_controller = controller.clone();
-        let istate = state;
         let callback = move |event: web_sys::Event| {
             let event: web_sys::KeyboardEvent = event.dyn_into().unwrap();
 
-            log::debug!("was registered {} for {}", event.code(), name);
+            log::trace!("was registered {} for {}", event.code(), name);
 
             let mut controller = event_controller.borrow_mut();
-            callback(&event.code(), &mut controller, istate);
+            callback(&event.code(), &mut controller, state);
         };
 
         let closure = Closure::wrap(Box::new(callback) as Box<dyn FnMut(web_sys::Event)>);
 
-        log::debug!("registering event {}", name);
+        log::trace!("registering event {}", name);
 
         browser_window
             .body()
@@ -132,8 +119,8 @@ pub(crate) fn setup_keyboard(
     };
 
     Ok(KeyboardClosures {
-        _keydown: register(keydown)?,
-        _keyup: register(keyup)?,
+        _keydown: register("keydown", true)?,
+        _keyup: register("keyup", false)?,
     })
 }
 
