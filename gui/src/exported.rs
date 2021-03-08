@@ -1,16 +1,12 @@
 //! The functions that will be exported later on
 use crate::{
     adapters::{DisplayAdapter, KeyboardAdapter, SoundCallback},
-    timer::{ProcessWorker, TimingWorker},
-    setup,
+    setup::{self, Data},
+    timer::TimingWorker,
     utils,
 };
-use chip::{resources::RomArchives, Controller};
-use std::{
-    cell::{Ref, RefCell, RefMut},
-    rc::Rc,
-    time::Duration,
-};
+use chip::Controller;
+use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::prelude::*;
 
 /// The first function that has to be run or else no chip like functionality is available.
@@ -22,11 +18,19 @@ pub fn init() -> Result<JsBoundData, JsValue> {
 
     setup::setup(&bw)?;
 
-    let mut jd = JsBoundData::new()?;
+    let data = Data::new()?;
+    let data = Rc::new(RefCell::new(data));
 
-    jd.keyboard_closures = Some(setup::setup_keyboard(&bw, jd.controller.clone())?);
+    let (kc, dc) = {
 
-    jd.dropdown_closures = Some(setup::setup_dropdown(&bw, jd.controller.clone())?);
+        let keyboard_closures = setup::setup_keyboard(&bw, data.clone())?;
+
+        let dropdown_closures = setup::setup_dropdown(&bw, data.clone())?;
+
+        (keyboard_closures, dropdown_closures)
+    };
+
+    let jd = JsBoundData::new(data, kc, dc);
 
     Ok(jd)
 }
@@ -42,101 +46,33 @@ pub(crate) type InternalController =
 /// a compromise had to be chosen, so here is `Rc<RefCell<>>` used.
 #[wasm_bindgen]
 pub struct JsBoundData {
-    controller: Rc<RefCell<InternalController>>,
-    worker: Rc<RefCell<ProcessWorker>>,
-    keyboard_closures: Option<setup::KeyboardClosures>,
-    dropdown_closures: Option<setup::DropDownClosure>,
+    data: Rc<RefCell<Data>>,
+    _keyboard_closures: setup::KeyboardClosures,
+    _dropdown_closures: setup::DropDownClosure,
 }
 
 #[wasm_bindgen]
 impl JsBoundData {
     /// Will initialize the data structure with the required default values.
-    pub(crate) fn new() -> Result<Self, JsValue> {
-        let controller = Controller::new(DisplayAdapter::new(), KeyboardAdapter::new());
-        let rc_controller = Rc::new(RefCell::new(controller));
-
-        let res = Self {
-            controller: rc_controller,
-            worker: Rc::new(RefCell::new(ProcessWorker::new()?)),
-            keyboard_closures: None,
-            dropdown_closures: None,
-        };
-
-        Ok(res)
-    }
-
-    /// Get a mutable reference to the data's controller.
-    pub(crate) fn controller_mut(&self) -> RefMut<'_, InternalController> {
-        self.controller.borrow_mut()
-    }
-
-    /// Get a reference to the data's controller.
-    pub(crate) fn controller(&self) -> Ref<'_, InternalController> {
-        self.controller.borrow()
+    pub(crate) fn new(
+        data: Rc<RefCell<Data>>,
+        kc: setup::KeyboardClosures,
+        dc: setup::DropDownClosure,
+    ) -> Self {
+        Self {
+            data,
+            _keyboard_closures: kc,
+            _dropdown_closures: dc,
+        }
     }
 
     /// Will start executing the
-    pub fn start(&self, rom_name: &str) -> Result<(), JsValue> {
-        let mut ra = RomArchives::new();
-
-        let rom = ra
-            .get_file_data(&rom_name)
-            .map_err(|err| JsValue::from(format!("{}", err)))?;
-
-        log::debug!("Loading {}", rom_name);
-
-        self.controller_mut().set_rom(rom);
-
-        utils::print_info(&format!(
-            "{}",
-            self.controller()
-                .chipset()
-                .as_ref()
-                .ok_or_else(|| JsValue::from("printing went terribly wrong"))?
-        ))?;
-
-        // Will setup the worker
-        let ccontroller = self.controller.clone();
-        let scontroller = self.controller.clone();
-        let cworker = self.worker.clone();
-
-        let shutdown_callback = move || {
-            stop(cworker, scontroller);
-        };
-
-        // Will convert the Data type into a mutable controller, so that
-        // it can be used by the chip, this will run a single opcode of the
-        // chip.
-        let callback = move || {
-            // moving the ccontroller into this closure
-            let mut controller = ccontroller.borrow_mut();
-
-            // running the chip step
-            chip::run(&mut controller)
-        };
-
-        self.worker.borrow_mut().start_with_shutdown(
-            callback,
-            shutdown_callback,
-            Duration::from_micros(chip::definitions::cpu::INTERVAL),
-        )
+    pub fn start(&self, rom: &str) -> Result<(), JsValue> {
+        self.data.borrow_mut().start(rom)
     }
 
     /// Will clear the interval that is running the application
     pub fn stop(&self) {
-        stop(self.worker.clone(), self.controller.clone());
+        self.data.borrow().stop()
     }
-}
-
-impl Drop for JsBoundData {
-    fn drop(&mut self) {
-        self.stop()
-    }
-}
-
-/// Will stop execution of any and all processes.
-fn stop(worker: Rc<RefCell<ProcessWorker>>, controller: Rc<RefCell<InternalController>>) {
-    // stop executing chip
-    worker.borrow_mut().stop();
-    controller.borrow_mut().remove_rom();
 }

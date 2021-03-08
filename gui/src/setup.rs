@@ -2,13 +2,20 @@ use std::{
     cell::RefCell,
     rc::Rc,
     sync::{Arc, Once, RwLock},
+    time::Duration,
 };
 
-use chip::{definitions::display, devices::KeyboardCommands, resources::RomArchives};
+use chip::{definitions::display, devices::KeyboardCommands, resources::RomArchives, Controller};
 use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
 use web_sys::Element;
 
-use crate::{definitions, utils::BrowserWindow, InternalController};
+use crate::{
+    adapters::{DisplayAdapter, KeyboardAdapter},
+    definitions, exported,
+    timer::ProcessWorker,
+    utils::{self, BrowserWindow},
+    InternalController,
+};
 
 lazy_static::lazy_static! {
     /// Will make sure that given unic call setup function can only be calles a single time.
@@ -16,6 +23,87 @@ lazy_static::lazy_static! {
     /// Will store the result of the of the setup function
     static ref START_RESULT: Arc<RwLock<Result<(), log::SetLoggerError>>> =
         Arc::new(RwLock::new(Ok(())));
+}
+
+pub(crate) struct Data {
+    controller: Rc<RefCell<InternalController>>,
+    worker: Rc<RefCell<ProcessWorker>>,
+}
+
+impl Data {
+    pub fn new() -> Result<Self, JsValue> {
+        let controller = Controller::new(DisplayAdapter::new(), KeyboardAdapter::new());
+        let rc_controller = Rc::new(RefCell::new(controller));
+
+        Ok(Self {
+            controller: rc_controller,
+            worker: Rc::new(RefCell::new(ProcessWorker::new()?)),
+        })
+    }
+
+    pub fn start(&self, rom_name: &str) -> Result<(), JsValue> {
+        let mut ra = RomArchives::new();
+
+        let rom = ra
+            .get_file_data(&rom_name)
+            .map_err(|err| JsValue::from(format!("{}", err)))?;
+
+        log::debug!("Loading {}", rom_name);
+
+        self.controller.borrow_mut().set_rom(rom);
+
+        utils::print_info(&format!(
+            "{}",
+            self.controller
+                .borrow()
+                .chipset()
+                .as_ref()
+                .ok_or_else(|| JsValue::from("printing went terribly wrong"))?
+        ))?;
+
+        // Will setup the worker
+        let ccontroller = self.controller.clone();
+        let scontroller = self.controller.clone();
+        let cworker = self.worker.clone();
+
+        let shutdown_callback = move || {
+            stop(cworker, scontroller);
+        };
+
+        // Will convert the Data type into a mutable controller, so that
+        // it can be used by the chip, this will run a single opcode of the
+        // chip.
+        let callback = move || {
+            // moving the ccontroller into this closure
+            let mut controller = ccontroller.borrow_mut();
+
+            // running the chip step
+            chip::run(&mut controller)
+        };
+
+        self.worker.borrow_mut().start_with_shutdown(
+            callback,
+            shutdown_callback,
+            Duration::from_micros(chip::definitions::cpu::INTERVAL),
+        )
+    }
+
+    pub fn stop(&self) {
+        stop(self.worker.clone(), self.controller.clone());
+    }
+}
+
+impl Drop for Data {
+    fn drop(&mut self) {
+        self.stop()
+    }
+}
+
+/// Will stop execution of any and all processes.
+fn stop(worker: Rc<RefCell<ProcessWorker>>, controller: Rc<RefCell<InternalController>>) {
+    // stop executing chip
+    worker.borrow_mut().stop();
+    controller.borrow_mut().remove_rom();
 }
 
 pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<(), JsValue> {
@@ -79,10 +167,13 @@ impl EventListener {
     {
         let element = element.clone();
         let closure = Closure::wrap(Box::new(callback) as Box<dyn FnMut(web_sys::Event)>);
-        element
-            .add_event_listener_with_callback(name, closure.as_ref().unchecked_ref())?;
+        element.add_event_listener_with_callback(name, closure.as_ref().unchecked_ref())?;
 
-        Ok(Self { name, closure, element })
+        Ok(Self {
+            name,
+            closure,
+            element,
+        })
     }
 }
 
@@ -101,7 +192,7 @@ pub(crate) struct KeyboardClosures {
 
 pub(crate) fn setup_keyboard(
     browser_window: &BrowserWindow,
-    controller: Rc<RefCell<InternalController>>,
+    data: Rc<RefCell<Data>>,
 ) -> Result<KeyboardClosures, JsValue> {
     // The actuall callback that is executed every time a key event is called
     fn check_keypress(event: &str, controller: &mut InternalController, to: bool) {
@@ -123,6 +214,8 @@ pub(crate) fn setup_keyboard(
             }
         }
     }
+
+    let controller = data.borrow().controller.clone();
 
     let register = move |name, state| -> Result<EventListener, JsValue> {
         let event_controller = controller.clone();
@@ -148,12 +241,12 @@ pub(crate) fn setup_keyboard(
 }
 
 pub(crate) struct DropDownClosure {
-    _selector : EventListener
+    _selector: EventListener,
 }
 
 pub(crate) fn setup_dropdown(
     browser_window: &BrowserWindow,
-    controller: Rc<RefCell<InternalController>>,
+    data: Rc<RefCell<Data>>,
 ) -> Result<DropDownClosure, JsValue> {
     todo!()
 }
