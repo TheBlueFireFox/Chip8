@@ -222,16 +222,17 @@ impl DisplayAdapter {
 
         for (state_row, elements_row) in pixels.as_ref().iter().zip(elements) {
             for (pstate, (old_state, element)) in state_row.as_ref().iter().zip(elements_row) {
-                let state = *pstate;
+                let state = !*pstate;
 
                 if state == *old_state {
                     continue;
                 }
+
                 *old_state = state;
 
                 let class_list = element.class_list();
 
-                if !state {
+                if state {
                     class_list.add_1(definitions::field::ACTIVE)?;
                 } else {
                     class_list.remove_1(definitions::field::ACTIVE)?;
