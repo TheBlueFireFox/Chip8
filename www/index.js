@@ -1,7 +1,7 @@
 import * as wasm from "chip-eight";
 
 // start application
-let data = wasm.setup()
+let data = wasm.init()
 
 function change_rom(romName) {
     data.start(romName)

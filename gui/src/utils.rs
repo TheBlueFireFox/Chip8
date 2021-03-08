@@ -12,6 +12,7 @@ pub(crate) fn print_info(message: &str) -> Result<(), JsValue> {
     Ok(())
 }
 /// An abstraction to the browser window, makes using the `wasm_bindgen` api simpler.
+#[derive(Clone)]
 pub(crate) struct BrowserWindow {
     window: Window,
     document: Document,

@@ -1,8 +1,8 @@
 //! The functions that will be exported later on
 use crate::{
     adapters::{DisplayAdapter, KeyboardAdapter, SoundCallback},
-    setup::{self, KeyboardClosures},
     timer::{ProcessWorker, TimingWorker},
+    setup,
     utils,
 };
 use chip::{resources::RomArchives, Controller};
@@ -15,7 +15,7 @@ use wasm_bindgen::prelude::*;
 
 /// The first function that has to be run or else no chip like functionality is available.
 #[wasm_bindgen]
-pub fn setup() -> Result<JsBoundData, JsValue> {
+pub fn init() -> Result<JsBoundData, JsValue> {
     log::info!("Initializing");
 
     let bw = utils::BrowserWindow::new()?;
@@ -24,9 +24,9 @@ pub fn setup() -> Result<JsBoundData, JsValue> {
 
     let mut jd = JsBoundData::new()?;
 
-    jd.keyboard_closures = Some(setup::setup_keyboard( &bw,
-        jd.controller.clone()
-    )?);
+    jd.keyboard_closures = Some(setup::setup_keyboard(&bw, jd.controller.clone())?);
+
+    jd.dropdown_closures = Some(setup::setup_dropdown(&bw, jd.controller.clone())?);
 
     Ok(jd)
 }
@@ -44,7 +44,8 @@ pub(crate) type InternalController =
 pub struct JsBoundData {
     controller: Rc<RefCell<InternalController>>,
     worker: Rc<RefCell<ProcessWorker>>,
-    keyboard_closures: Option<KeyboardClosures>,
+    keyboard_closures: Option<setup::KeyboardClosures>,
+    dropdown_closures: Option<setup::DropDownClosure>,
 }
 
 #[wasm_bindgen]
@@ -58,6 +59,7 @@ impl JsBoundData {
             controller: rc_controller,
             worker: Rc::new(RefCell::new(ProcessWorker::new()?)),
             keyboard_closures: None,
+            dropdown_closures: None,
         };
 
         Ok(res)
@@ -123,6 +125,12 @@ impl JsBoundData {
     /// Will clear the interval that is running the application
     pub fn stop(&self) {
         stop(self.worker.clone(), self.controller.clone());
+    }
+}
+
+impl Drop for JsBoundData {
+    fn drop(&mut self) {
+        self.stop()
     }
 }
 

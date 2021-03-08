@@ -17,6 +17,7 @@ lazy_static::lazy_static! {
     static ref START_RESULT: Arc<RwLock<Result<(), log::SetLoggerError>>> =
         Arc::new(RwLock::new(Ok(())));
 }
+
 pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<(), JsValue> {
     log::debug!("Setting up the system");
 
@@ -35,11 +36,10 @@ pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<(), JsValue> {
     files.sort();
 
     let select = crate_dropdown(&browser_window, &files)?;
+
     browser_window.append_child(&select)?;
 
     let board = create_board(&browser_window)?;
-
-    // setup_keyboard(&browser_window, &board)?;
 
     browser_window.append_child(&board)?;
 
@@ -64,11 +64,39 @@ fn setup_systems() -> Result<(), JsValue> {
     }
 }
 
-type KeyboardClosure = Closure<dyn FnMut(web_sys::Event)>;
+type EventClosure = Closure<dyn FnMut(web_sys::Event)>;
+
+struct EventListener {
+    name: &'static str,
+    closure: EventClosure,
+    element: Element,
+}
+
+impl EventListener {
+    fn new<F>(name: &'static str, callback: F, element: &Element) -> Result<Self, JsValue>
+    where
+        F: FnMut(web_sys::Event) + 'static,
+    {
+        let element = element.clone();
+        let closure = Closure::wrap(Box::new(callback) as Box<dyn FnMut(web_sys::Event)>);
+        element
+            .add_event_listener_with_callback(name, closure.as_ref().unchecked_ref())?;
+
+        Ok(Self { name, closure, element })
+    }
+}
+
+impl Drop for EventListener {
+    fn drop(&mut self) {
+        self.element
+            .remove_event_listener_with_callback(self.name, self.closure.as_ref().unchecked_ref())
+            .expect("Something went wrong with removing the event listener.");
+    }
+}
 
 pub(crate) struct KeyboardClosures {
-    _keydown: KeyboardClosure,
-    _keyup: KeyboardClosure,
+    _keydown: EventListener,
+    _keyup: EventListener,
 }
 
 pub(crate) fn setup_keyboard(
@@ -76,7 +104,7 @@ pub(crate) fn setup_keyboard(
     controller: Rc<RefCell<InternalController>>,
 ) -> Result<KeyboardClosures, JsValue> {
     // The actuall callback that is executed every time a key event is called
-    fn callback(event: &str, controller: &mut InternalController, to: bool) {
+    fn check_keypress(event: &str, controller: &mut InternalController, to: bool) {
         let keyboard = controller.keyboard();
 
         for (i, row) in definitions::keyboard::BROWSER_LAYOUT.iter().enumerate() {
@@ -96,32 +124,38 @@ pub(crate) fn setup_keyboard(
         }
     }
 
-    let register = move |name, state| -> Result<KeyboardClosure, JsValue> {
+    let register = move |name, state| -> Result<EventListener, JsValue> {
         let event_controller = controller.clone();
+
         let callback = move |event: web_sys::Event| {
             let event: web_sys::KeyboardEvent = event.dyn_into().unwrap();
 
             log::trace!("was registered {} for {}", event.code(), name);
 
             let mut controller = event_controller.borrow_mut();
-            callback(&event.code(), &mut controller, state);
+            check_keypress(&event.code(), &mut controller, state);
         };
-
-        let closure = Closure::wrap(Box::new(callback) as Box<dyn FnMut(web_sys::Event)>);
 
         log::trace!("registering event {}", name);
 
-        browser_window
-            .body()
-            .add_event_listener_with_callback(name, closure.as_ref().unchecked_ref())?;
-
-        Ok(closure)
+        EventListener::new(name, callback, browser_window.body())
     };
 
     Ok(KeyboardClosures {
         _keydown: register("keydown", true)?,
         _keyup: register("keyup", false)?,
     })
+}
+
+pub(crate) struct DropDownClosure {
+    _selector : EventListener
+}
+
+pub(crate) fn setup_dropdown(
+    browser_window: &BrowserWindow,
+    controller: Rc<RefCell<InternalController>>,
+) -> Result<DropDownClosure, JsValue> {
+    todo!()
 }
 
 /// This is the panic hook it will be called by the JS runtime itself
