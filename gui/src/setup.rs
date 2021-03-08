@@ -6,15 +6,14 @@ use std::{
 };
 
 use chip::{definitions::display, devices::KeyboardCommands, resources::RomArchives, Controller};
-use wasm_bindgen::{prelude::Closure, JsCast, JsValue};
+use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::Element;
 
 use crate::{
-    adapters::{DisplayAdapter, KeyboardAdapter},
-    definitions, exported,
-    timer::ProcessWorker,
+    adapters::{DisplayAdapter, KeyboardAdapter, SoundCallback},
+    definitions,
+    timer::{ProcessWorker, TimingWorker},
     utils::{self, BrowserWindow},
-    InternalController,
 };
 
 lazy_static::lazy_static! {
@@ -25,6 +24,10 @@ lazy_static::lazy_static! {
         Arc::new(RwLock::new(Ok(())));
 }
 
+/// As the Controller has multiple long parameters, this
+/// type is used to abriviate the given configuration.
+type InternalController = Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>;
+
 pub(crate) struct Data {
     controller: Rc<RefCell<InternalController>>,
     worker: Rc<RefCell<ProcessWorker>>,
@@ -32,7 +35,7 @@ pub(crate) struct Data {
 
 impl Data {
     pub fn new() -> Result<Self, JsValue> {
-        let controller = Controller::new(DisplayAdapter::new(), KeyboardAdapter::new());
+        let controller = InternalController::new(DisplayAdapter::new(), KeyboardAdapter::new());
         let rc_controller = Rc::new(RefCell::new(controller));
 
         Ok(Self {
@@ -42,6 +45,8 @@ impl Data {
     }
 
     pub fn start(&self, rom_name: &str) -> Result<(), JsValue> {
+        self.stop();
+
         let mut ra = RomArchives::new();
 
         let rom = ra
@@ -192,7 +197,7 @@ pub(crate) struct KeyboardClosures {
 
 pub(crate) fn setup_keyboard(
     browser_window: &BrowserWindow,
-    data: Rc<RefCell<Data>>,
+    data: Rc<Data>,
 ) -> Result<KeyboardClosures, JsValue> {
     // The actuall callback that is executed every time a key event is called
     fn check_keypress(event: &str, controller: &mut InternalController, to: bool) {
@@ -215,7 +220,7 @@ pub(crate) fn setup_keyboard(
         }
     }
 
-    let controller = data.borrow().controller.clone();
+    let controller = data.controller.clone();
 
     let register = move |name, state| -> Result<EventListener, JsValue> {
         let event_controller = controller.clone();
@@ -246,9 +251,25 @@ pub(crate) struct DropDownClosure {
 
 pub(crate) fn setup_dropdown(
     browser_window: &BrowserWindow,
-    data: Rc<RefCell<Data>>,
+    data: Rc<Data>,
 ) -> Result<DropDownClosure, JsValue> {
-    todo!()
+    let dropdown = browser_window
+        .get_element_by_id(definitions::selector::ID)
+        .ok_or_else(|| JsValue::from("No such element found."))?;
+
+    let callback = move |event: web_sys::Event| {
+        // this is safe given the context in which the function is called.
+        let target: web_sys::HtmlSelectElement = event.target().unwrap().dyn_into().unwrap();
+        let rom_name = target.value();
+        if let Err(err) = data.start(&rom_name) {
+            data.stop();
+            panic!("{:?}", err)
+        }
+    };
+
+    let event = EventListener::new("change", callback, &dropdown)?;
+
+    Ok(DropDownClosure { _selector: event })
 }
 
 /// This is the panic hook it will be called by the JS runtime itself
