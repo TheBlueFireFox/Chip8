@@ -158,7 +158,7 @@ mod tests {
     where
         MD: InternalDCommands,
     {
-        fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&self, _pixels: M) {
+        fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&mut self, _pixels: M) {
             self.da.display()
         }
     }

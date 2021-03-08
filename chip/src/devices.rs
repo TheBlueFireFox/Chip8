@@ -7,7 +7,7 @@ use crate::definitions::keyboard;
 /// The traits responsible for the display based code
 pub trait DisplayCommands {
     /// Will display all from the pixels
-    fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&self, pixels: M);
+    fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&mut self, pixels: M);
 }
 
 /// The trait responsible for writing the keyboard data

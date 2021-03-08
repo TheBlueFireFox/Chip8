@@ -5,11 +5,12 @@ use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{definitions, utils::BrowserWindow};
 use chip::{
+    definitions::display,
     devices::{DisplayCommands, Keyboard, KeyboardCommands},
     timer::TimerCallback,
 };
 use wasm_bindgen::{prelude::*, JsCast};
-use web_sys::{AudioContext, GainNode, OscillatorNode};
+use web_sys::{AudioContext, Element, GainNode, OscillatorNode};
 
 /// The Oscillator implementation, it contains structs that allow for live sound generation.
 struct Oscillator {
@@ -147,47 +148,95 @@ impl Drop for SoundCallback {
             .expect("Something went terribly wrong, while dropping the sound callback.")
     }
 }
+
 /// Translates the internal commands into the external ones.
-pub(crate) struct DisplayAdapter;
+pub(crate) struct DisplayAdapter {
+    elements: Option<Vec<Vec<(bool, Element)>>>,
+    bw: BrowserWindow,
+}
 
 impl DisplayAdapter {
     /// Creates a new DisplayAdapter
-    pub fn new() -> Self {
-        DisplayAdapter {}
+    pub fn new(bw: &BrowserWindow) -> Self {
+        Self {
+            elements: None,
+            bw: bw.clone(),
+        }
+    }
+
+    /// Will draw the empty initial board. For visual confirmation, that the process started
+    /// the board will be drawn in a chess like pattern.
+    /// Additionally only this method will finish initializing the board.
+    pub(crate) fn create_board(&mut self) -> Result<(), JsValue> {
+        let table = self.bw.create_element(definitions::field::TYPE)?;
+        table.set_id(definitions::field::ID);
+
+        let mut rows = Vec::with_capacity(display::WIDTH);
+
+        for i in 0..display::WIDTH {
+            let tr = self.bw.create_element(definitions::field::TYPE_ROW)?;
+            let mut row = Vec::with_capacity(display::HEIGHT);
+            for j in 0..display::HEIGHT {
+                let td = self.bw.create_element(definitions::field::TYPE_COLUMN)?;
+                let state = (i + j) % 2 == 0;
+                if state {
+                    td.set_class_name(definitions::field::ACTIVE);
+                }
+
+                tr.append_child(&td)?;
+                row.push((state, td));
+            }
+            rows.push(row);
+            table.append_child(&tr)?;
+        }
+
+        // if there is already a board drawn.
+        if self.elements.is_some() {
+            let old = self
+                .bw
+                .get_element_by_id(definitions::field::ID)
+                .ok_or_else(|| JsValue::from("Element not found"))?;
+
+            self.bw.replace_child(&old, &table)?;
+        } else {
+            self.bw.append_child(&table)?;
+        }
+
+        self.elements = Some(rows);
+        Ok(())
     }
 
     /// Will draw the actuall board this function is generic
     /// over all the parameters that deref first into an array / slice of array/slices of bool,
     /// then secondly into a pointer to a boolean.
-    fn draw_board<M, V>(pixels: M) -> Result<(), JsValue>
+    fn draw_board<M, V>(&mut self, pixels: M) -> Result<(), JsValue>
     where
         M: AsRef<[V]>,
         V: AsRef<[bool]>,
     {
-        let html = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
+        assert!(
+            self.elements.is_some(),
+            "Display adapter has not called create_board."
+        );
+        let elements = self.elements.as_mut().unwrap();
 
-        let table = html.create_element(definitions::field::TYPE)?;
-        table.set_id(definitions::field::ID);
+        for (state_row, elements_row) in pixels.as_ref().iter().zip(elements) {
+            for (pstate, (old_state, element)) in state_row.as_ref().iter().zip(elements_row) {
+                let state = *pstate;
 
-        for row in pixels.as_ref().iter() {
-            let tr = html.create_element(definitions::field::TYPE_ROW)?;
-            for value in row.as_ref().iter() {
-                let td = html.create_element(definitions::field::TYPE_COLUMN)?;
-
-                if !*value {
-                    td.set_class_name(definitions::field::ACTIVE);
+                if state == *old_state {
+                    continue;
                 }
+                *old_state = state;
 
-                tr.append_child(&td)?;
+                let class_list = element.class_list();
+
+                if !state {
+                    class_list.add_1(definitions::field::ACTIVE)?;
+                } else {
+                    class_list.remove_1(definitions::field::ACTIVE)?;
+                }
             }
-            table.append_child(&tr)?;
-        }
-
-        // check if already exists, if exists replace element
-        if let Some(oldtable) = html.get_element_by_id(definitions::field::ID) {
-            html.replace_child(&oldtable, &table)?;
-        } else {
-            html.append_child(&table)?;
         }
 
         Ok(())
@@ -195,10 +244,11 @@ impl DisplayAdapter {
 }
 
 impl DisplayCommands for DisplayAdapter {
-    fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&self, pixels: M) {
+    fn display<M: AsRef<[V]>, V: AsRef<[bool]>>(&mut self, pixels: M) {
         log::debug!("Drawing the display");
 
-        Self::draw_board(pixels).expect("something went wrong while working on the board");
+        self.draw_board(pixels)
+            .expect("something went wrong while working on the board");
     }
 }
 

@@ -25,6 +25,7 @@ web-sys = {version = "0.3", default-features = false, features = [
   'Event',
   'HtmlElement',
   'HtmlSelectElement',
+  'DomTokenList',
   'Node',
   'Window',
   'console',

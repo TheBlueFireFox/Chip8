@@ -34,8 +34,8 @@ pub(crate) struct Data {
 }
 
 impl Data {
-    pub fn new() -> Result<Self, JsValue> {
-        let controller = InternalController::new(DisplayAdapter::new(), KeyboardAdapter::new());
+    pub fn new(da: DisplayAdapter, ka: KeyboardAdapter) -> Result<Self, JsValue> {
+        let controller = InternalController::new(da, ka);
         let rc_controller = Rc::new(RefCell::new(controller));
 
         Ok(Self {
@@ -111,7 +111,7 @@ fn stop(worker: Rc<RefCell<ProcessWorker>>, controller: Rc<RefCell<InternalContr
     controller.borrow_mut().remove_rom();
 }
 
-pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<(), JsValue> {
+pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<Data, JsValue> {
     log::debug!("Setting up the system");
 
     setup_systems()?;
@@ -132,11 +132,12 @@ pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<(), JsValue> {
 
     browser_window.append_child(&select)?;
 
-    let board = create_board(&browser_window)?;
+    let mut da = DisplayAdapter::new(&browser_window);
+    da.create_board()?;
 
-    browser_window.append_child(&board)?;
+    let ka = KeyboardAdapter::new();
 
-    Ok(())
+    Data::new(da, ka)
 }
 
 /// Will setup the system
@@ -260,8 +261,9 @@ pub(crate) fn setup_dropdown(
     let callback = move |event: web_sys::Event| {
         // this is safe given the context in which the function is called.
         let target: web_sys::HtmlSelectElement = event.target().unwrap().dyn_into().unwrap();
-        let rom_name = target.value();
-        if let Err(err) = data.start(&rom_name) {
+        let rom = target.value();
+        log::trace!("loaded {}", rom);
+        if let Err(err) = data.start(&rom) {
             data.stop();
             panic!("{:?}", err)
         }
@@ -285,27 +287,6 @@ fn set_panic_hook() {
     console_error_panic_hook::set_once();
 }
 
-/// Will draw the empty initial board. For visual confirmation, that the process started
-/// the board will be drawn in a chess like pattern.
-pub(crate) fn create_board(window: &BrowserWindow) -> Result<Element, JsValue> {
-    let table = window.create_element(definitions::field::TYPE)?;
-    table.set_id(definitions::field::ID);
-
-    for i in 0..display::WIDTH {
-        let tr = window.create_element(definitions::field::TYPE_ROW)?;
-        for j in 0..display::HEIGHT {
-            let td = window.create_element(definitions::field::TYPE_COLUMN)?;
-            if (i + j) % 2 == 0 {
-                td.set_class_name(definitions::field::ACTIVE);
-            }
-
-            tr.append_child(&td)?;
-        }
-        table.append_child(&tr)?;
-    }
-
-    Ok(table)
-}
 
 /// Will initialize the drop down with the included rom names.
 pub(crate) fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsValue> {

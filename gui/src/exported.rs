@@ -11,9 +11,9 @@ pub fn init() -> Result<JsBoundData, JsValue> {
 
     let bw = utils::BrowserWindow::new()?;
 
-    setup::setup(&bw)?;
+    let data = setup::setup(&bw)?;
 
-    let data = Rc::new(setup::Data::new()?);
+    let data = Rc::new(data);
 
     let kc = setup::setup_keyboard(&bw, data.clone())?;
 
