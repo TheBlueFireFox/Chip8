@@ -33,8 +33,6 @@ impl BrowserWindow {
         })
     }
 
-
-
     pub fn append_child(&self, element: &Element) -> Result<(), JsValue> {
         self.body.append_child(element).and_then(|_| Ok(()))
     }

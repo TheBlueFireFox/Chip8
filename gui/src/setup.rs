@@ -5,7 +5,7 @@ use std::{
     time::Duration,
 };
 
-use chip::{definitions::display, devices::KeyboardCommands, resources::RomArchives, Controller};
+use chip::{devices::KeyboardCommands, resources::RomArchives, Controller};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::Element;
 
@@ -286,7 +286,6 @@ fn set_panic_hook() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 }
-
 
 /// Will initialize the drop down with the included rom names.
 pub(crate) fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsValue> {

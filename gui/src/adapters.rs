@@ -254,7 +254,6 @@ impl DisplayCommands for DisplayAdapter {
 }
 
 /// Abstracts away the awkward js keyboard interface
-/// TODO: implement the js adaption.
 pub(crate) struct KeyboardAdapter {
     /// Stores the keyboard into to which the values are changed.
     keyboard: Arc<RwLock<Keyboard>>,

@@ -37,7 +37,7 @@ pub mod keyboard {
         ['Y', 'X', 'C', 'V'],
     ];
 
-    pub const BROWSER_LAYOUT : [[&str; 4]; 4] = [
+    pub const BROWSER_LAYOUT: [[&str; 4]; 4] = [
         ["Digit1", "Digit2", "Digit3", "Digit4"],
         ["KeyQ", "KeyW", "KeyE", "KeyR"],
         ["KeyA", "KeyS", "KeyD", "KeyF"],
