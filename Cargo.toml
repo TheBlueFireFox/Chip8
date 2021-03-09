@@ -1,6 +1,10 @@
-
 [workspace]
 members = [
     "gui",
     "chip"
 ]
+
+[profile.release]
+debug = true
+lto = true
+opt-level = "s"
