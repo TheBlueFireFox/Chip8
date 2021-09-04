@@ -172,21 +172,21 @@ impl ChipOpcodes for InternalChipSet {
         ))
     }
 
-    fn a(&mut self, &A { nnn }: &A) -> Result<ProgramCounterStep, String> {
+    fn a(&mut self, &Ten { nnn }: &Ten) -> Result<ProgramCounterStep, String> {
         // ANNN
         // Sets I to the address NNN.
         self.index_register = nnn;
         Ok(ProgramCounterStep::Next)
     }
 
-    fn b(&self, &B { nnn }: &B) -> Result<ProgramCounterStep, String> {
+    fn b(&self, &Eleven { nnn }: &Eleven) -> Result<ProgramCounterStep, String> {
         // BNNN
         // Jumps to the address NNN plus V0.
         let v0 = self.registers[0] as usize;
         Ok(ProgramCounterStep::Jump(v0 + nnn))
     }
 
-    fn c(&mut self, &C { x, nn }: &C) -> Result<ProgramCounterStep, String> {
+    fn c(&mut self, &Twelve { x, nn }: &Twelve) -> Result<ProgramCounterStep, String> {
         // CXNN
         // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
         // and NN.
@@ -199,7 +199,7 @@ impl ChipOpcodes for InternalChipSet {
         Ok(ProgramCounterStep::Next)
     }
 
-    fn d(&mut self, &D { x, y, n }: &D) -> Result<(ProgramCounterStep, Operation), String> {
+    fn d(&mut self, &Thirteen { x, y, n }: &Thirteen) -> Result<(ProgramCounterStep, Operation), String> {
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
@@ -264,16 +264,16 @@ impl ChipOpcodes for InternalChipSet {
         Ok((ProgramCounterStep::Next, Operation::Draw))
     }
 
-    fn e(&self, &E { ops, x }: &E) -> Result<ProgramCounterStep, String> {
+    fn e(&self, &Fourteen { ops, x }: &Fourteen) -> Result<ProgramCounterStep, String> {
         let is_pressed = self.get_keyboard_read().get_keys()[self.registers[x] as usize];
         let step = match ops {
-            EOpcode::Pressed => {
+            FourteenOpcode::Pressed => {
                 // EX9E
                 // Skips the next instruction if the key stored in VX is pressed. (Usually the next
                 // instruction is a jump to skip a code block)
                 is_pressed
             }
-            EOpcode::NotPressed => {
+            FourteenOpcode::NotPressed => {
                 // EXA1
                 // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
                 // next instruction is a jump to skip a code block)
@@ -283,26 +283,26 @@ impl ChipOpcodes for InternalChipSet {
         Ok(ProgramCounterStep::cond(step))
     }
 
-    fn f(&mut self, &F { ops, x }: &F) -> Result<(ProgramCounterStep, Operation), String> {
+    fn f(&mut self, &Fifteen { ops, x }: &Fifteen) -> Result<(ProgramCounterStep, Operation), String> {
         let mut op = Operation::None;
         let mut pcs = ProgramCounterStep::Next;
         match ops {
-            FOpcode::SetDelayTimer => {
+            FifteenOpcode::SetDelayTimer => {
                 // FX15
                 // Sets the delay timer to VX.
                 self.delay_timer.set_value(self.registers[x]);
             }
-            FOpcode::SetSoundTimer => {
+            FifteenOpcode::SetSoundTimer => {
                 // FX18
                 // Sets the sound timer to VX.
                 self.sound_timer.set_value(self.registers[x]);
             }
-            FOpcode::GetDelayTimer => {
+            FifteenOpcode::GetDelayTimer => {
                 // FX07
                 // Sets VX to the value of the delay timer.
                 self.registers[x] = self.get_delay_timer();
             }
-            FOpcode::AwaitKeyPress => {
+            FifteenOpcode::AwaitKeyPress => {
                 // FX0A
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
@@ -321,7 +321,7 @@ impl ChipOpcodes for InternalChipSet {
 
                 self.preprocessor = Some(Box::new(callback_after_keypress));
             }
-            FOpcode::AddVxToI => {
+            FifteenOpcode::AddVxToI => {
                 // FX1E
                 // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
                 // 0 when there isn't. (not used in this system)
@@ -330,7 +330,7 @@ impl ChipOpcodes for InternalChipSet {
                 let xi = self.registers[x] as usize;
                 self.index_register = self.index_register.wrapping_add(xi);
             }
-            FOpcode::SetIToSprite => {
+            FifteenOpcode::SetIToSprite => {
                 // FX29
                 // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
                 // hexadecimal) are represented by a 4x5 font.
@@ -342,7 +342,7 @@ impl ChipOpcodes for InternalChipSet {
                 );
                 self.index_register = display::fontset::LOCATION + 5 * val;
             }
-            FOpcode::StoreBCD => {
+            FifteenOpcode::StoreBCD => {
                 // FX33
                 // Stores the binary-coded decimal representation of VX, with the most significant
                 // of three digits at the address in I, the middle digit at I plus 1, and the least
@@ -356,14 +356,14 @@ impl ChipOpcodes for InternalChipSet {
                 self.memory[i + 1] = r / 10 % 10; // 246u8 / 10 => 24 % 10 => 4
                 self.memory[i + 2] = r % 10; // 246u8 % 10 => 6
             }
-            FOpcode::StoreV0ToVx => {
+            FifteenOpcode::StoreV0ToVx => {
                 // FX55
                 // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
                 // is increased by 1 for each value written, but I itself is left unmodified.
                 let index = self.index_register;
                 self.memory[index..=(index + x)].copy_from_slice(&self.registers[..=x]);
             }
-            FOpcode::FillV0ToVx => {
+            FifteenOpcode::FillV0ToVx => {
                 // FX65
                 // Fills V0 to VX (including VX) with values from memory starting at address I. The
                 // offset from I is increased by 1 for each value written, but I itself is left

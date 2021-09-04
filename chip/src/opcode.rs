@@ -391,53 +391,53 @@ pub struct Nine {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct A {
+pub struct Ten {
     pub nnn: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct B {
+pub struct Eleven {
     pub nnn: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct C {
+pub struct Twelve {
     pub x: usize,
     pub nn: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct D {
+pub struct Thirteen {
     pub x: usize,
     pub y: usize,
     pub n: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EOpcode {
+pub enum FourteenOpcode {
     Pressed,
     NotPressed,
 }
 
-implTryInto!(EOpcode : u8 :
+implTryInto!(FourteenOpcode : u8 :
     // EX9E
     // Skips the next instruction if the key stored in VX is pressed. (Usually the next
     // instruction is a jump to skip a code block)
-    0x9E => EOpcode::Pressed,
+    0x9E => FourteenOpcode::Pressed,
     // EXA1
     // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
     // next instruction is a jump to skip a code block)
-    0xA1 => EOpcode::NotPressed,
+    0xA1 => FourteenOpcode::NotPressed,
 );
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct E {
-    pub ops: EOpcode,
+pub struct Fourteen {
+    pub ops: FourteenOpcode,
     pub x: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FOpcode {
+pub enum FifteenOpcode {
     SetDelayTimer,
     SetSoundTimer,
     GetDelayTimer,
@@ -449,51 +449,51 @@ pub enum FOpcode {
     FillV0ToVx,
 }
 
-implTryInto!(FOpcode : u8 :
+implTryInto!(FifteenOpcode : u8 :
     // FX07
     // Sets VX to the value of the delay timer.
-    0x07 => FOpcode::GetDelayTimer,
+    0x07 => FifteenOpcode::GetDelayTimer,
     // FX0A
     // A key press is awaited, and then stored in VX. (Blocking Operation. All
     // instruction halted until next key event)
-    0x0A =>FOpcode::AwaitKeyPress,
+    0x0A =>FifteenOpcode::AwaitKeyPress,
    // FX15
    // Sets the delay timer to VX.
-    0x15 => FOpcode::SetDelayTimer,
+    0x15 => FifteenOpcode::SetDelayTimer,
     // FX18
     // Sets the sound timer to VX.
-    0x18 => FOpcode::SetSoundTimer,
+    0x18 => FifteenOpcode::SetSoundTimer,
     // FX1E
     // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
     // 0 when there isn't. (not used in this system)
     //
     // Adds VX to I. VF is not affected.[c]
-    0x1E => FOpcode::AddVxToI,
+    0x1E => FifteenOpcode::AddVxToI,
     // FX29
     // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
     // hexadecimal) are represented by a 4x5 font.
-    0x29 => FOpcode::SetIToSprite,
+    0x29 => FifteenOpcode::SetIToSprite,
     // FX33
     // Stores the binary-coded decimal representation of VX, with the most significant
     // of three digits at the address in I, the middle digit at I plus 1, and the least
     // significant digit at I plus 2. (In other words, take the decimal representation
     // of VX, place the hundreds digit in memory at location in I, the tens digit at
     // location I+1, and the ones digit at location I+2.)
-    0x33 => FOpcode::StoreBCD,
+    0x33 => FifteenOpcode::StoreBCD,
     // FX55
     // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
     // is increased by 1 for each value written, but I itself is left unmodified.
-    0x55 => FOpcode::StoreV0ToVx,
+    0x55 => FifteenOpcode::StoreV0ToVx,
     // FX65
     // Fills V0 to VX (including VX) with values from memory starting at address I. The
     // offset from I is increased by 1 for each value written, but I itself is left
     // unmodified.
-    0x65 => FOpcode::FillV0ToVx,
+    0x65 => FifteenOpcode::FillV0ToVx,
 );
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct F {
-    pub ops: FOpcode,
+pub struct Fifteen {
+    pub ops: FifteenOpcode,
     pub x: usize,
 }
 
@@ -509,12 +509,12 @@ pub enum Opcodes {
     Seven(Seven),
     Eight(Eight),
     Nine(Nine),
-    A(A),
-    B(B),
-    C(C),
-    D(D),
-    E(E),
-    F(F),
+    A(Ten),
+    B(Eleven),
+    C(Twelve),
+    D(Thirteen),
+    E(Fourteen),
+    F(Fifteen),
 }
 
 impl TryFrom<Opcode> for Opcodes {
@@ -566,25 +566,25 @@ impl TryFrom<Opcode> for Opcodes {
                 (x, y, 0) => Opcodes::Nine(Nine { x, y }),
                 _ => return err(value),
             },
-            0xA000 => Opcodes::A(A { nnn: value.nnn() }),
-            0xB000 => Opcodes::B(B { nnn: value.nnn() }),
+            0xA000 => Opcodes::A(Ten { nnn: value.nnn() }),
+            0xB000 => Opcodes::B(Eleven { nnn: value.nnn() }),
             0xC000 => {
                 let (x, nn) = value.xnn();
-                Opcodes::C(C { x, nn })
+                Opcodes::C(Twelve { x, nn })
             }
             0xD000 => {
                 let (x, y, n) = value.xyn();
-                Opcodes::D(D { x, y, n })
+                Opcodes::D(Thirteen { x, y, n })
             }
             0xE000 => {
                 let (x, nn) = value.xnn();
                 let ops = try_into(nn, value)?;
-                Opcodes::E(E { ops, x })
+                Opcodes::E(Fourteen { ops, x })
             }
             0xF000 => {
                 let (x, nn) = value.xnn();
                 let ops = try_into(nn, value)?;
-                Opcodes::F(F { ops, x })
+                Opcodes::F(Fifteen { ops, x })
             }
             _ => return err(value),
         };
@@ -732,22 +732,22 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `ANNN` - MEM      - `I = NNN`             - Sets `I` to the address `NNN`.
     ///
     /// Returns any possible error
-    fn a(&mut self, opcode: &A) -> Result<ProgramCounterStep, String>;
+    fn a(&mut self, opcode: &Ten) -> Result<ProgramCounterStep, String>;
 
     /// - `BNNN` - Flow 	- `PC=V0+NNN`           - Jumps to the address `NNN` plus `V0`.
     ///
     /// Returns any possible error
-    fn b(&self, opcode: &B) -> Result<ProgramCounterStep, String>;
+    fn b(&self, opcode: &Eleven) -> Result<ProgramCounterStep, String>;
 
     /// - `CXNN` - Rand     - `Vx=rand()&NN`        - Sets `VX` to the result of a bitwise and operation on a random number (Typically: `0 to 255`) and `NN`.
     ///
     /// Returns any possible error
-    fn c(&mut self, opcode: &C) -> Result<ProgramCounterStep, String>;
+    fn c(&mut self, opcode: &Twelve) -> Result<ProgramCounterStep, String>;
 
     /// - `DXYN` - Disp     - `draw(Vx,Vy,N)`       - Draws a sprite at coordinate `(VX, VY)` that has a width of `8` pixels and a height of `N` pixels. Each row of `8` pixels is read as bit-coded starting from memory location `I`; `I` value doesn’t change after the execution of this instruction. As described above, `VF` is set to `1` if any screen pixels are flipped from set to unset when the sprite is drawn, and to `0` if that doesn’t happen
     ///
     /// Returns any possible error
-    fn d(&mut self, opcode: &D) -> Result<(ProgramCounterStep, Operation), String>;
+    fn d(&mut self, opcode: &Thirteen) -> Result<(ProgramCounterStep, Operation), String>;
 
     /// A multiuse opcode base for type `EXTT` (T is a sub opcode)
     ///
@@ -755,7 +755,7 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `EXA1` - KeyOp    - `if(key()!=Vx)`       - Skips the next instruction if the key stored in `VX` isn't pressed. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn e(&self, opcode: &E) -> Result<ProgramCounterStep, String>;
+    fn e(&self, opcode: &Fourteen) -> Result<ProgramCounterStep, String>;
 
     /// A multiuse opcode base for type `FXTT` (T is a sub opcode)
     ///
@@ -770,5 +770,152 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `FX65` - MEM      - `reg_load(Vx,&I)`     - Fills `V0` to `VX` (including `VX`) with values from memory starting at address `I`. The offset from `I` is increased by `1` for each value written, but `I` itself is left unmodified.
     ///
     /// Returns any possible error
-    fn f(&mut self, opcode: &F) -> Result<(ProgramCounterStep, Operation), String>;
+    fn f(&mut self, opcode: &Fifteen) -> Result<(ProgramCounterStep, Operation), String>;
+}
+
+#[cfg(test)]
+mod tests {
+    use std::convert::TryInto;
+
+    use super::*;
+
+    #[test]
+    fn test_tryfrom_opcode_simple() {
+        let value = 0x00E0;
+        let res = Ok(Opcodes::Zero(Zero::Clear));
+        let conv = value.try_into();
+        assert_eq!(conv, res);
+    }
+
+    #[test]
+    fn test_tryfrom_opcode_simple_fail() {
+        let value: Opcode = 0x00E1;
+        let conv: Result<Opcodes, _> = value.try_into();
+        assert!(conv.is_err());
+    }
+
+    #[test]
+    fn test_tryfrom_opcode_multiple() {
+        let tests = [
+            // Zero
+            (0x00E0, Ok(Opcodes::Zero(Zero::Clear))),
+            (0x00EE, Ok(Opcodes::Zero(Zero::Return))),
+            (0x00E1, Err("")),
+            // One
+            (0x1919, Ok(Opcodes::One(One { nnn: 0x919 }))),
+            // Two
+            (0x2222, Ok(Opcodes::Two(Two { nnn: 0x222 }))),
+            // Three
+            (0x3123, Ok(Opcodes::Three(Three { x: 0x1, nn: 0x23 }))),
+            // Four
+            (0x4123, Ok(Opcodes::Four(Four { x: 0x1, nn: 0x23 }))),
+            // Five
+            (0x5120, Ok(Opcodes::Five(Five { x: 0x1, y: 0x2 }))),
+            (0x5121, Err("")),
+            // Six
+            (0x6123, Ok(Opcodes::Six(Six { x: 0x1, nn: 0x23 }))),
+            // Seven
+            (0x7123, Ok(Opcodes::Seven(Seven { x: 0x1, nn: 0x23 }))),
+            // Eight
+            (
+                0x8121,
+                Ok(Opcodes::Eight(Eight {
+                    ops: EightOpcode::One,
+                    x: 0x1,
+                    y: 0x2,
+                })),
+            ),
+            (
+                0x8122,
+                Ok(Opcodes::Eight(Eight {
+                    ops: EightOpcode::Two,
+                    x: 0x1,
+                    y: 0x2,
+                })),
+            ),
+            (
+                0x8123,
+                Ok(Opcodes::Eight(Eight {
+                    ops: EightOpcode::Three,
+                    x: 0x1,
+                    y: 0x2,
+                })),
+            ),
+            (
+                0x8124,
+                Ok(Opcodes::Eight(Eight {
+                    ops: EightOpcode::Four,
+                    x: 0x1,
+                    y: 0x2,
+                })),
+            ),
+            (
+                0x8125,
+                Ok(Opcodes::Eight(Eight {
+                    ops: EightOpcode::Five,
+                    x: 0x1,
+                    y: 0x2,
+                })),
+            ),
+            (
+                0x8126,
+                Ok(Opcodes::Eight(Eight {
+                    ops: EightOpcode::Six,
+                    x: 0x1,
+                    y: 0x2,
+                })),
+            ),
+            (
+                0x8127,
+                Ok(Opcodes::Eight(Eight {
+                    ops: EightOpcode::Seven,
+                    x: 0x1,
+                    y: 0x2,
+                })),
+            ),
+            (
+                0x812E,
+                Ok(Opcodes::Eight(Eight {
+                    ops: EightOpcode::E,
+                    x: 0x1,
+                    y: 0x2,
+                })),
+            ),
+            (0x8128, Err("")),
+            // Nine
+            (0x9120, Ok(Opcodes::Nine(Nine { x: 0x1, y: 0x2 }))),
+            (0x9121, Err("")),
+            // A
+            (0xA222, Ok(Opcodes::A(Ten{ nnn: 0x222 }))),
+            // B
+            (0xB222, Ok(Opcodes::B(Eleven{ nnn: 0x222 }))),
+            // C 
+            (0xC123, Ok(Opcodes::C(Twelve {x: 0x1, nn: 0x23}))),
+            // D
+            (0xD123, Ok(Opcodes::D(Thirteen {x: 0x1, y: 0x2, n: 0x3}))),
+            // E
+            (0xE19E, Ok(Opcodes::E(Fourteen { x: 0x1, ops: FourteenOpcode::Pressed}))),
+            (0xE1A1, Ok(Opcodes::E(Fourteen { x: 0x1, ops: FourteenOpcode::NotPressed}))),
+            (0xE111, Err("")),
+            // F
+            (0xF007, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::GetDelayTimer}))),
+            (0xF00A, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::AwaitKeyPress}))),
+            (0xF015, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::SetDelayTimer}))),
+            (0xF018, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::SetSoundTimer}))),
+            (0xF01E, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::AddVxToI}))),
+            (0xF029, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::SetIToSprite}))),
+            (0xF033, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::StoreBCD}))),
+            (0xF055, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::StoreV0ToVx}))),
+            (0xF065, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::FillV0ToVx}))),
+            (0xF0AA, Err("")),
+        ];
+        for (value, res) in tests {
+            let conv: Result<Opcodes, _> = value.try_into();
+            if res.is_err() {
+                assert!(conv.is_err());
+            } else {
+                assert_eq!(conv, res.map_err(|v| v.to_string()));
+            }
+        }
+    }
 }

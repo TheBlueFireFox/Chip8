@@ -49,8 +49,7 @@ pub(super) fn setup_chip(rom: Rom) -> ChipSet<Worker, NoCallback> {
 
 #[inline]
 /// Will write the opcode to the memory location specified
-pub(super) fn write_opcode_to_memory(chip: &mut InternalChipSet, from: usize, opcode: Opcode) 
-{
+pub(super) fn write_opcode_to_memory(chip: &mut InternalChipSet, from: usize, opcode: Opcode) {
     write_slice_to_memory(&mut chip.memory, from, &opcode.to_be_bytes());
     // and add the information to the opcodes as well
     let ops = opcode.try_into().expect("Unable to convert the opcode");
@@ -846,7 +845,7 @@ mod a {
 
         assert_eq!(chip.index_register, addr as usize);
 
-        assert_eq!(chip.program_counter, pc+ 1 * memory::opcodes::SIZE);
+        assert_eq!(chip.program_counter, pc + 1 * memory::opcodes::SIZE);
     }
 }
 mod b {
@@ -1046,11 +1045,7 @@ mod f {
         let pc = chip.program_counter;
 
         write_opcode_to_memory(&mut chip, pc, opcode);
-        write_opcode_to_memory(
-            &mut chip,
-            pc + memory::opcodes::SIZE,
-            opcode,
-        );
+        write_opcode_to_memory(&mut chip, pc + memory::opcodes::SIZE, opcode);
 
         assert_eq!(Ok(Operation::Wait), chip.next());
         assert_eq!(chip.program_counter, pc);
