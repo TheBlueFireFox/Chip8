@@ -239,11 +239,11 @@ impl ProgramCounterStep {
             ProgramCounterStep::Skip => 2 * memory::opcodes::SIZE,
             ProgramCounterStep::None => 0,
             ProgramCounterStep::Jump(pointer) => {
-                if cpu::PROGRAM_COUNTER <= *pointer && *pointer < memory::SIZE {
-                    *pointer
-                } else {
-                    panic!("Memory out of bounds error!")
-                }
+                assert!(
+                    cpu::PROGRAM_COUNTER <= *pointer && *pointer < memory::SIZE,
+                    "Memory out of bounds error!"
+                );
+                *pointer
             }
         }
     }
@@ -301,7 +301,7 @@ pub struct Seven {
     pub nn: u8,
 }
 
-pub enum EightType {
+pub enum EightOpcode {
     Zero,
     One,
     Two,
@@ -313,7 +313,7 @@ pub enum EightType {
     E,
 }
 
-impl TryFrom<usize> for EightType {
+impl TryFrom<usize> for EightOpcode {
     type Error = ();
 
     fn try_from(value: usize) -> Result<Self, Self::Error> {
@@ -321,50 +321,50 @@ impl TryFrom<usize> for EightType {
             0x0 => {
                 // 8XY0
                 // Sets VX to the value of VY.
-                EightType::Zero
+                EightOpcode::Zero
             }
             0x1 => {
                 // 8XY1
                 // Sets VX to VX or VY. (Bitwise OR operation)
-                EightType::One
+                EightOpcode::One
             }
             0x2 => {
                 // 8XY2
                 // Sets VX to VX and VY. (Bitwise AND operation)
-                EightType::Two
+                EightOpcode::Two
             }
             0x3 => {
                 // 8XY3
                 // Sets VX to VX xor VY.
-                EightType::Three
+                EightOpcode::Three
             }
             0x4 => {
                 // 8XY4
                 // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
-                EightType::Four
+                EightOpcode::Four
             }
             0x5 => {
                 // 8XY5
                 // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
                 // isn't.
-                EightType::Five
+                EightOpcode::Five
             }
             0x6 => {
                 // 8XY6
                 // Stores the least significant bit of VX in VF and then shifts VX to the right
                 // by 1.
-                EightType::Six
+                EightOpcode::Six
             }
             0x7 => {
                 // 8XY7
                 // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there
                 // isn't.
-                EightType::Seven
+                EightOpcode::Seven
             }
             0xE => {
                 // 8XYE
                 // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
-                EightType::E
+                EightOpcode::E
             }
             _ => return Err(()),
         };
@@ -373,7 +373,7 @@ impl TryFrom<usize> for EightType {
 }
 
 pub struct Eight {
-    pub ops: EightType,
+    pub ops: EightOpcode,
     pub x: usize,
     pub y: usize,
 }
@@ -402,17 +402,39 @@ pub struct D {
     pub n: usize,
 }
 
-pub enum EType {
+pub enum EOpcode {
     Pressed,
     NotPressed,
 }
 
+impl TryFrom<u8> for EOpcode {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0x9E => {
+                // EX9E
+                // Skips the next instruction if the key stored in VX is pressed. (Usually the next
+                // instruction is a jump to skip a code block)
+                Ok(EOpcode::Pressed)
+            }
+            0xA1 => {
+                // EXA1
+                // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
+                // next instruction is a jump to skip a code block)
+                Ok(EOpcode::NotPressed)
+            }
+            _ => Err(()),
+        }
+    }
+}
+
 pub struct E {
-    pub ops: EType,
+    pub ops: EOpcode,
     pub x: usize,
 }
 
-pub enum FType {
+pub enum FOpcode {
     SetDelayTimer,
     SetSoundTimer,
     GetDelayTimer,
@@ -424,8 +446,76 @@ pub enum FType {
     FillV0ToVx,
 }
 
+impl TryFrom<u8> for FOpcode {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        let res = match value {
+            0x07 => {
+                // FX07
+                // Sets VX to the value of the delay timer.
+                FOpcode::GetDelayTimer
+            }
+            0x0A => {
+                // FX0A
+                // A key press is awaited, and then stored in VX. (Blocking Operation. All
+                // instruction halted until next key event)
+                FOpcode::AwaitKeyPress
+            }
+            0x15 => {
+                // FX15
+                // Sets the delay timer to VX.
+                FOpcode::SetDelayTimer
+            }
+            0x18 => {
+                // FX18
+                // Sets the sound timer to VX.
+                FOpcode::SetSoundTimer
+            }
+            0x1E => {
+                // FX1E
+                // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
+                // 0 when there isn't. (not used in this system)
+                //
+                // Adds VX to I. VF is not affected.[c]
+                FOpcode::AddVxToI
+            }
+            0x29 => {
+                // FX29
+                // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
+                // hexadecimal) are represented by a 4x5 font.
+                FOpcode::SetIToSprite
+            }
+            0x33 => {
+                // FX33
+                // Stores the binary-coded decimal representation of VX, with the most significant
+                // of three digits at the address in I, the middle digit at I plus 1, and the least
+                // significant digit at I plus 2. (In other words, take the decimal representation
+                // of VX, place the hundreds digit in memory at location in I, the tens digit at
+                // location I+1, and the ones digit at location I+2.)
+                FOpcode::StoreBCD
+            }
+            0x55 => {
+                // FX55
+                // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
+                // is increased by 1 for each value written, but I itself is left unmodified.
+                FOpcode::StoreV0ToVx
+            }
+            0x65 => {
+                // FX65
+                // Fills V0 to VX (including VX) with values from memory starting at address I. The
+                // offset from I is increased by 1 for each value written, but I itself is left
+                // unmodified.
+                FOpcode::FillV0ToVx
+            }
+            _ => return Err(()),
+        };
+        Ok(res)
+    }
+}
+
 pub struct F {
-    pub ops: FType,
+    pub ops: FOpcode,
     pub x: usize,
 }
 
@@ -503,85 +593,12 @@ impl TryFrom<Opcode> for Opcodes {
             }
             0xE000 => {
                 let (x, nn) = value.xnn();
-                let inner = match nn {
-                    0x9E => {
-                        // EX9E
-                        // Skips the next instruction if the key stored in VX is pressed. (Usually the next
-                        // instruction is a jump to skip a code block)
-                        EType::Pressed
-                    }
-                    0xA1 => {
-                        // EXA1
-                        // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
-                        // next instruction is a jump to skip a code block)
-                        EType::NotPressed
-                    }
-                    _ => return err(value),
-                };
+                let inner = nn.try_into().or_else(|_| err(value))?;
                 Opcodes::E(E { ops: inner, x })
             }
             0xF000 => {
                 let (x, nn) = value.xnn();
-                let inner = match nn {
-                    0x07 => {
-                        // FX07
-                        // Sets VX to the value of the delay timer.
-                        FType::GetDelayTimer
-                    }
-                    0x0A => {
-                        // FX0A
-                        // A key press is awaited, and then stored in VX. (Blocking Operation. All
-                        // instruction halted until next key event)
-                        FType::AwaitKeyPress
-                    }
-                    0x15 => {
-                        // FX15
-                        // Sets the delay timer to VX.
-                        FType::SetDelayTimer
-                    }
-                    0x18 => {
-                        // FX18
-                        // Sets the sound timer to VX.
-                        FType::SetSoundTimer
-                    }
-                    0x1E => {
-                        // FX1E
-                        // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
-                        // 0 when there isn't. (not used in this system)
-                        //
-                        // Adds VX to I. VF is not affected.[c]
-                        FType::AddVxToI
-                    }
-                    0x29 => {
-                        // FX29
-                        // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
-                        // hexadecimal) are represented by a 4x5 font.
-                        FType::SetIToSprite
-                    }
-                    0x33 => {
-                        // FX33
-                        // Stores the binary-coded decimal representation of VX, with the most significant
-                        // of three digits at the address in I, the middle digit at I plus 1, and the least
-                        // significant digit at I plus 2. (In other words, take the decimal representation
-                        // of VX, place the hundreds digit in memory at location in I, the tens digit at
-                        // location I+1, and the ones digit at location I+2.)
-                        FType::StoreBCD
-                    }
-                    0x55 => {
-                        // FX55
-                        // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
-                        // is increased by 1 for each value written, but I itself is left unmodified.
-                        FType::StoreV0ToVx
-                    }
-                    0x65 => {
-                        // FX65
-                        // Fills V0 to VX (including VX) with values from memory starting at address I. The
-                        // offset from I is increased by 1 for each value written, but I itself is left
-                        // unmodified.
-                        FType::FillV0ToVx
-                    }
-                    _ => return err(value),
-                };
+                let inner = nn.try_into().or_else(|_| err(value))?;
                 Opcodes::F(F { ops: inner, x })
             }
             _ => return err(value),
