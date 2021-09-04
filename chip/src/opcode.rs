@@ -249,6 +249,32 @@ impl ProgramCounterStep {
     }
 }
 
+/// Inner is an internally used wrapper used for the implTryInto
+/// macro. It is primarly used for converting to the correct type, without
+/// disturbing its namespace.
+#[repr(transparent)]
+struct Inner<T>(T);
+
+/// implTryInto is a macro responsible for creating the boilerplate code
+/// needed for the opcode convertions.
+macro_rules! implTryInto {
+    ($type_name:ty : $type_from:ty : $( $key:literal => $val:expr ),+ $(,)? ) => {
+        impl TryFrom<$type_from> for Inner<$type_name> {
+            type Error = ();
+
+            fn try_from(value: $type_from) -> Result<Self, Self::Error> {
+                match value {
+                    $(
+                        $key => Ok(Self($val)),
+                    )+
+                    _ => Err(()),
+                }
+            }
+        }
+    };
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum Zero {
     /// Clears the display
     Clear,
@@ -256,51 +282,52 @@ pub enum Zero {
     Return,
 }
 
-impl TryFrom<usize> for Zero {
-    type Error = ();
+implTryInto!(Zero : Opcode :
+    0x00E0 => Zero::Clear,
+    0x00EE => Zero::Return,
+);
 
-    fn try_from(value: usize) -> Result<Self, Self::Error> {
-        match value {
-            0x00E0 => Ok(Zero::Clear),
-            0x00EE => Ok(Zero::Return),
-            _ => Err(()),
-        }
-    }
-}
-
+#[derive(Debug, Clone, Copy)]
 pub struct One {
     pub nnn: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Two {
     pub nnn: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Three {
     pub x: usize,
     pub nn: u8,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Four {
     pub x: usize,
     pub nn: u8,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Five {
     pub x: usize,
     pub y: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Six {
     pub x: usize,
     pub nn: u8,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Seven {
     pub x: usize,
     pub nn: u8,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum EightOpcode {
     Zero,
     One,
@@ -313,127 +340,99 @@ pub enum EightOpcode {
     E,
 }
 
-impl TryFrom<usize> for EightOpcode {
-    type Error = ();
+implTryInto!(EightOpcode : usize :
+    // 8XY0
+    // Sets VX to the value of VY.
+    0x0 => EightOpcode::Zero,
+    // 8XY1
+    // Sets VX to VX or VY. (Bitwise OR operation)
+    0x1 => EightOpcode::One,
+    // 8XY2
+    // Sets VX to VX and VY. (Bitwise AND operation)
+    0x2 => EightOpcode::Two,
+    // 8XY3
+    // Sets VX to VX xor VY.
+    0x3 => EightOpcode::Three,
+    // 8XY4
+    // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
+    0x4 => EightOpcode::Four,
+    // 8XY5
+    // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
+    // isn't.
+    0x5 => EightOpcode::Five,
+    // 8XY6
+    // Stores the least significant bit of VX in VF and then shifts VX to the right
+    // by 1.
+    0x6 => EightOpcode::Six,
+    // 8XY7
+    // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there
+    // isn't.
+    0x7 => EightOpcode::Seven,
+    // 8XYE
+    // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
+    0xE => EightOpcode::E,
+);
 
-    fn try_from(value: usize) -> Result<Self, Self::Error> {
-        let res = match value {
-            0x0 => {
-                // 8XY0
-                // Sets VX to the value of VY.
-                EightOpcode::Zero
-            }
-            0x1 => {
-                // 8XY1
-                // Sets VX to VX or VY. (Bitwise OR operation)
-                EightOpcode::One
-            }
-            0x2 => {
-                // 8XY2
-                // Sets VX to VX and VY. (Bitwise AND operation)
-                EightOpcode::Two
-            }
-            0x3 => {
-                // 8XY3
-                // Sets VX to VX xor VY.
-                EightOpcode::Three
-            }
-            0x4 => {
-                // 8XY4
-                // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
-                EightOpcode::Four
-            }
-            0x5 => {
-                // 8XY5
-                // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
-                // isn't.
-                EightOpcode::Five
-            }
-            0x6 => {
-                // 8XY6
-                // Stores the least significant bit of VX in VF and then shifts VX to the right
-                // by 1.
-                EightOpcode::Six
-            }
-            0x7 => {
-                // 8XY7
-                // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there
-                // isn't.
-                EightOpcode::Seven
-            }
-            0xE => {
-                // 8XYE
-                // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
-                EightOpcode::E
-            }
-            _ => return Err(()),
-        };
-        Ok(res)
-    }
-}
-
+#[derive(Debug, Clone, Copy)]
 pub struct Eight {
     pub ops: EightOpcode,
     pub x: usize,
     pub y: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Nine {
     pub x: usize,
     pub y: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct A {
     pub nnn: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct B {
     pub nnn: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct C {
     pub x: usize,
     pub nn: u8,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct D {
     pub x: usize,
     pub y: usize,
     pub n: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum EOpcode {
     Pressed,
     NotPressed,
 }
 
-impl TryFrom<u8> for EOpcode {
-    type Error = ();
+implTryInto!(EOpcode : u8 :
+    // EX9E
+    // Skips the next instruction if the key stored in VX is pressed. (Usually the next
+    // instruction is a jump to skip a code block)
+    0x9E => EOpcode::Pressed,
+    // EXA1
+    // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
+    // next instruction is a jump to skip a code block)
+    0xA1 => EOpcode::NotPressed,
+);
 
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            0x9E => {
-                // EX9E
-                // Skips the next instruction if the key stored in VX is pressed. (Usually the next
-                // instruction is a jump to skip a code block)
-                Ok(EOpcode::Pressed)
-            }
-            0xA1 => {
-                // EXA1
-                // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
-                // next instruction is a jump to skip a code block)
-                Ok(EOpcode::NotPressed)
-            }
-            _ => Err(()),
-        }
-    }
-}
-
+#[derive(Debug, Clone, Copy)]
 pub struct E {
     pub ops: EOpcode,
     pub x: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum FOpcode {
     SetDelayTimer,
     SetSoundTimer,
@@ -446,79 +445,55 @@ pub enum FOpcode {
     FillV0ToVx,
 }
 
-impl TryFrom<u8> for FOpcode {
-    type Error = ();
+implTryInto!(FOpcode : u8 :
+    // FX07
+    // Sets VX to the value of the delay timer.
+    0x07 => FOpcode::GetDelayTimer,
+    // FX0A
+    // A key press is awaited, and then stored in VX. (Blocking Operation. All
+    // instruction halted until next key event)
+    0x0A =>FOpcode::AwaitKeyPress,
+   // FX15
+   // Sets the delay timer to VX.
+    0x15 => FOpcode::SetDelayTimer,
+    // FX18
+    // Sets the sound timer to VX.
+    0x18 => FOpcode::SetSoundTimer,
+    // FX1E
+    // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
+    // 0 when there isn't. (not used in this system)
+    //
+    // Adds VX to I. VF is not affected.[c]
+    0x1E => FOpcode::AddVxToI,
+    // FX29
+    // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
+    // hexadecimal) are represented by a 4x5 font.
+    0x29 => FOpcode::SetIToSprite,
+    // FX33
+    // Stores the binary-coded decimal representation of VX, with the most significant
+    // of three digits at the address in I, the middle digit at I plus 1, and the least
+    // significant digit at I plus 2. (In other words, take the decimal representation
+    // of VX, place the hundreds digit in memory at location in I, the tens digit at
+    // location I+1, and the ones digit at location I+2.)
+    0x33 => FOpcode::StoreBCD,
+    // FX55
+    // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
+    // is increased by 1 for each value written, but I itself is left unmodified.
+    0x55 => FOpcode::StoreV0ToVx,
+    // FX65
+    // Fills V0 to VX (including VX) with values from memory starting at address I. The
+    // offset from I is increased by 1 for each value written, but I itself is left
+    // unmodified.
+    0x65 => FOpcode::FillV0ToVx,
+);
 
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        let res = match value {
-            0x07 => {
-                // FX07
-                // Sets VX to the value of the delay timer.
-                FOpcode::GetDelayTimer
-            }
-            0x0A => {
-                // FX0A
-                // A key press is awaited, and then stored in VX. (Blocking Operation. All
-                // instruction halted until next key event)
-                FOpcode::AwaitKeyPress
-            }
-            0x15 => {
-                // FX15
-                // Sets the delay timer to VX.
-                FOpcode::SetDelayTimer
-            }
-            0x18 => {
-                // FX18
-                // Sets the sound timer to VX.
-                FOpcode::SetSoundTimer
-            }
-            0x1E => {
-                // FX1E
-                // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
-                // 0 when there isn't. (not used in this system)
-                //
-                // Adds VX to I. VF is not affected.[c]
-                FOpcode::AddVxToI
-            }
-            0x29 => {
-                // FX29
-                // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
-                // hexadecimal) are represented by a 4x5 font.
-                FOpcode::SetIToSprite
-            }
-            0x33 => {
-                // FX33
-                // Stores the binary-coded decimal representation of VX, with the most significant
-                // of three digits at the address in I, the middle digit at I plus 1, and the least
-                // significant digit at I plus 2. (In other words, take the decimal representation
-                // of VX, place the hundreds digit in memory at location in I, the tens digit at
-                // location I+1, and the ones digit at location I+2.)
-                FOpcode::StoreBCD
-            }
-            0x55 => {
-                // FX55
-                // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
-                // is increased by 1 for each value written, but I itself is left unmodified.
-                FOpcode::StoreV0ToVx
-            }
-            0x65 => {
-                // FX65
-                // Fills V0 to VX (including VX) with values from memory starting at address I. The
-                // offset from I is increased by 1 for each value written, but I itself is left
-                // unmodified.
-                FOpcode::FillV0ToVx
-            }
-            _ => return Err(()),
-        };
-        Ok(res)
-    }
-}
-
+#[derive(Debug, Clone, Copy)]
 pub struct F {
     pub ops: FOpcode,
     pub x: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Opcodes {
     Zero(Zero),
     One(One),
@@ -546,10 +521,16 @@ impl TryFrom<Opcode> for Opcodes {
             Err(format!("An unsupported opcode was used {:#06X}", value))
         }
 
+        fn try_into<To, From: TryInto<Inner<To>>>(val: From, value: Opcode) -> Result<To, String> {
+            let inner: Inner<To>;
+            inner = val.try_into().or_else(|_| err(value))?;
+            Ok(inner.0)
+        }
+
         // Outer convert
         let t = value.t();
         let res = match t {
-            0x0000 => Opcodes::Zero(t.try_into().or_else(|_| err(value))?),
+            0x0000 => Opcodes::Zero(try_into(value, value)?),
             0x1000 => Opcodes::One(One { nnn: value.nnn() }),
             0x2000 => Opcodes::Two(Two { nnn: value.nnn() }),
             0x3000 => {
@@ -574,8 +555,8 @@ impl TryFrom<Opcode> for Opcodes {
             }
             0x8000 => {
                 let (x, y, n) = value.xyn();
-                let inner = n.try_into().or_else(|_| err(value))?;
-                Opcodes::Eight(Eight { ops: inner, x, y })
+                let ops = try_into(n, value)?;
+                Opcodes::Eight(Eight { ops, x, y })
             }
             0x9000 => match value.xyn() {
                 (x, y, 0) => Opcodes::Nine(Nine { x, y }),
@@ -593,13 +574,13 @@ impl TryFrom<Opcode> for Opcodes {
             }
             0xE000 => {
                 let (x, nn) = value.xnn();
-                let inner = nn.try_into().or_else(|_| err(value))?;
-                Opcodes::E(E { ops: inner, x })
+                let ops = try_into(nn, value)?;
+                Opcodes::E(E { ops, x })
             }
             0xF000 => {
                 let (x, nn) = value.xnn();
-                let inner = nn.try_into().or_else(|_| err(value))?;
-                Opcodes::F(F { ops: inner, x })
+                let ops = try_into(nn, value)?;
+                Opcodes::F(F { ops, x })
             }
             _ => return err(value),
         };
