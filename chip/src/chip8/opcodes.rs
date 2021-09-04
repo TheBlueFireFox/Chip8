@@ -198,7 +198,8 @@ impl ChipOpcodes for InternalChipSet {
     fn a(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
         // ANNN
         // Sets I to the address NNN.
-        self.index_register = opcode.nnn() as usize;
+        let nnn = opcode.nnn();
+        self.index_register = nnn;
         Ok(ProgramCounterStep::Next)
     }
 

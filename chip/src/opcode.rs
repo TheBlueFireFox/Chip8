@@ -1,4 +1,6 @@
 //! Opcode abstractions, functionality and constants.
+use std::convert::{TryFrom, TryInto};
+
 use crate::definitions::{cpu, memory};
 
 /// the base mask used for generating all the other sub masks
@@ -247,6 +249,347 @@ impl ProgramCounterStep {
     }
 }
 
+pub enum Zero {
+    /// Clears the display
+    Clear,
+    /// Returns from the subroutine
+    Return,
+}
+
+impl TryFrom<usize> for Zero {
+    type Error = ();
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0x00E0 => Ok(Zero::Clear),
+            0x00EE => Ok(Zero::Return),
+            _ => Err(()),
+        }
+    }
+}
+
+pub struct One {
+    pub nnn: usize,
+}
+
+pub struct Two {
+    pub nnn: usize,
+}
+
+pub struct Three {
+    pub x: usize,
+    pub nn: u8,
+}
+
+pub struct Four {
+    pub x: usize,
+    pub nn: u8,
+}
+
+pub struct Five {
+    pub x: usize,
+    pub y: usize,
+}
+
+pub struct Six {
+    pub x: usize,
+    pub nn: u8,
+}
+
+pub struct Seven {
+    pub x: usize,
+    pub nn: u8,
+}
+
+pub enum EightType {
+    Zero,
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    E,
+}
+
+impl TryFrom<usize> for EightType {
+    type Error = ();
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        let res = match value {
+            0x0 => {
+                // 8XY0
+                // Sets VX to the value of VY.
+                EightType::Zero
+            }
+            0x1 => {
+                // 8XY1
+                // Sets VX to VX or VY. (Bitwise OR operation)
+                EightType::One
+            }
+            0x2 => {
+                // 8XY2
+                // Sets VX to VX and VY. (Bitwise AND operation)
+                EightType::Two
+            }
+            0x3 => {
+                // 8XY3
+                // Sets VX to VX xor VY.
+                EightType::Three
+            }
+            0x4 => {
+                // 8XY4
+                // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
+                EightType::Four
+            }
+            0x5 => {
+                // 8XY5
+                // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
+                // isn't.
+                EightType::Five
+            }
+            0x6 => {
+                // 8XY6
+                // Stores the least significant bit of VX in VF and then shifts VX to the right
+                // by 1.
+                EightType::Six
+            }
+            0x7 => {
+                // 8XY7
+                // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there
+                // isn't.
+                EightType::Seven
+            }
+            0xE => {
+                // 8XYE
+                // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
+                EightType::E
+            }
+            _ => return Err(()),
+        };
+        Ok(res)
+    }
+}
+
+pub struct Eight {
+    pub ops: EightType,
+    pub x: usize,
+    pub y: usize,
+}
+
+pub struct Nine {
+    pub x: usize,
+    pub y: usize,
+}
+
+pub struct A {
+    pub nnn: usize,
+}
+
+pub struct B {
+    pub nnn: usize,
+}
+
+pub struct C {
+    pub x: usize,
+    pub nn: u8,
+}
+
+pub struct D {
+    pub x: usize,
+    pub y: usize,
+    pub n: usize,
+}
+
+pub enum EType {
+    Pressed,
+    NotPressed,
+}
+
+pub struct E {
+    pub ops: EType,
+    pub x: usize,
+}
+
+pub enum FType {
+    SetDelayTimer,
+    SetSoundTimer,
+    GetDelayTimer,
+    AwaitKeyPress,
+    AddVxToI,
+    SetIToSprite,
+    StoreBCD,
+    StoreV0ToVx,
+    FillV0ToVx,
+}
+
+pub struct F {
+    pub ops: FType,
+    pub x: usize,
+}
+
+pub enum Opcodes {
+    Zero(Zero),
+    One(One),
+    Two(Two),
+    Three(Three),
+    Four(Four),
+    Five(Five),
+    Six(Six),
+    Seven(Seven),
+    Eight(Eight),
+    Nine(Nine),
+    A(A),
+    B(B),
+    C(C),
+    D(D),
+    E(E),
+    F(F),
+}
+
+impl TryFrom<Opcode> for Opcodes {
+    type Error = String;
+
+    fn try_from(value: Opcode) -> Result<Self, Self::Error> {
+        fn err<T>(value: Opcode) -> Result<T, String> {
+            Err(format!("An unsupported opcode was used {:#06X}", value))
+        }
+
+        // Outer convert
+        let t = value.t();
+        let res = match t {
+            0x0000 => Opcodes::Zero(t.try_into().or_else(|_| err(value))?),
+            0x1000 => Opcodes::One(One { nnn: value.nnn() }),
+            0x2000 => Opcodes::Two(Two { nnn: value.nnn() }),
+            0x3000 => {
+                let (x, nn) = value.xnn();
+                Opcodes::Three(Three { x, nn })
+            }
+            0x4000 => {
+                let (x, nn) = value.xnn();
+                Opcodes::Four(Four { x, nn })
+            }
+            0x5000 => match value.xyn() {
+                (x, y, 0) => Opcodes::Five(Five { x, y }),
+                _ => return err(value),
+            },
+            0x6000 => {
+                let (x, nn) = value.xnn();
+                Opcodes::Six(Six { x, nn })
+            }
+            0x7000 => {
+                let (x, nn) = value.xnn();
+                Opcodes::Seven(Seven { x, nn })
+            }
+            0x8000 => {
+                let (x, y, n) = value.xyn();
+                let inner = n.try_into().or_else(|_| err(value))?;
+                Opcodes::Eight(Eight { ops: inner, x, y })
+            }
+            0x9000 => match value.xyn() {
+                (x, y, 0) => Opcodes::Nine(Nine { x, y }),
+                _ => return err(value),
+            },
+            0xA000 => Opcodes::A(A { nnn: value.nnn() }),
+            0xB000 => Opcodes::B(B { nnn: value.nnn() }),
+            0xC000 => {
+                let (x, nn) = value.xnn();
+                Opcodes::C(C { x, nn })
+            }
+            0xD000 => {
+                let (x, y, n) = value.xyn();
+                Opcodes::D(D { x, y, n })
+            }
+            0xE000 => {
+                let (x, nn) = value.xnn();
+                let inner = match nn {
+                    0x9E => {
+                        // EX9E
+                        // Skips the next instruction if the key stored in VX is pressed. (Usually the next
+                        // instruction is a jump to skip a code block)
+                        EType::Pressed
+                    }
+                    0xA1 => {
+                        // EXA1
+                        // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
+                        // next instruction is a jump to skip a code block)
+                        EType::NotPressed
+                    }
+                    _ => return err(value),
+                };
+                Opcodes::E(E { ops: inner, x })
+            }
+            0xF000 => {
+                let (x, nn) = value.xnn();
+                let inner = match nn {
+                    0x07 => {
+                        // FX07
+                        // Sets VX to the value of the delay timer.
+                        FType::GetDelayTimer
+                    }
+                    0x0A => {
+                        // FX0A
+                        // A key press is awaited, and then stored in VX. (Blocking Operation. All
+                        // instruction halted until next key event)
+                        FType::AwaitKeyPress
+                    }
+                    0x15 => {
+                        // FX15
+                        // Sets the delay timer to VX.
+                        FType::SetDelayTimer
+                    }
+                    0x18 => {
+                        // FX18
+                        // Sets the sound timer to VX.
+                        FType::SetSoundTimer
+                    }
+                    0x1E => {
+                        // FX1E
+                        // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
+                        // 0 when there isn't. (not used in this system)
+                        //
+                        // Adds VX to I. VF is not affected.[c]
+                        FType::AddVxToI
+                    }
+                    0x29 => {
+                        // FX29
+                        // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
+                        // hexadecimal) are represented by a 4x5 font.
+                        FType::SetIToSprite
+                    }
+                    0x33 => {
+                        // FX33
+                        // Stores the binary-coded decimal representation of VX, with the most significant
+                        // of three digits at the address in I, the middle digit at I plus 1, and the least
+                        // significant digit at I plus 2. (In other words, take the decimal representation
+                        // of VX, place the hundreds digit in memory at location in I, the tens digit at
+                        // location I+1, and the ones digit at location I+2.)
+                        FType::StoreBCD
+                    }
+                    0x55 => {
+                        // FX55
+                        // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
+                        // is increased by 1 for each value written, but I itself is left unmodified.
+                        FType::StoreV0ToVx
+                    }
+                    0x65 => {
+                        // FX65
+                        // Fills V0 to VX (including VX) with values from memory starting at address I. The
+                        // offset from I is increased by 1 for each value written, but I itself is left
+                        // unmodified.
+                        FType::FillV0ToVx
+                    }
+                    _ => return err(value),
+                };
+                Opcodes::F(F { ops: inner, x })
+            }
+            _ => return err(value),
+        };
+        Ok(res)
+    }
+}
+
 /// Represents a step of the program counter
 /// this requires the enum ProgramCounterStep
 /// to work.
@@ -297,7 +640,9 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
             step
         };
 
-        let step = match opcode.t() {
+        let t = opcode.t();
+
+        let step = match t {
             0x0000 => self.zero(opcode).map(step_op),
             0x1000 => self.one(opcode),
             0x2000 => self.two(opcode),
