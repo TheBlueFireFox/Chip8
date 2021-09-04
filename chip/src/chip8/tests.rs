@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::timer::{NoCallback, Worker};
 
 use crate::{
@@ -6,6 +8,8 @@ use crate::{
     opcode::{ChipOpcodes, Opcode, Operation, ProgramCounter, ProgramCounterStep},
     resources::{Rom, RomArchives},
 };
+
+use super::InternalChipSet;
 
 const ROM_NAME: &'static str = "15PUZZLE";
 
@@ -45,8 +49,12 @@ pub(super) fn setup_chip(rom: Rom) -> ChipSet<Worker, NoCallback> {
 
 #[inline]
 /// Will write the opcode to the memory location specified
-pub(super) fn write_opcode_to_memory(memory: &mut [u8], from: usize, opcode: Opcode) {
-    write_slice_to_memory(memory, from, &opcode.to_be_bytes());
+pub(super) fn write_opcode_to_memory(chip: &mut InternalChipSet, from: usize, opcode: Opcode) 
+{
+    write_slice_to_memory(&mut chip.memory, from, &opcode.to_be_bytes());
+    // and add the information to the opcodes as well
+    let ops = opcode.try_into().expect("Unable to convert the opcode");
+    chip.opcode_memory[from - cpu::PROGRAM_COUNTER] = ops;
 }
 
 #[inline]
@@ -59,14 +67,13 @@ pub(super) fn write_slice_to_memory(memory: &mut [u8], from: usize, data: &[u8])
 /// test reading of the first opcode
 fn test_set_opcode() {
     let mut chipset = get_default_chip();
-    let chip = chipset.chipset_mut();
+    let mut chip = chipset.chipset_mut();
 
     let opcode = 0xA00A;
-    write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+    let pc = chip.program_counter;
+    write_opcode_to_memory(&mut chip, pc, opcode);
 
-    assert!(chip.set_opcode().is_ok());
-
-    assert_eq!(chip.opcode, opcode);
+    assert_eq!(Ok(chip.get_opcode()), opcode.try_into());
 }
 
 #[test]
@@ -148,12 +155,13 @@ mod zero {
     /// `0x00E0`
     fn test_clear_display_opcode() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
 
         let curr_pc = chip.program_counter;
 
         let opcode = 0x00E0;
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        let pc = chip.program_counter;
+        write_opcode_to_memory(&mut chip, pc, opcode);
 
         // run - if there was no panic it worked as intended
         assert_eq!(chip.next(), Ok(Operation::Draw));
@@ -166,21 +174,24 @@ mod zero {
     /// `0x00EE`
     fn test_return_subrutine() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
         // set up test
         let base = 0x234;
         let opcode: Opcode = 0x2000 ^ base;
 
         // write the to subroutine to memory
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        let pc = chip.program_counter;
+        write_opcode_to_memory(&mut chip, pc, opcode);
+        let opcode = &opcode.try_into().unwrap();
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         // set opcode
         let opcode = 0x00EE;
 
         // write bytes to chip memory
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        let pc = chip.program_counter;
+        write_opcode_to_memory(&mut chip, pc, opcode);
 
         assert_eq!(Ok(Operation::None), chip.next());
 
@@ -194,9 +205,10 @@ mod zero {
     #[test]
     fn test_illigal_zero_opcode() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
         let opcode = 0x00EA;
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        let pc = chip.program_counter;
+        write_opcode_to_memory(&mut chip, pc, opcode);
         assert_eq!(
             Err("An unsupported opcode was used 0x00EA".to_string()),
             chip.next()
@@ -212,14 +224,13 @@ mod one {
     /// `1NNN`
     fn test_jump_address() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let base = 0x0234;
         let opcode = 0x1000 ^ base as Opcode;
         // let _ = chip.move_program_counter(base);
         chip.step(ProgramCounterStep::Jump(base));
-        chip.opcode = opcode;
 
-        assert_eq!(chip.calc(opcode), Ok(Operation::None));
+        assert_eq!(chip.calc(&opcode.try_into().unwrap()), Ok(Operation::None));
 
         assert_eq!(base, chip.program_counter);
     }
@@ -232,14 +243,12 @@ mod two {
     /// "2NNN"
     fn test_call_subrutine() {
         let mut chipset = get_default_chip();
-        let mut chip = chipset.chipset_mut();
+        let chip = chipset.chipset_mut();
         let base = 0x234;
         let opcode = 0x2000 ^ base;
         let curr_pc = chip.program_counter;
 
-        chip.opcode = opcode;
-
-        assert_eq!(Ok(Operation::None), chip.calc(opcode));
+        assert_eq!(Ok(Operation::None), chip.calc(&opcode.try_into().unwrap()));
 
         assert_eq!(base as usize, chip.program_counter);
 
@@ -267,6 +276,7 @@ mod three {
 
         let curr_pc = chip.program_counter;
 
+        let opcode = &opcode.try_into().unwrap();
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
@@ -296,6 +306,7 @@ mod four {
         // will not skip next instruction
         let curr_pc = chip.program_counter;
         chip.registers[register as usize] = solution as u8;
+        let opcode = &opcode.try_into().unwrap();
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
@@ -331,6 +342,7 @@ mod five {
         // will not skip next instruction
         let curr_pc = chip.program_counter;
 
+        let opcode = &opcode.try_into().unwrap();
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
@@ -350,14 +362,14 @@ mod five {
     /// mainly for coverage, but still simple to test
     fn test_five_false_opcode() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
         let registery = 0x1;
         let registerx = 0x2;
         let pc = chip.program_counter;
         for i in 1..16 {
             let opcode = 0x5 << (3 * 4) ^ (registerx << (2 * 4)) ^ (registery << (1 * 4) ^ i);
 
-            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+            write_opcode_to_memory(&mut chip, pc, opcode);
 
             assert_eq!(
                 chip.next(),
@@ -385,6 +397,7 @@ mod six {
         // skip register 1 if VY is not equals to VX
         let opcode: Opcode = 0x6 << (3 * 4) ^ ((register as u16) << (2 * 4)) ^ (value as u16);
 
+        let opcode = &opcode.try_into().unwrap();
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(value, chip.registers[register]);
@@ -409,6 +422,7 @@ mod seven {
         chip.registers[register] = value_reg;
         // skip register 1 if VY is not equals to VX
         let opcode: Opcode = 0x7 << (3 * 4) ^ ((register as u16) << (2 * 4)) ^ (value as u16);
+        let opcode = &opcode.try_into().unwrap();
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
@@ -446,7 +460,7 @@ mod eight {
         let opcode: Opcode =
             0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
 
-        chip.opcode = opcode;
+        let opcode = &opcode.try_into().unwrap();
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
@@ -480,7 +494,7 @@ mod eight {
         let opcode: Opcode =
             0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
 
-        chip.opcode = opcode;
+        let opcode = &opcode.try_into().unwrap();
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
@@ -513,7 +527,7 @@ mod eight {
         let opcode: Opcode =
             0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
 
-        chip.opcode = opcode;
+        let opcode = &opcode.try_into().unwrap();
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
@@ -546,7 +560,7 @@ mod eight {
         let opcode: Opcode =
             0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
 
-        chip.opcode = opcode;
+        let opcode = &opcode.try_into().unwrap();
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
@@ -579,7 +593,7 @@ mod eight {
         let opcode: Opcode =
             0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
 
-        chip.opcode = opcode;
+        let opcode = &opcode.try_into().unwrap();
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
@@ -613,7 +627,7 @@ mod eight {
         let opcode: Opcode =
             0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
 
-        chip.opcode = opcode;
+        let opcode = &opcode.try_into().unwrap();
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
@@ -645,7 +659,7 @@ mod eight {
         let opcode: Opcode =
             0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
 
-        chip.opcode = opcode;
+        let opcode = &opcode.try_into().unwrap();
 
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
@@ -679,8 +693,7 @@ mod eight {
         let opcode: Opcode =
             0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
 
-        chip.opcode = opcode;
-
+        let opcode = &opcode.try_into().unwrap();
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.registers[reg_x], 0x1A);
@@ -710,8 +723,7 @@ mod eight {
         let opcode: Opcode =
             0x8 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ command;
 
-        chip.opcode = opcode;
-
+        let opcode = &opcode.try_into().unwrap();
         assert_eq!(Ok(Operation::None), chip.calc(opcode));
 
         assert_eq!(chip.registers[reg_x], 0xE2);
@@ -723,11 +735,11 @@ mod eight {
     /// This test is mainly for correct coverage.
     fn test_eight_wrong_opcode() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let opcode: Opcode = 0x800A;
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        write_opcode_to_memory(&mut chip, curr_pc, opcode);
 
         assert_eq!(
             chip.next(),
@@ -760,7 +772,7 @@ mod nine {
         for i in 1..16 {
             let opcode: Opcode =
                 0x9 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ i;
-            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+            write_opcode_to_memory(&mut chip, curr_pc, opcode);
 
             assert_eq!(
                 chip.next(),
@@ -775,7 +787,7 @@ mod nine {
     /// This test is mainly for correct coverage.
     fn test_skip_if_reg_not_equals() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
         let curr_pc = chip.program_counter;
 
         let reg_x = 0x1;
@@ -794,7 +806,7 @@ mod nine {
         let opcode: Opcode =
             0x9 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ 0;
         {
-            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+            write_opcode_to_memory(&mut chip, curr_pc, opcode);
 
             assert_eq!(chip.next(), Ok(Operation::None));
 
@@ -805,7 +817,7 @@ mod nine {
 
             save(&mut chip.registers, (reg_x, val_reg_x), (reg_y, val_reg_y));
 
-            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+            write_opcode_to_memory(&mut chip, curr_pc, opcode);
 
             assert_eq!(chip.next(), Ok(Operation::None));
 
@@ -820,13 +832,13 @@ mod a {
     #[test]
     fn test_set_index_reg_to_addr() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
-        let curr_pc = chip.program_counter;
+        let mut chip = chipset.chipset_mut();
+        let pc = chip.program_counter;
 
         let addr = 0x420;
         let opcode: Opcode = 0xA << (3 * 4) ^ addr;
 
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        write_opcode_to_memory(&mut chip, pc, opcode);
 
         assert_ne!(chip.index_register, addr as usize);
 
@@ -834,7 +846,7 @@ mod a {
 
         assert_eq!(chip.index_register, addr as usize);
 
-        assert_eq!(chip.program_counter, curr_pc + 1 * memory::opcodes::SIZE);
+        assert_eq!(chip.program_counter, pc+ 1 * memory::opcodes::SIZE);
     }
 }
 mod b {
@@ -853,7 +865,9 @@ mod b {
         let addr = 0x420;
         let opcode: Opcode = 0xB << (3 * 4) ^ addr;
 
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        let pc = chip.program_counter;
+
+        write_opcode_to_memory(&mut chip, pc, opcode);
 
         assert_eq!(chip.next(), Ok(Operation::None));
 
@@ -883,7 +897,7 @@ mod c {
         let anded = 0x20;
         let opcode: Opcode = 0xC << (3 * 4) ^ (reg as u16) << (2 * 4) ^ (anded as u16);
 
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        write_opcode_to_memory(&mut chip, pc, opcode);
 
         assert_eq!(chip.next(), Ok(Operation::None));
 
@@ -914,8 +928,9 @@ mod e {
         for (i, reg) in [reg2, reg1].iter().enumerate() {
             chip.registers[*reg] = *reg as u8;
             let opcode = 0xE << (3 * 4) ^ (*reg as Opcode) << (2 * 4) ^ 0x9E;
+            let pc = chip.program_counter;
 
-            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+            write_opcode_to_memory(&mut chip, pc, opcode);
 
             let pc = chip.program_counter;
 
@@ -944,7 +959,7 @@ mod e {
             chip.registers[*reg] = *reg as u8;
 
             let opcode = 0xE << (3 * 4) ^ (*reg as Opcode) << (2 * 4) ^ 0xA1;
-            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+            write_opcode_to_memory(&mut chip, pc, opcode);
 
             assert_eq!(chip.next(), Ok(Operation::None));
 
@@ -961,13 +976,13 @@ mod e {
         keyboard[reg] = true;
 
         let mut chipset = setup_chip(rom);
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
         chip.set_keyboard(&keyboard);
 
         let pc = chip.program_counter;
 
         let opcode = 0xE << (3 * 4) ^ (reg as Opcode) << (2 * 4) ^ 0x11;
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        write_opcode_to_memory(&mut chip, pc, opcode);
 
         assert_eq!(
             chip.next(),
@@ -1002,7 +1017,9 @@ mod f {
 
         chip.registers[reg] = 0x44;
 
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        let pc = chip.program_counter;
+
+        write_opcode_to_memory(&mut chip, pc, opcode);
 
         assert_ne!(chip.registers[reg], dt);
 
@@ -1021,17 +1038,17 @@ mod f {
     // instruction halted until next key event)
     fn test_await_key_press() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
         let key = 4;
         let reg = 0xA;
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x0A;
 
         let pc = chip.program_counter;
 
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        write_opcode_to_memory(&mut chip, pc, opcode);
         write_opcode_to_memory(
-            &mut chip.memory,
-            chip.program_counter + memory::opcodes::SIZE,
+            &mut chip,
+            pc + memory::opcodes::SIZE,
             opcode,
         );
 
@@ -1069,7 +1086,7 @@ mod f {
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x15;
 
         let pc = chip.program_counter;
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        write_opcode_to_memory(&mut chip, pc, opcode);
 
         chip.registers[reg] = key;
 
@@ -1097,7 +1114,7 @@ mod f {
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x18;
 
         let pc = chip.program_counter;
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        write_opcode_to_memory(&mut chip, pc, opcode);
 
         chip.registers[reg] = key;
 
@@ -1123,7 +1140,7 @@ mod f {
         let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x1E;
 
         let pc = chip.program_counter;
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+        write_opcode_to_memory(&mut chip, pc, opcode);
         chip.registers[reg] = key;
         chip.index_register = 0x44;
 
@@ -1139,12 +1156,12 @@ mod f {
     #[test]
     fn test_set_i_to_given_font() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
         let mut test = |reg, val, loc| {
             let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x29;
 
             let pc = chip.program_counter;
-            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+            write_opcode_to_memory(&mut chip, pc, opcode);
 
             chip.registers[reg] = val;
             chip.index_register = 0x44;
@@ -1175,7 +1192,7 @@ mod f {
             let opcode = 0xF << (3 * 4) ^ (reg as u16) << (2 * 4) ^ 0x33;
 
             let pc = chip.program_counter;
-            write_opcode_to_memory(&mut chip.memory, chip.program_counter, opcode);
+            write_opcode_to_memory(&mut chip, pc, opcode);
             chip.registers[reg] = key;
             chip.index_register = 0x44;
 
@@ -1200,7 +1217,7 @@ mod f {
     #[test]
     fn test_store_register_into_memory() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
 
         const REG: usize = 0xB;
         const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x55;
@@ -1210,7 +1227,7 @@ mod f {
         assert_eq!(&rand_data[..], &chip.registers[..=REG]);
 
         let pc = chip.program_counter;
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, OPCODE);
+        write_opcode_to_memory(&mut chip, pc, OPCODE);
 
         assert_eq!(Ok(Operation::None), chip.next());
         assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
@@ -1236,7 +1253,7 @@ mod f {
         chip.memory[from..=(from + REG)].copy_from_slice(&rand_data);
 
         let pc = chip.program_counter;
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, OPCODE);
+        write_opcode_to_memory(&mut chip, pc, OPCODE);
 
         assert_eq!(Ok(Operation::None), chip.next());
         assert_eq!(chip.program_counter, pc + memory::opcodes::SIZE);
@@ -1247,13 +1264,13 @@ mod f {
     #[test]
     fn test_wrong_opcode() {
         let mut chipset = get_default_chip();
-        let chip = chipset.chipset_mut();
+        let mut chip = chipset.chipset_mut();
 
         const REG: usize = 0xB;
         const OPCODE: Opcode = 0xF << (3 * 4) ^ (REG as u16) << (2 * 4) ^ 0x45;
 
         let pc = chip.program_counter;
-        write_opcode_to_memory(&mut chip.memory, chip.program_counter, OPCODE);
+        write_opcode_to_memory(&mut chip, pc, OPCODE);
 
         assert_eq!(
             Err(format!("An unsupported opcode was used {:#06X?}", OPCODE)),

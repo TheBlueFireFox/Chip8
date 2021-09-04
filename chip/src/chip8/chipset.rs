@@ -5,13 +5,14 @@
 use crate::{
     definitions::{cpu, display, keyboard, memory, timer},
     devices::Keyboard,
-    opcode::{self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter, ProgramCounterStep},
+    opcode::{self, ChipOpcodePreProcessHandler, Opcodes, ProgramCounter, ProgramCounterStep},
     resources::Rom,
     timer::{NoCallback, TimerCallback},
     timer::{TimedWorker, Timer, TimerValue},
 };
 use rand::RngCore;
 use std::{
+    convert::TryInto,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Duration,
 };
@@ -105,12 +106,11 @@ where
 pub(super) struct InternalChipSet {
     /// name of the loaded rom
     pub(super) name: String,
-    /// all two bytes long and stored big-endian
-    pub(super) opcode: Opcode,
     /// - `0x000-0x1FF` - Chip 8 interpreter (contains font set in emu)
     /// - `0x050-0x0A0` - Used for the built in `4x5` pixel font set (`0-F`)
     /// - `0x200-0xFFF` - Program ROM and work RAM
     pub(super) memory: Vec<u8>,
+    pub(super) opcode_memory: Vec<Opcodes>,
     /// `8-bit` data registers named `V0` to `VF`. The `VF` register doubles as a flag for some
     /// instructions; thus, it should be avoided. In an addition operation, `VF` is the carry flag,
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction `VF` is set upon
@@ -173,16 +173,24 @@ impl InternalChipSet {
             .copy_from_slice(&display::fontset::FONTSET);
 
         // write the rom data into memory
+        let data = rom.get_data();
         ram[cpu::PROGRAM_COUNTER..(cpu::PROGRAM_COUNTER + rom.get_data().len())]
-            .copy_from_slice(&rom.get_data());
+            .copy_from_slice(data);
+
+        // transform the data into the internally used opcodes
+        let mut ops = data
+            .chunks(2)
+            .map(|v| opcode::build_opcode(v, 0).expect("This should be valid"))
+            .map(|ops| ops.try_into().expect("This should be a valid opcode"))
+            .collect();
 
         Self {
             name: rom.get_name().to_string(),
-            opcode: 0,
             memory: ram,
+            opcode_memory: ops,
             registers: [0; cpu::register::SIZE],
             index_register: 0,
-            program_counter: cpu::PROGRAM_COUNTER,
+            program_counter: 0,
             stack: Vec::with_capacity(cpu::stack::SIZE),
             delay_timer,
             sound_timer,
@@ -194,10 +202,8 @@ impl InternalChipSet {
     }
 
     /// will get the next opcode from memory
-    pub fn set_opcode(&mut self) -> Result<(), String> {
-        // will build the opcode given from the pointer
-        self.opcode = opcode::build_opcode(&self.memory, self.program_counter)?;
-        Ok(())
+    pub fn get_opcode(&mut self) -> Opcodes {
+        self.opcode_memory[self.program_counter - cpu::PROGRAM_COUNTER]
     }
 
     /// will advance the program by a single step
@@ -205,9 +211,9 @@ impl InternalChipSet {
         // import here as to not bloat the namespace
         use crate::opcode::ChipOpcodes;
         // get next opcode
-        self.set_opcode()?;
+        let opcode = self.get_opcode();
         // run the opcode
-        self.calc(self.opcode)
+        self.calc(&opcode)
     }
 
     pub(super) fn get_keyboard_write(&mut self) -> RwLockWriteGuard<Keyboard> {

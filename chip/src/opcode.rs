@@ -274,7 +274,7 @@ macro_rules! implTryInto {
     };
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Zero {
     /// Clears the display
     Clear,
@@ -283,51 +283,55 @@ pub enum Zero {
 }
 
 implTryInto!(Zero : Opcode :
+    // 00E0
+    // clear display
     0x00E0 => Zero::Clear,
+    // 00EE
+    // Return from sub routine => pop from stack
     0x00EE => Zero::Return,
 );
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct One {
     pub nnn: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Two {
     pub nnn: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Three {
     pub x: usize,
     pub nn: u8,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Four {
     pub x: usize,
     pub nn: u8,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Five {
     pub x: usize,
     pub y: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Six {
     pub x: usize,
     pub nn: u8,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Seven {
     pub x: usize,
     pub nn: u8,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EightOpcode {
     Zero,
     One,
@@ -373,43 +377,43 @@ implTryInto!(EightOpcode : usize :
     0xE => EightOpcode::E,
 );
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Eight {
     pub ops: EightOpcode,
     pub x: usize,
     pub y: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Nine {
     pub x: usize,
     pub y: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct A {
     pub nnn: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct B {
     pub nnn: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct C {
     pub x: usize,
     pub nn: u8,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct D {
     pub x: usize,
     pub y: usize,
     pub n: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EOpcode {
     Pressed,
     NotPressed,
@@ -426,13 +430,13 @@ implTryInto!(EOpcode : u8 :
     0xA1 => EOpcode::NotPressed,
 );
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct E {
     pub ops: EOpcode,
     pub x: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FOpcode {
     SetDelayTimer,
     SetSoundTimer,
@@ -487,13 +491,13 @@ implTryInto!(FOpcode : u8 :
     0x65 => FOpcode::FillV0ToVx,
 );
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct F {
     pub ops: FOpcode,
     pub x: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Opcodes {
     Zero(Zero),
     One(One),
@@ -628,7 +632,7 @@ pub trait ChipOpcodePreProcessHandler {
 /// implementations.
 pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// will calculate the programs step by a single step
-    fn calc(&mut self, opcode: Opcode) -> Result<Operation, String> {
+    fn calc(&mut self, opcode: &Opcodes) -> Result<Operation, String> {
         // preprocess
         self.preprocess();
 
@@ -638,26 +642,23 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
             step
         };
 
-        let t = opcode.t();
-
-        let step = match t {
-            0x0000 => self.zero(opcode).map(step_op),
-            0x1000 => self.one(opcode),
-            0x2000 => self.two(opcode),
-            0x3000 => self.three(opcode),
-            0x4000 => self.four(opcode),
-            0x5000 => self.five(opcode),
-            0x6000 => self.six(opcode),
-            0x7000 => self.seven(opcode),
-            0x8000 => self.eight(opcode),
-            0x9000 => self.nine(opcode),
-            0xA000 => self.a(opcode),
-            0xB000 => self.b(opcode),
-            0xC000 => self.c(opcode),
-            0xD000 => self.d(opcode).map(step_op),
-            0xE000 => self.e(opcode),
-            0xF000 => self.f(opcode).map(step_op),
-            _ => Err(format!("An unsupported opcode was used {:#06X}", opcode)),
+        let step = match opcode {
+            Opcodes::Zero(opcode) => self.zero(opcode).map(step_op),
+            Opcodes::One(opcode) => self.one(opcode),
+            Opcodes::Two(opcode) => self.two(opcode),
+            Opcodes::Three(opcode) => self.three(opcode),
+            Opcodes::Four(opcode) => self.four(opcode),
+            Opcodes::Five(opcode) => self.five(opcode),
+            Opcodes::Six(opcode) => self.six(opcode),
+            Opcodes::Seven(opcode) => self.seven(opcode),
+            Opcodes::Eight(opcode) => self.eight(opcode),
+            Opcodes::Nine(opcode) => self.nine(opcode),
+            Opcodes::A(opcode) => self.a(opcode),
+            Opcodes::B(opcode) => self.b(opcode),
+            Opcodes::C(opcode) => self.c(opcode),
+            Opcodes::D(opcode) => self.d(opcode).map(step_op),
+            Opcodes::E(opcode) => self.e(opcode),
+            Opcodes::F(opcode) => self.f(opcode).map(step_op),
         }?;
 
         self.step(step);
@@ -671,42 +672,42 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `00EE` - Flow     - `return;`             - Returns from a subroutine.
     ///
     /// Returns any possible error
-    fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
+    fn zero(&mut self, opcode: &Zero) -> Result<(ProgramCounterStep, Operation), String>;
 
     /// - `1NNN` - Flow     - `goto NNN;`           - Jumps to address `NNN`.
     ///
     /// Returns any possible error
-    fn one(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn one(&self, opcode: &One) -> Result<ProgramCounterStep, String>;
 
     /// - `2NNN` - Flow     - `*(0xNNN)()`          - Calls subroutine at `NNN`.
     ///
     /// Returns any possible error
-    fn two(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn two(&mut self, opcode: &Two) -> Result<ProgramCounterStep, String>;
 
     /// - `3XNN` - Cond 	- `if(Vx==NN)`          - Skips the next instruction if `VX` equals `NN`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn three(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn three(&self, opcode: &Three) -> Result<ProgramCounterStep, String>;
 
     /// - `4XNN` - Cond     - `if(Vx!=NN)`          - Skips the next instruction if `VX` doesn' t equal `NN`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn four(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn four(&self, opcode: &Four) -> Result<ProgramCounterStep, String>;
 
     /// - `5XY0` - Cond     - `if(Vx==Vy)`          - Skips the next instruction if `VX` equals `VY`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn five(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn five(&self, opcode: &Five) -> Result<ProgramCounterStep, String>;
 
     /// - `6XNN` - Const    - `Vx = NN`             - Sets `VX` to `NN`.
     ///
     /// Returns any possible error
-    fn six(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn six(&mut self, opcode: &Six) -> Result<ProgramCounterStep, String>;
 
     /// - `7XNN` - Const    - `Vx += NN`            - Adds `NN` to `VX`. (Carry flag is not changed)
     ///
     /// Returns any possible error
-    fn seven(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn seven(&mut self, opcode: &Seven) -> Result<ProgramCounterStep, String>;
 
     /// A mutiuse opcode base for type `8NNT` (T is a sub obcode)
     ///
@@ -721,32 +722,32 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `8XYE` - BitOp    - `Vx<<=1`              - Stores the most significant bit of `VX` in `VF` and then shifts `VX` to the left by `1`.
     ///
     /// Returns any possible error
-    fn eight(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn eight(&mut self, opcode: &Eight) -> Result<ProgramCounterStep, String>;
 
     /// - `9XY0` - Cond     - `if(Vx!=Vy)`          - Skips the next instruction if `VX` doesn't equal `VY`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn nine(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn nine(&self, opcode: &Nine) -> Result<ProgramCounterStep, String>;
 
     /// - `ANNN` - MEM      - `I = NNN`             - Sets `I` to the address `NNN`.
     ///
     /// Returns any possible error
-    fn a(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn a(&mut self, opcode: &A) -> Result<ProgramCounterStep, String>;
 
     /// - `BNNN` - Flow 	- `PC=V0+NNN`           - Jumps to the address `NNN` plus `V0`.
     ///
     /// Returns any possible error
-    fn b(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn b(&self, opcode: &B) -> Result<ProgramCounterStep, String>;
 
     /// - `CXNN` - Rand     - `Vx=rand()&NN`        - Sets `VX` to the result of a bitwise and operation on a random number (Typically: `0 to 255`) and `NN`.
     ///
     /// Returns any possible error
-    fn c(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn c(&mut self, opcode: &C) -> Result<ProgramCounterStep, String>;
 
     /// - `DXYN` - Disp     - `draw(Vx,Vy,N)`       - Draws a sprite at coordinate `(VX, VY)` that has a width of `8` pixels and a height of `N` pixels. Each row of `8` pixels is read as bit-coded starting from memory location `I`; `I` value doesn’t change after the execution of this instruction. As described above, `VF` is set to `1` if any screen pixels are flipped from set to unset when the sprite is drawn, and to `0` if that doesn’t happen
     ///
     /// Returns any possible error
-    fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
+    fn d(&mut self, opcode: &D) -> Result<(ProgramCounterStep, Operation), String>;
 
     /// A multiuse opcode base for type `EXTT` (T is a sub opcode)
     ///
@@ -754,7 +755,7 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `EXA1` - KeyOp    - `if(key()!=Vx)`       - Skips the next instruction if the key stored in `VX` isn't pressed. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn e(&self, opcode: Opcode) -> Result<ProgramCounterStep, String>;
+    fn e(&self, opcode: &E) -> Result<ProgramCounterStep, String>;
 
     /// A multiuse opcode base for type `FXTT` (T is a sub opcode)
     ///
@@ -769,5 +770,5 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `FX65` - MEM      - `reg_load(Vx,&I)`     - Fills `V0` to `VX` (including `VX`) with values from memory starting at address `I`. The offset from `I` is increased by `1` for each value written, but `I` itself is left unmodified.
     ///
     /// Returns any possible error
-    fn f(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String>;
+    fn f(&mut self, opcode: &F) -> Result<(ProgramCounterStep, Operation), String>;
 }
