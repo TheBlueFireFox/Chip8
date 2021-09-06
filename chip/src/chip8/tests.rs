@@ -126,7 +126,7 @@ fn test_step() {
 }
 
 #[test]
-#[should_panic(expected = "Memory out of bounds error!")]
+#[should_panic(expected = "Memory pointer '0x01FF' is out of bounds error!")]
 fn test_step_panic_lower_bound() {
     let mut chipset = get_default_chip();
     let chip = chipset.chipset_mut();
@@ -135,7 +135,7 @@ fn test_step_panic_lower_bound() {
 }
 
 #[test]
-#[should_panic(expected = "Memory out of bounds error!")]
+#[should_panic(expected = "Memory pointer '0x1000' is out of bounds error!")]
 fn test_step_panic_upper_bound() {
     let mut chipset = get_default_chip();
     let chip = chipset.chipset_mut();
@@ -797,11 +797,12 @@ mod nine {
             reg[reg_y] = val_y;
         };
 
-        save(&mut chip.registers, (reg_x, val_reg_x), (reg_y, val_reg_y));
-
         let opcode: Opcode =
             0x9 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ 0;
+
         {
+            save(&mut chip.registers, (reg_x, val_reg_x), (reg_y, val_reg_y));
+
             write_opcode_to_memory(&mut chip, curr_pc, opcode);
 
             assert_eq!(chip.next(), Ok(Operation::None));
@@ -813,7 +814,7 @@ mod nine {
 
             save(&mut chip.registers, (reg_x, val_reg_x), (reg_y, val_reg_y));
 
-            write_opcode_to_memory(&mut chip, curr_pc, opcode);
+            write_opcode_to_memory(&mut chip, curr_pc + 1 * memory::opcodes::SIZE, opcode);
 
             assert_eq!(chip.next(), Ok(Operation::None));
 

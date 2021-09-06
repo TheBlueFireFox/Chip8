@@ -44,7 +44,7 @@ impl ChipOpcodes for InternalChipSet {
             return Err(err.to_string());
         }
         // moving the counter jump value to the start
-        Ok(ProgramCounterStep::Jump(nnn - cpu::PROGRAM_COUNTER))
+        Ok(ProgramCounterStep::Jump(nnn))
     }
 
     fn three(&self, &Three { x, nn }: &Three) -> Result<ProgramCounterStep, String> {

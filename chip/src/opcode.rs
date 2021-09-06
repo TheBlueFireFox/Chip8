@@ -224,6 +224,7 @@ impl ProgramCounterStep {
     /// assert_eq!(ProgramCounterStep::Next, ProgramCounterStep::cond(false));
     /// assert_eq!(ProgramCounterStep::Skip, ProgramCounterStep::cond(true));
     /// ```
+    #[inline]
     pub fn cond(cond: bool) -> Self {
         if cond {
             ProgramCounterStep::Skip
@@ -233,17 +234,20 @@ impl ProgramCounterStep {
     }
 
     /// Maps the [`ProgramCounterStep`](ProgramCounterStep) to the corresponding movement distanz.
+    #[inline]
     pub fn step(&self) -> usize {
-        match self {
+        match *self {
             ProgramCounterStep::Next => memory::opcodes::SIZE,
             ProgramCounterStep::Skip => 2 * memory::opcodes::SIZE,
             ProgramCounterStep::None => 0,
             ProgramCounterStep::Jump(pointer) => {
                 assert!(
-                    cpu::PROGRAM_COUNTER <= *pointer && *pointer < memory::SIZE,
-                    "Memory out of bounds error!"
+                    cpu::PROGRAM_COUNTER <= pointer && pointer < memory::SIZE,
+                    "Memory pointer '{:#06X}' is out of bounds error!",
+                    pointer
                 );
-                *pointer
+
+                pointer
             }
         }
     }
@@ -253,13 +257,13 @@ impl ProgramCounterStep {
 /// macro. It is primarly used for converting to the correct type, without
 /// disturbing its namespace.
 #[repr(transparent)]
-struct Inner<T>(T);
+struct TryIntoHandler<T>(T);
 
 /// implTryInto is a macro responsible for creating the boilerplate code
 /// needed for the opcode convertions.
 macro_rules! implTryInto {
     ($type_name:ty : $type_from:ty : $( $key:literal => $val:expr ),+ $(,)? ) => {
-        impl TryFrom<$type_from> for Inner<$type_name> {
+        impl TryFrom<$type_from> for TryIntoHandler<$type_name> {
             type Error = ();
 
             fn try_from(value: $type_from) -> Result<Self, Self::Error> {
@@ -522,66 +526,70 @@ impl TryFrom<Opcode> for Opcodes {
 
     fn try_from(value: Opcode) -> Result<Self, Self::Error> {
         fn err<T>(value: Opcode) -> Result<T, String> {
-            Err(format!("An unsupported opcode was used {:#06X}", value))
+            Err(format!("An unsupported opcode was used {:#06X?}", value))
         }
 
-        fn try_into<To, From: TryInto<Inner<To>>>(val: From, value: Opcode) -> Result<To, String> {
-            let inner: Inner<To>;
+        fn try_into<To, From>(val: From, value: Opcode) -> Result<To, String>
+        where
+            From: TryInto<TryIntoHandler<To>>,
+        {
+            let inner: TryIntoHandler<To>;
             inner = val.try_into().or_else(|_| err(value))?;
             Ok(inner.0)
         }
 
         // Outer convert
-        let t = value.t();
+        // Shifing t here so that match can use a loopuptable instead of a 'if else' - blocks
+        let t = value.t() >> 4 * 3;
         let res = match t {
-            0x0000 => Opcodes::Zero(try_into(value, value)?),
-            0x1000 => Opcodes::One(One { nnn: value.nnn() }),
-            0x2000 => Opcodes::Two(Two { nnn: value.nnn() }),
-            0x3000 => {
+            0x0 => Opcodes::Zero(try_into(value, value)?),
+            0x1 => Opcodes::One(One { nnn: value.nnn() }),
+            0x2 => Opcodes::Two(Two { nnn: value.nnn() }),
+            0x3 => {
                 let (x, nn) = value.xnn();
                 Opcodes::Three(Three { x, nn })
             }
-            0x4000 => {
+            0x4 => {
                 let (x, nn) = value.xnn();
                 Opcodes::Four(Four { x, nn })
             }
-            0x5000 => match value.xyn() {
+            0x5 => match value.xyn() {
                 (x, y, 0) => Opcodes::Five(Five { x, y }),
                 _ => return err(value),
             },
-            0x6000 => {
+            0x6 => {
                 let (x, nn) = value.xnn();
                 Opcodes::Six(Six { x, nn })
             }
-            0x7000 => {
+            0x7 => {
                 let (x, nn) = value.xnn();
                 Opcodes::Seven(Seven { x, nn })
             }
-            0x8000 => {
+            0x8 => {
                 let (x, y, n) = value.xyn();
                 let ops = try_into(n, value)?;
                 Opcodes::Eight(Eight { ops, x, y })
             }
-            0x9000 => match value.xyn() {
+            0x9 => match value.xyn() {
                 (x, y, 0) => Opcodes::Nine(Nine { x, y }),
                 _ => return err(value),
             },
-            0xA000 => Opcodes::A(Ten { nnn: value.nnn() }),
-            0xB000 => Opcodes::B(Eleven { nnn: value.nnn() }),
-            0xC000 => {
+            0xA => Opcodes::A(Ten { nnn: value.nnn() }),
+            0xB => Opcodes::B(Eleven { nnn: value.nnn() }),
+            0xC => {
                 let (x, nn) = value.xnn();
                 Opcodes::C(Twelve { x, nn })
             }
-            0xD000 => {
+            0xD => {
                 let (x, y, n) = value.xyn();
                 Opcodes::D(Thirteen { x, y, n })
             }
-            0xE000 => {
+            0xE => {
                 let (x, nn) = value.xnn();
                 let ops = try_into(nn, value)?;
                 Opcodes::E(Fourteen { ops, x })
             }
-            0xF000 => {
+            0xF => {
                 let (x, nn) = value.xnn();
                 let ops = try_into(nn, value)?;
                 Opcodes::F(Fifteen { ops, x })
