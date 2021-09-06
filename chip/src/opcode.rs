@@ -1,7 +1,10 @@
 //! Opcode abstractions, functionality and constants.
 use std::convert::{TryFrom, TryInto};
 
-use crate::definitions::{cpu, memory};
+use crate::{
+    definitions::{cpu, memory},
+    OpcodeError, ProcessError,
+};
 
 /// the base mask used for generating all the other sub masks
 pub(crate) const OPCODE_MASK_FFFF: u16 = u16::MAX;
@@ -40,6 +43,7 @@ pub type Opcode = u16;
 /// # Example
 /// ```rust
 /// # use chip::opcode::*;
+/// # use chip::OpcodeError;
 ///  const OPCODES: [Opcode; 2] = [0x00EE, 0x1EDA];
 ///  const SPLIT_OPCODE: [u8; 4] = [0x00, 0xEE, 0x1E, 0xDA];
 ///  for (i, val) in OPCODES.iter().enumerate() {
@@ -48,21 +52,25 @@ pub type Opcode = u16;
 ///  }
 /// # // comment this test out for the visible part, as it doesn't help showing the function usage.
 /// # let pointer = 3;
+/// # let err = OpcodeError::MemoryInvalid {pointer, len: SPLIT_OPCODE.len() };
 /// # assert_eq!(
-/// #    Err("Pointer location invalid there can not be an opcode at 3, if data len is 4".to_string()),
+/// #    Err(err),
 /// #    build_opcode(&SPLIT_OPCODE, pointer)
 /// # );
+/// # assert_eq!(
+/// #   "Pointer location invalid there can not be an opcode at 3, if data len is 4".to_string(),
+/// #   format!("{}", err),
+/// # );
 /// ```
-pub fn build_opcode(data: &[u8], pointer: usize) -> Result<Opcode, String> {
+pub fn build_opcode(data: &[u8], pointer: usize) -> Result<Opcode, OpcodeError> {
     // controlling that there is no illegal access here
     if pointer + 1 < data.len() {
         Ok(Opcode::from_be_bytes([data[pointer], data[pointer + 1]]))
     } else {
-        Err(format!(
-            "Pointer location invalid there can not be an opcode at {}, if data len is {}",
+        Err(OpcodeError::MemoryInvalid {
             pointer,
-            data.len()
-        ))
+            len: data.len(),
+        })
     }
 }
 
@@ -522,14 +530,14 @@ pub enum Opcodes {
 }
 
 impl TryFrom<Opcode> for Opcodes {
-    type Error = String;
+    type Error = OpcodeError;
 
     fn try_from(value: Opcode) -> Result<Self, Self::Error> {
-        fn err<T>(value: Opcode) -> Result<T, String> {
-            Err(format!("An unsupported opcode was used {:#06X?}", value))
+        fn err<T>(value: Opcode) -> Result<T, OpcodeError> {
+            Err(OpcodeError::InvalidOpcode(value))
         }
 
-        fn try_into<To, From>(val: From, value: Opcode) -> Result<To, String>
+        fn try_into<To, From>(val: From, value: Opcode) -> Result<To, OpcodeError>
         where
             From: TryInto<TryIntoHandler<To>>,
         {
@@ -640,7 +648,7 @@ pub trait ChipOpcodePreProcessHandler {
 /// implementations.
 pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// will calculate the programs step by a single step
-    fn calc(&mut self, opcode: &Opcodes) -> Result<Operation, String> {
+    fn calc(&mut self, opcode: &Opcodes) -> Result<Operation, ProcessError> {
         // preprocess
         self.preprocess();
 
@@ -680,42 +688,42 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `00EE` - Flow     - `return;`             - Returns from a subroutine.
     ///
     /// Returns any possible error
-    fn zero(&mut self, opcode: &Zero) -> Result<(ProgramCounterStep, Operation), String>;
+    fn zero(&mut self, opcode: &Zero) -> Result<(ProgramCounterStep, Operation), ProcessError>;
 
     /// - `1NNN` - Flow     - `goto NNN;`           - Jumps to address `NNN`.
     ///
     /// Returns any possible error
-    fn one(&self, opcode: &One) -> Result<ProgramCounterStep, String>;
+    fn one(&self, opcode: &One) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `2NNN` - Flow     - `*(0xNNN)()`          - Calls subroutine at `NNN`.
     ///
     /// Returns any possible error
-    fn two(&mut self, opcode: &Two) -> Result<ProgramCounterStep, String>;
+    fn two(&mut self, opcode: &Two) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `3XNN` - Cond 	- `if(Vx==NN)`          - Skips the next instruction if `VX` equals `NN`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn three(&self, opcode: &Three) -> Result<ProgramCounterStep, String>;
+    fn three(&self, opcode: &Three) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `4XNN` - Cond     - `if(Vx!=NN)`          - Skips the next instruction if `VX` doesn' t equal `NN`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn four(&self, opcode: &Four) -> Result<ProgramCounterStep, String>;
+    fn four(&self, opcode: &Four) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `5XY0` - Cond     - `if(Vx==Vy)`          - Skips the next instruction if `VX` equals `VY`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn five(&self, opcode: &Five) -> Result<ProgramCounterStep, String>;
+    fn five(&self, opcode: &Five) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `6XNN` - Const    - `Vx = NN`             - Sets `VX` to `NN`.
     ///
     /// Returns any possible error
-    fn six(&mut self, opcode: &Six) -> Result<ProgramCounterStep, String>;
+    fn six(&mut self, opcode: &Six) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `7XNN` - Const    - `Vx += NN`            - Adds `NN` to `VX`. (Carry flag is not changed)
     ///
     /// Returns any possible error
-    fn seven(&mut self, opcode: &Seven) -> Result<ProgramCounterStep, String>;
+    fn seven(&mut self, opcode: &Seven) -> Result<ProgramCounterStep, ProcessError>;
 
     /// A mutiuse opcode base for type `8NNT` (T is a sub obcode)
     ///
@@ -730,32 +738,32 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `8XYE` - BitOp    - `Vx<<=1`              - Stores the most significant bit of `VX` in `VF` and then shifts `VX` to the left by `1`.
     ///
     /// Returns any possible error
-    fn eight(&mut self, opcode: &Eight) -> Result<ProgramCounterStep, String>;
+    fn eight(&mut self, opcode: &Eight) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `9XY0` - Cond     - `if(Vx!=Vy)`          - Skips the next instruction if `VX` doesn't equal `VY`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn nine(&self, opcode: &Nine) -> Result<ProgramCounterStep, String>;
+    fn nine(&self, opcode: &Nine) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `ANNN` - MEM      - `I = NNN`             - Sets `I` to the address `NNN`.
     ///
     /// Returns any possible error
-    fn a(&mut self, opcode: &Ten) -> Result<ProgramCounterStep, String>;
+    fn a(&mut self, opcode: &Ten) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `BNNN` - Flow 	- `PC=V0+NNN`           - Jumps to the address `NNN` plus `V0`.
     ///
     /// Returns any possible error
-    fn b(&self, opcode: &Eleven) -> Result<ProgramCounterStep, String>;
+    fn b(&self, opcode: &Eleven) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `CXNN` - Rand     - `Vx=rand()&NN`        - Sets `VX` to the result of a bitwise and operation on a random number (Typically: `0 to 255`) and `NN`.
     ///
     /// Returns any possible error
-    fn c(&mut self, opcode: &Twelve) -> Result<ProgramCounterStep, String>;
+    fn c(&mut self, opcode: &Twelve) -> Result<ProgramCounterStep, ProcessError>;
 
     /// - `DXYN` - Disp     - `draw(Vx,Vy,N)`       - Draws a sprite at coordinate `(VX, VY)` that has a width of `8` pixels and a height of `N` pixels. Each row of `8` pixels is read as bit-coded starting from memory location `I`; `I` value doesn’t change after the execution of this instruction. As described above, `VF` is set to `1` if any screen pixels are flipped from set to unset when the sprite is drawn, and to `0` if that doesn’t happen
     ///
     /// Returns any possible error
-    fn d(&mut self, opcode: &Thirteen) -> Result<(ProgramCounterStep, Operation), String>;
+    fn d(&mut self, opcode: &Thirteen) -> Result<(ProgramCounterStep, Operation), ProcessError>;
 
     /// A multiuse opcode base for type `EXTT` (T is a sub opcode)
     ///
@@ -763,7 +771,7 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `EXA1` - KeyOp    - `if(key()!=Vx)`       - Skips the next instruction if the key stored in `VX` isn't pressed. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
-    fn e(&self, opcode: &Fourteen) -> Result<ProgramCounterStep, String>;
+    fn e(&self, opcode: &Fourteen) -> Result<ProgramCounterStep, ProcessError>;
 
     /// A multiuse opcode base for type `FXTT` (T is a sub opcode)
     ///
@@ -778,7 +786,7 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// - `FX65` - MEM      - `reg_load(Vx,&I)`     - Fills `V0` to `VX` (including `VX`) with values from memory starting at address `I`. The offset from `I` is increased by `1` for each value written, but `I` itself is left unmodified.
     ///
     /// Returns any possible error
-    fn f(&mut self, opcode: &Fifteen) -> Result<(ProgramCounterStep, Operation), String>;
+    fn f(&mut self, opcode: &Fifteen) -> Result<(ProgramCounterStep, Operation), ProcessError>;
 }
 
 #[cfg(test)]
@@ -992,11 +1000,7 @@ mod tests {
         ];
         for (value, res) in tests {
             let conv: Result<Opcodes, _> = value.try_into();
-            if res.is_err() {
-                assert!(conv.is_err());
-            } else {
-                assert_eq!(conv, res.map_err(|v| v.to_string()));
-            }
+            assert_eq!(conv, res.map_err(|_| OpcodeError::InvalidOpcode(value)));
         }
     }
 }

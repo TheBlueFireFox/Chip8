@@ -2,20 +2,15 @@
 //! The given implementation is based primatily on the [wikipedia
 //! page](https://en.wikipedia.org/wiki/CHIP-8) definitions.
 
-use crate::{
-    definitions::{cpu, display, keyboard, memory, timer},
-    devices::Keyboard,
-    opcode::{self, ChipOpcodePreProcessHandler, Opcodes, ProgramCounter, ProgramCounterStep},
-    resources::Rom,
-    timer::{NoCallback, TimerCallback},
-    timer::{TimedWorker, Timer, TimerValue},
-};
+use crate::{OpcodeError, ProcessError, StackError, definitions::{cpu, display, keyboard, memory, timer}, devices::Keyboard, opcode::{self, ChipOpcodePreProcessHandler, Opcodes, ProgramCounter, ProgramCounterStep}, resources::Rom, timer::{NoCallback, TimerCallback}, timer::{TimedWorker, Timer, TimerValue}};
 use rand::RngCore;
 use std::{
     convert::TryInto,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Duration,
 };
+
+use hashbrown::HashMap;
 
 /// The chipset struct containing the internal implementation of the chipset
 /// and the timers.
@@ -65,7 +60,7 @@ where
 
     /// Will execute the next operation.
     /// Returns the operation that has to be run by the caller.
-    pub fn next(&mut self) -> Result<opcode::Operation, String> {
+    pub fn next(&mut self) -> Result<opcode::Operation, ProcessError> {
         self.chipset.next()
     }
 
@@ -113,7 +108,7 @@ pub(super) struct InternalChipSet {
     /// Contains the precalculated opcode data, this vector is significatly smaller then the
     /// actuall memory portion, as it will ever only use as much memory as required
     /// for the emulation.
-    pub(super) opcode_memory: Vec<Option<Opcodes>>,
+    pub(super) opcode_memory: HashMap<usize, Opcodes>,
     /// `8-bit` data registers named `V0` to `VF`. The `VF` register doubles as a flag for some
     /// instructions; thus, it should be avoided. In an addition operation, `VF` is the carry flag,
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction `VF` is set upon
@@ -183,7 +178,7 @@ impl InternalChipSet {
         Self {
             name: rom.get_name().to_string(),
             memory: ram,
-            opcode_memory: vec![None; memory::SIZE],
+            opcode_memory: HashMap::new(),
             registers: [0; cpu::register::SIZE],
             index_register: 0,
             program_counter: cpu::PROGRAM_COUNTER,
@@ -198,29 +193,21 @@ impl InternalChipSet {
     }
 
     /// Will get the next opcode from memory
-    pub fn get_opcode(&mut self) -> Result<Opcodes, String> {
-        let mem_loc = self.program_counter - cpu::PROGRAM_COUNTER;
-
-        // check that the memory is large enough, so that it can contain 
-        // the opcode location.
-        if self.opcode_memory.len() <= mem_loc {
-            self.opcode_memory.resize_with(mem_loc, Default::default);
-        }
-
-        {
-            let ops = &self.opcode_memory[mem_loc];
-            if ops.is_none() {
+    pub fn get_opcode(&mut self) -> Result<Opcodes, OpcodeError> {
+        let iops = match self.opcode_memory.get(&self.program_counter) {
+            None => {
                 let iops = opcode::build_opcode(&self.memory, self.program_counter)?.try_into()?;
-                self.opcode_memory[mem_loc] = Some(iops);
+                self.opcode_memory.insert(self.program_counter, iops);
+                iops
             }
-        }
+            Some(value) => *value,
+        };
 
-        // SAFETY: at this point we know that the value exists (as we created it above)
-        Ok(self.opcode_memory[mem_loc].unwrap())
+        Ok(iops)
     }
 
     /// will advance the program by a single step
-    pub fn next(&mut self) -> Result<opcode::Operation, String> {
+    pub fn next(&mut self) -> Result<opcode::Operation, ProcessError> {
         // import here as to not bloat the namespace
         use crate::opcode::ChipOpcodes;
         // get next opcode
@@ -266,9 +253,9 @@ impl InternalChipSet {
     /// Will push the current pointer to the stack
     /// stack_counter is always one bigger then the
     /// entry it points to
-    pub fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
+    pub fn push_stack(&mut self, pointer: usize) -> Result<(), StackError> {
         if self.stack.len() == self.stack.capacity() {
-            Err("Stack is full!")
+            Err(StackError::Full)
         } else {
             // push to stack
             self.stack.push(pointer);
@@ -279,9 +266,9 @@ impl InternalChipSet {
     /// Will pop from the counter
     /// stack_counter is always one bigger then the entry
     /// it points to
-    pub fn pop_stack(&mut self) -> Result<usize, &'static str> {
+    pub fn pop_stack(&mut self) -> Result<usize, StackError> {
         if self.stack.is_empty() {
-            Err("Stack is empty!")
+            Err(StackError::Empty)
         } else {
             let pointer = self
                 .stack

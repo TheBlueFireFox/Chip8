@@ -2,15 +2,12 @@
 //! This implementation was split up into this file for smaller file sizes and higher
 //! cohesion.
 
-use crate::{
-    definitions::{cpu, display},
-    opcode::*,
-};
+use crate::{ProcessError, definitions::{cpu, display}, opcode::*};
 
 use super::InternalChipSet;
 
 impl ChipOpcodes for InternalChipSet {
-    fn zero(&mut self, opcode: &Zero) -> Result<(ProgramCounterStep, Operation), String> {
+    fn zero(&mut self, opcode: &Zero) -> Result<(ProgramCounterStep, Operation), ProcessError> {
         match opcode {
             Zero::Clear => {
                 // 00E0
@@ -29,39 +26,38 @@ impl ChipOpcodes for InternalChipSet {
         }
     }
 
-    fn one(&self, &One { nnn }: &One) -> Result<ProgramCounterStep, String> {
+    fn one(&self, &One { nnn }: &One) -> Result<ProgramCounterStep, ProcessError> {
         // 1NNN
         // Jumps to address NNN.
         Ok(ProgramCounterStep::Jump(nnn))
     }
 
-    fn two(&mut self, &Two { nnn }: &Two) -> Result<ProgramCounterStep, String> {
+    fn two(&mut self, &Two { nnn }: &Two) -> Result<ProgramCounterStep, ProcessError> {
         // 2NNN
         // Calls subroutine at NNN
         // and set's the program counter to the next opcode after the given stack push
 
-        if let Err(err) = self.push_stack(self.program_counter + ProgramCounterStep::Next.step()) {
-            return Err(err.to_string());
-        }
+        self.push_stack(self.program_counter + ProgramCounterStep::Next.step())?;
+
         // moving the counter jump value to the start
         Ok(ProgramCounterStep::Jump(nnn))
     }
 
-    fn three(&self, &Three { x, nn }: &Three) -> Result<ProgramCounterStep, String> {
+    fn three(&self, &Three { x, nn }: &Three) -> Result<ProgramCounterStep, ProcessError> {
         // 3XNN
         // Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to
         // skip a code block)
         Ok(ProgramCounterStep::cond(self.registers[x] == nn))
     }
 
-    fn four(&self, &Four { x, nn }: &Four) -> Result<ProgramCounterStep, String> {
+    fn four(&self, &Four { x, nn }: &Four) -> Result<ProgramCounterStep, ProcessError> {
         // 4XNN
         // Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a
         // jump to skip a code block)
         Ok(ProgramCounterStep::cond(self.registers[x] != nn))
     }
 
-    fn five(&self, &Five { x, y }: &Five) -> Result<ProgramCounterStep, String> {
+    fn five(&self, &Five { x, y }: &Five) -> Result<ProgramCounterStep, ProcessError> {
         // 5XY0
         // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
         // skip a code block)
@@ -70,14 +66,14 @@ impl ChipOpcodes for InternalChipSet {
         ))
     }
 
-    fn six(&mut self, &Six { x, nn }: &Six) -> Result<ProgramCounterStep, String> {
+    fn six(&mut self, &Six { x, nn }: &Six) -> Result<ProgramCounterStep, ProcessError> {
         // 6XNN
         // Sets VX to NN.
         self.registers[x] = nn;
         Ok(ProgramCounterStep::Next)
     }
 
-    fn seven(&mut self, &Seven { x, nn }: &Seven) -> Result<ProgramCounterStep, String> {
+    fn seven(&mut self, &Seven { x, nn }: &Seven) -> Result<ProgramCounterStep, ProcessError> {
         // 7XNN
         // Adds NN to VX. (Carry flag is not changed)
         // let VX overflow, but ignore carry
@@ -86,7 +82,7 @@ impl ChipOpcodes for InternalChipSet {
         Ok(ProgramCounterStep::Next)
     }
 
-    fn eight(&mut self, &Eight { ops, x, y }: &Eight) -> Result<ProgramCounterStep, String> {
+    fn eight(&mut self, &Eight { ops, x, y }: &Eight) -> Result<ProgramCounterStep, ProcessError> {
         // remove the middle 8 bits for calculations
         match ops {
             EightOpcode::Zero => {
@@ -163,7 +159,7 @@ impl ChipOpcodes for InternalChipSet {
         Ok(ProgramCounterStep::Next)
     }
 
-    fn nine(&self, &Nine { x, y }: &Nine) -> Result<ProgramCounterStep, String> {
+    fn nine(&self, &Nine { x, y }: &Nine) -> Result<ProgramCounterStep, ProcessError> {
         // 9XY0
         // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is
         // a jump to skip a code block)
@@ -172,21 +168,21 @@ impl ChipOpcodes for InternalChipSet {
         ))
     }
 
-    fn a(&mut self, &Ten { nnn }: &Ten) -> Result<ProgramCounterStep, String> {
+    fn a(&mut self, &Ten { nnn }: &Ten) -> Result<ProgramCounterStep, ProcessError> {
         // ANNN
         // Sets I to the address NNN.
         self.index_register = nnn;
         Ok(ProgramCounterStep::Next)
     }
 
-    fn b(&self, &Eleven { nnn }: &Eleven) -> Result<ProgramCounterStep, String> {
+    fn b(&self, &Eleven { nnn }: &Eleven) -> Result<ProgramCounterStep, ProcessError> {
         // BNNN
         // Jumps to the address NNN plus V0.
         let v0 = self.registers[0] as usize;
         Ok(ProgramCounterStep::Jump(v0 + nnn))
     }
 
-    fn c(&mut self, &Twelve { x, nn }: &Twelve) -> Result<ProgramCounterStep, String> {
+    fn c(&mut self, &Twelve { x, nn }: &Twelve) -> Result<ProgramCounterStep, ProcessError> {
         // CXNN
         // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
         // and NN.
@@ -202,7 +198,7 @@ impl ChipOpcodes for InternalChipSet {
     fn d(
         &mut self,
         &Thirteen { x, y, n }: &Thirteen,
-    ) -> Result<(ProgramCounterStep, Operation), String> {
+    ) -> Result<(ProgramCounterStep, Operation), ProcessError> {
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
@@ -267,7 +263,7 @@ impl ChipOpcodes for InternalChipSet {
         Ok((ProgramCounterStep::Next, Operation::Draw))
     }
 
-    fn e(&self, &Fourteen { ops, x }: &Fourteen) -> Result<ProgramCounterStep, String> {
+    fn e(&self, &Fourteen { ops, x }: &Fourteen) -> Result<ProgramCounterStep, ProcessError> {
         let is_pressed = self.get_keyboard_read().get_keys()[self.registers[x] as usize];
         let step = match ops {
             FourteenOpcode::Pressed => {
@@ -289,7 +285,7 @@ impl ChipOpcodes for InternalChipSet {
     fn f(
         &mut self,
         &Fifteen { ops, x }: &Fifteen,
-    ) -> Result<(ProgramCounterStep, Operation), String> {
+    ) -> Result<(ProgramCounterStep, Operation), ProcessError> {
         let mut op = Operation::None;
         let mut pcs = ProgramCounterStep::Next;
         match ops {

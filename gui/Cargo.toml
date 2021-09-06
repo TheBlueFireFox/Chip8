@@ -55,6 +55,7 @@ chip8 = {path = "../chip", default-features = false, features = ["js"]}
 console_log = {version = "0.2", features = ["color"]}
 lazy_static = "1.4"
 log = {version = "0.4", features = ["max_level_debug", "release_max_level_warn"]}
+anyhow = "1.0.43"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

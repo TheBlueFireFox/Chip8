@@ -83,7 +83,9 @@ impl Data {
             let mut controller = ccontroller.borrow_mut();
 
             // running the chip step
-            chip::run(&mut controller)
+            // using anhow::result magic to convert this here
+            chip::run(&mut controller)?;
+            Ok(())
         };
 
         self.worker.borrow_mut().start_with_shutdown(

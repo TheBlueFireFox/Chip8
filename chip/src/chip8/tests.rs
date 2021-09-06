@@ -1,6 +1,7 @@
 use std::convert::TryInto;
 
 use crate::timer::{NoCallback, Worker};
+use crate::StackError;
 
 use crate::{
     chip8::ChipSet,
@@ -88,7 +89,7 @@ fn test_push_pop_stack() {
         assert_eq!(Ok(()), chip.push_stack(next_counter + i * 8));
     }
     // check for the correct error message
-    assert_eq!(Err("Stack is full!"), chip.push_stack(next_counter));
+    assert_eq!(Err(StackError::Full), chip.push_stack(next_counter));
 
     // check if the stack counter moved as expected
     assert_eq!(cpu::stack::SIZE, chip.stack.len());
@@ -98,7 +99,7 @@ fn test_push_pop_stack() {
     }
     assert!(chip.stack.is_empty());
     // test if stack is now empty
-    assert_eq!(Err("Stack is empty!"), chip.pop_stack());
+    assert_eq!(Err(StackError::Empty), chip.pop_stack());
 }
 
 #[test]
@@ -144,6 +145,8 @@ fn test_step_panic_upper_bound() {
 }
 
 mod zero {
+    use crate::OpcodeError;
+
     use super::*;
 
     #[test]
@@ -205,10 +208,7 @@ mod zero {
         let opcode = 0x00EA;
         let pc = chip.program_counter;
         write_opcode_to_memory(&mut chip, pc, opcode);
-        assert_eq!(
-            Err("An unsupported opcode was used 0x00EA".to_string()),
-            chip.next()
-        );
+        assert_eq!(Err(OpcodeError::InvalidOpcode(opcode).into()), chip.next());
     }
 }
 
@@ -318,6 +318,8 @@ mod four {
 }
 
 mod five {
+    use crate::OpcodeError;
+
     use super::*;
 
     #[test]
@@ -367,10 +369,7 @@ mod five {
 
             write_opcode_to_memory(&mut chip, pc, opcode);
 
-            assert_eq!(
-                chip.next(),
-                Err(format!("An unsupported opcode was used {:#06X?}", opcode))
-            );
+            assert_eq!(chip.next(), Err(OpcodeError::InvalidOpcode(opcode).into()));
             // assert that there were no movement
             assert_eq!(pc, chip.program_counter);
         }
@@ -430,6 +429,8 @@ mod seven {
 }
 
 mod eight {
+    use crate::OpcodeError;
+
     use super::*;
 
     #[test]
@@ -737,16 +738,15 @@ mod eight {
         let opcode: Opcode = 0x800A;
         write_opcode_to_memory(&mut chip, curr_pc, opcode);
 
-        assert_eq!(
-            chip.next(),
-            Err(format!("An unsupported opcode was used {:#06X?}", opcode))
-        );
+        assert_eq!(chip.next(), Err(OpcodeError::InvalidOpcode(opcode).into()));
 
         assert_eq!(chip.program_counter, curr_pc);
     }
 }
 
 mod nine {
+    use crate::OpcodeError;
+
     use super::*;
 
     #[test]
@@ -770,10 +770,7 @@ mod nine {
                 0x9 << (3 * 4) ^ (reg_x as u16) << (2 * 4) ^ (reg_y as u16) << (1 * 4) ^ i;
             write_opcode_to_memory(&mut chip, curr_pc, opcode);
 
-            assert_eq!(
-                chip.next(),
-                Err(format!("An unsupported opcode was used {:#06X?}", opcode))
-            );
+            assert_eq!(chip.next(), Err(OpcodeError::InvalidOpcode(opcode).into()));
 
             assert_eq!(chip.program_counter, curr_pc);
         }
@@ -818,7 +815,7 @@ mod nine {
 
             assert_eq!(chip.next(), Ok(Operation::None));
 
-            // using 3 here are the counter was moved bevore by 1
+            // using 3 here are the counter was moved before by 1
             assert_eq!(chip.program_counter, curr_pc + 3 * memory::opcodes::SIZE);
         }
     }
@@ -907,6 +904,8 @@ mod c {
 mod d {}
 
 mod e {
+    use crate::OpcodeError;
+
     use {super::*, crate::definitions::keyboard};
 
     #[test]
@@ -983,7 +982,7 @@ mod e {
 
         assert_eq!(
             chip.next(),
-            Err(format!("An unsupported opcode was used {:#06X?}", opcode))
+            Err(OpcodeError::InvalidOpcode(opcode).into())
         );
 
         assert_eq!(chip.program_counter, pc);
@@ -991,7 +990,7 @@ mod e {
 }
 
 mod f {
-    use crate::definitions;
+    use crate::{OpcodeError, definitions};
 
     use {
         super::*,
@@ -1266,8 +1265,8 @@ mod f {
         write_opcode_to_memory(&mut chip, pc, OPCODE);
 
         assert_eq!(
-            Err(format!("An unsupported opcode was used {:#06X?}", OPCODE)),
-            chip.next()
+            chip.next(),
+            Err(OpcodeError::InvalidOpcode(OPCODE).into())
         );
 
         assert_eq!(chip.program_counter, pc);
