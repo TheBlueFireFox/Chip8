@@ -886,27 +886,100 @@ mod tests {
             (0x9120, Ok(Opcodes::Nine(Nine { x: 0x1, y: 0x2 }))),
             (0x9121, Err("")),
             // A
-            (0xA222, Ok(Opcodes::A(Ten{ nnn: 0x222 }))),
+            (0xA222, Ok(Opcodes::A(Ten { nnn: 0x222 }))),
             // B
-            (0xB222, Ok(Opcodes::B(Eleven{ nnn: 0x222 }))),
-            // C 
-            (0xC123, Ok(Opcodes::C(Twelve {x: 0x1, nn: 0x23}))),
+            (0xB222, Ok(Opcodes::B(Eleven { nnn: 0x222 }))),
+            // C
+            (0xC123, Ok(Opcodes::C(Twelve { x: 0x1, nn: 0x23 }))),
             // D
-            (0xD123, Ok(Opcodes::D(Thirteen {x: 0x1, y: 0x2, n: 0x3}))),
+            (
+                0xD123,
+                Ok(Opcodes::D(Thirteen {
+                    x: 0x1,
+                    y: 0x2,
+                    n: 0x3,
+                })),
+            ),
             // E
-            (0xE19E, Ok(Opcodes::E(Fourteen { x: 0x1, ops: FourteenOpcode::Pressed}))),
-            (0xE1A1, Ok(Opcodes::E(Fourteen { x: 0x1, ops: FourteenOpcode::NotPressed}))),
+            (
+                0xE19E,
+                Ok(Opcodes::E(Fourteen {
+                    x: 0x1,
+                    ops: FourteenOpcode::Pressed,
+                })),
+            ),
+            (
+                0xE1A1,
+                Ok(Opcodes::E(Fourteen {
+                    x: 0x1,
+                    ops: FourteenOpcode::NotPressed,
+                })),
+            ),
             (0xE111, Err("")),
             // F
-            (0xF007, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::GetDelayTimer}))),
-            (0xF00A, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::AwaitKeyPress}))),
-            (0xF015, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::SetDelayTimer}))),
-            (0xF018, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::SetSoundTimer}))),
-            (0xF01E, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::AddVxToI}))),
-            (0xF029, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::SetIToSprite}))),
-            (0xF033, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::StoreBCD}))),
-            (0xF055, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::StoreV0ToVx}))),
-            (0xF065, Ok(Opcodes::F(Fifteen { x: 0x0 , ops: FifteenOpcode::FillV0ToVx}))),
+            (
+                0xF007,
+                Ok(Opcodes::F(Fifteen {
+                    x: 0x0,
+                    ops: FifteenOpcode::GetDelayTimer,
+                })),
+            ),
+            (
+                0xF00A,
+                Ok(Opcodes::F(Fifteen {
+                    x: 0x0,
+                    ops: FifteenOpcode::AwaitKeyPress,
+                })),
+            ),
+            (
+                0xF015,
+                Ok(Opcodes::F(Fifteen {
+                    x: 0x0,
+                    ops: FifteenOpcode::SetDelayTimer,
+                })),
+            ),
+            (
+                0xF018,
+                Ok(Opcodes::F(Fifteen {
+                    x: 0x0,
+                    ops: FifteenOpcode::SetSoundTimer,
+                })),
+            ),
+            (
+                0xF01E,
+                Ok(Opcodes::F(Fifteen {
+                    x: 0x0,
+                    ops: FifteenOpcode::AddVxToI,
+                })),
+            ),
+            (
+                0xF029,
+                Ok(Opcodes::F(Fifteen {
+                    x: 0x0,
+                    ops: FifteenOpcode::SetIToSprite,
+                })),
+            ),
+            (
+                0xF033,
+                Ok(Opcodes::F(Fifteen {
+                    x: 0x0,
+                    ops: FifteenOpcode::StoreBCD,
+                })),
+            ),
+            (
+                0xF055,
+                Ok(Opcodes::F(Fifteen {
+                    x: 0x0,
+                    ops: FifteenOpcode::StoreV0ToVx,
+                })),
+            ),
+            (
+                0xF065,
+                Ok(Opcodes::F(Fifteen {
+                    x: 0x0,
+                    ops: FifteenOpcode::FillV0ToVx,
+                })),
+            ),
             (0xF0AA, Err("")),
         ];
         for (value, res) in tests {

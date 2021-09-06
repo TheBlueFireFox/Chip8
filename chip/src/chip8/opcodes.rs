@@ -3,7 +3,7 @@
 //! cohesion.
 
 use crate::{
-    definitions::{cpu, display, memory},
+    definitions::{cpu, display},
     opcode::*,
 };
 
@@ -199,7 +199,10 @@ impl ChipOpcodes for InternalChipSet {
         Ok(ProgramCounterStep::Next)
     }
 
-    fn d(&mut self, &Thirteen { x, y, n }: &Thirteen) -> Result<(ProgramCounterStep, Operation), String> {
+    fn d(
+        &mut self,
+        &Thirteen { x, y, n }: &Thirteen,
+    ) -> Result<(ProgramCounterStep, Operation), String> {
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
@@ -283,7 +286,10 @@ impl ChipOpcodes for InternalChipSet {
         Ok(ProgramCounterStep::cond(step))
     }
 
-    fn f(&mut self, &Fifteen { ops, x }: &Fifteen) -> Result<(ProgramCounterStep, Operation), String> {
+    fn f(
+        &mut self,
+        &Fifteen { ops, x }: &Fifteen,
+    ) -> Result<(ProgramCounterStep, Operation), String> {
         let mut op = Operation::None;
         let mut pcs = ProgramCounterStep::Next;
         match ops {

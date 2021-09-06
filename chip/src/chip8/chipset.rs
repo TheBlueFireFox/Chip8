@@ -110,7 +110,10 @@ pub(super) struct InternalChipSet {
     /// - `0x050-0x0A0` - Used for the built in `4x5` pixel font set (`0-F`)
     /// - `0x200-0xFFF` - Program ROM and work RAM
     pub(super) memory: Vec<u8>,
-    pub(super) opcode_memory: Vec<Opcodes>,
+    /// Contains the precalculated opcode data, this vector is significatly smaller then the
+    /// actuall memory portion, as it will ever only use as much memory as required
+    /// for the emulation.
+    pub(super) opcode_memory: Vec<Option<Opcodes>>,
     /// `8-bit` data registers named `V0` to `VF`. The `VF` register doubles as a flag for some
     /// instructions; thus, it should be avoided. In an addition operation, `VF` is the carry flag,
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction `VF` is set upon
@@ -177,20 +180,13 @@ impl InternalChipSet {
         ram[cpu::PROGRAM_COUNTER..(cpu::PROGRAM_COUNTER + rom.get_data().len())]
             .copy_from_slice(data);
 
-        // transform the data into the internally used opcodes
-        let mut ops = data
-            .chunks(2)
-            .map(|v| opcode::build_opcode(v, 0).expect("This should be valid"))
-            .map(|ops| ops.try_into().expect("This should be a valid opcode"))
-            .collect();
-
         Self {
             name: rom.get_name().to_string(),
             memory: ram,
-            opcode_memory: ops,
+            opcode_memory: vec![None; memory::SIZE],
             registers: [0; cpu::register::SIZE],
             index_register: 0,
-            program_counter: 0,
+            program_counter: cpu::PROGRAM_COUNTER,
             stack: Vec::with_capacity(cpu::stack::SIZE),
             delay_timer,
             sound_timer,
@@ -201,9 +197,26 @@ impl InternalChipSet {
         }
     }
 
-    /// will get the next opcode from memory
-    pub fn get_opcode(&mut self) -> Opcodes {
-        self.opcode_memory[self.program_counter - cpu::PROGRAM_COUNTER]
+    /// Will get the next opcode from memory
+    pub fn get_opcode(&mut self) -> Result<Opcodes, String> {
+        let mem_loc = self.program_counter - cpu::PROGRAM_COUNTER;
+
+        // check that the memory is large enough, so that it can contain 
+        // the opcode location.
+        if self.opcode_memory.len() <= mem_loc {
+            self.opcode_memory.resize_with(mem_loc, Default::default);
+        }
+
+        {
+            let ops = &self.opcode_memory[mem_loc];
+            if ops.is_none() {
+                let iops = opcode::build_opcode(&self.memory, self.program_counter)?.try_into()?;
+                self.opcode_memory[mem_loc] = Some(iops);
+            }
+        }
+
+        // SAFETY: at this point we know that the value exists (as we created it above)
+        Ok(self.opcode_memory[mem_loc].unwrap())
     }
 
     /// will advance the program by a single step
@@ -211,7 +224,7 @@ impl InternalChipSet {
         // import here as to not bloat the namespace
         use crate::opcode::ChipOpcodes;
         // get next opcode
-        let opcode = self.get_opcode();
+        let opcode = self.get_opcode()?;
         // run the opcode
         self.calc(&opcode)
     }

@@ -220,7 +220,7 @@ mod opcode_print {
             super::indent_helper(&mut string, indent);
 
             if let Err(err) = write!(string, "{}{}", row, super::END_OF_LINE) {
-                panic!(err);
+                panic!("{}", err);
             }
         }
         if let Some(index) = string.rfind("\n") {
@@ -357,7 +357,7 @@ impl fmt::Display for InternalChipSet {
 
         let mut opc = String::with_capacity(INTSIZE + INDENT_SIZE);
         indent_helper(&mut opc, INDENT_SIZE);
-        // integer_print::formatter(&mut opc, self.opcode_memory[self.program_counter])?;
+        integer_print::formatter(&mut opc, self.memory[self.program_counter])?;
 
         let mut prc = String::with_capacity(INTSIZE + INDENT_SIZE);
         indent_helper(&mut prc, INDENT_SIZE);
