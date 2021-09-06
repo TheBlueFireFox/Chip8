@@ -36,23 +36,17 @@ fn indent_helper(text: &mut String, indent: usize) {
     }
 }
 
-macro_rules! intsize {
-    () => {
-        6
-    };
-}
-
 #[doc(hidden)]
 #[macro_export]
 macro_rules! intformat {
     () => {
         // The formatted string will be 2 sysbols for the prefix (0x)
         // and 4 for the rest long.
-        concat!("{:#0", intsize!(), "X}")
+        concat!("{:#0", 6, "X}")
     };
 }
 
-const INTSIZE: usize = intsize!();
+const INTSIZE: usize = 6;
 
 lazy_static::lazy_static! {
     static ref POINTER_LEN : usize = {
