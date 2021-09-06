@@ -980,17 +980,14 @@ mod e {
         let opcode = 0xE << (3 * 4) ^ (reg as Opcode) << (2 * 4) ^ 0x11;
         write_opcode_to_memory(&mut chip, pc, opcode);
 
-        assert_eq!(
-            chip.next(),
-            Err(OpcodeError::InvalidOpcode(opcode).into())
-        );
+        assert_eq!(chip.next(), Err(OpcodeError::InvalidOpcode(opcode).into()));
 
         assert_eq!(chip.program_counter, pc);
     }
 }
 
 mod f {
-    use crate::{OpcodeError, definitions};
+    use crate::{definitions, OpcodeError};
 
     use {
         super::*,
@@ -1264,10 +1261,7 @@ mod f {
         let pc = chip.program_counter;
         write_opcode_to_memory(&mut chip, pc, OPCODE);
 
-        assert_eq!(
-            chip.next(),
-            Err(OpcodeError::InvalidOpcode(OPCODE).into())
-        );
+        assert_eq!(chip.next(), Err(OpcodeError::InvalidOpcode(OPCODE).into()));
 
         assert_eq!(chip.program_counter, pc);
     }

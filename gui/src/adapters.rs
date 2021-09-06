@@ -1,7 +1,9 @@
 //! The adapters used to interface with the display, keyboard and sound system of the browser.
 //! All of the given functionality is based on `wam_bindgen` abstractions.
 
-use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::Arc;
+
+use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::{definitions, utils::BrowserWindow};
 use chip::{
@@ -73,10 +75,7 @@ pub(crate) struct SoundCallback {
 impl SoundCallback {
     /// Starts to create the sound.
     fn start(&mut self, timeout: i32) -> Result<(), JsValue> {
-        let mut timeout_id = self
-            .timeout_id
-            .lock()
-            .or_else(|err| Err(JsValue::from(format!("{}", err))))?;
+        let mut timeout_id = self.timeout_id.lock();
 
         if timeout_id.is_some() {
             return Err(JsValue::from("A soundcallback has already been send out"));
@@ -88,9 +87,7 @@ impl SoundCallback {
 
         // moving the osci into this closure keeps it alive
         let stop = move || {
-            let mut timeout_id = ctimeout_id
-                .lock()
-                .or_else(|err| Err(JsValue::from(format!("{}", err))))?;
+            let mut timeout_id = ctimeout_id.lock();
 
             osci.stop()?;
             *timeout_id = None;
@@ -112,10 +109,7 @@ impl SoundCallback {
 
     /// Stops to create the sound if possible.
     fn stop(&mut self) -> Result<(), JsValue> {
-        let mut timeout = self
-            .timeout_id
-            .lock()
-            .or_else(|err| Err(JsValue::from(format!("{}", err))))?;
+        let mut timeout = self.timeout_id.lock();
 
         // This is only ever be a problem when the sound callback get's dropped,
         // before the timeout function ran.
@@ -268,11 +262,11 @@ impl KeyboardAdapter {
     }
 
     fn get_keyboard_read(&self) -> RwLockReadGuard<Keyboard> {
-        self.keyboard.read().expect("Keyboard lock poisoned")
+        self.keyboard.read()
     }
 
     fn get_keyboard_write(&self) -> RwLockWriteGuard<Keyboard> {
-        self.keyboard.write().expect("Keyboard lock poisoned")
+        self.keyboard.write()
     }
 }
 

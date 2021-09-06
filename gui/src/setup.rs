@@ -1,11 +1,6 @@
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{Arc, Once, RwLock},
-    time::Duration,
-};
-
 use chip::{devices::KeyboardCommands, resources::RomArchives, Controller};
+use parking_lot::Once;
+use std::{cell::RefCell, rc::Rc, time::Duration};
 use wasm_bindgen::{prelude::*, JsCast};
 use web_sys::Element;
 
@@ -16,13 +11,8 @@ use crate::{
     utils::{self, BrowserWindow},
 };
 
-lazy_static::lazy_static! {
-    /// Will make sure that given unic call setup function can only be calles a single time.
-    static ref START: Once = Once::new();
-    /// Will store the result of the of the setup function
-    static ref START_RESULT: Arc<RwLock<Result<(), log::SetLoggerError>>> =
-        Arc::new(RwLock::new(Ok(())));
-}
+/// Will make sure that given unique call setup function can only be calles a single time.
+static START: Once = Once::new();
 
 /// As the Controller has multiple long parameters, this
 /// type is used to abriviate the given configuration.
@@ -148,15 +138,12 @@ fn setup_systems() -> Result<(), JsValue> {
     START.call_once(|| {
         // will set the panic hook to be the console logs
         set_panic_hook();
-
-        let mut res = START_RESULT.write().unwrap();
-        *res = console_log::init_with_level(log::STATIC_MAX_LEVEL.to_level().unwrap());
     });
 
-    if let Err(err) = START_RESULT.read() {
-        Err(JsValue::from(format!("{}", err)))
-    } else {
+    if START.state().done() {
         Ok(())
+    } else {
+        Err("START controller was poisoned".into())
     }
 }
 

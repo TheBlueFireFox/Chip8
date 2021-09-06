@@ -2,13 +2,18 @@
 //! The given implementation is based primatily on the [wikipedia
 //! page](https://en.wikipedia.org/wiki/CHIP-8) definitions.
 
-use crate::{OpcodeError, ProcessError, StackError, definitions::{cpu, display, keyboard, memory, timer}, devices::Keyboard, opcode::{self, ChipOpcodePreProcessHandler, Opcodes, ProgramCounter, ProgramCounterStep}, resources::Rom, timer::{NoCallback, TimerCallback}, timer::{TimedWorker, Timer, TimerValue}};
-use rand::RngCore;
-use std::{
-    convert::TryInto,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
-    time::Duration,
+use crate::{
+    definitions::{cpu, display, keyboard, memory, timer},
+    devices::Keyboard,
+    opcode::{self, ChipOpcodePreProcessHandler, Opcodes, ProgramCounter, ProgramCounterStep},
+    resources::Rom,
+    timer::{NoCallback, TimerCallback},
+    timer::{TimedWorker, Timer, TimerValue},
+    OpcodeError, ProcessError, StackError,
 };
+use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use rand::RngCore;
+use std::{convert::TryInto, sync::Arc, time::Duration};
 
 use hashbrown::HashMap;
 
@@ -217,11 +222,11 @@ impl InternalChipSet {
     }
 
     pub(super) fn get_keyboard_write(&mut self) -> RwLockWriteGuard<Keyboard> {
-        self.keyboard.write().expect("Keyboard lock is poisoned.")
+        self.keyboard.write()
     }
 
     pub(super) fn get_keyboard_read(&self) -> RwLockReadGuard<Keyboard> {
-        self.keyboard.read().expect("Keyboard lock is poisoned.")
+        self.keyboard.read()
     }
 
     /// Will write keyboard data into interncal keyboard representation.

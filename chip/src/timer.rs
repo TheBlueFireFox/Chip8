@@ -2,11 +2,14 @@
 use std::{
     sync::{
         mpsc::{self, RecvTimeoutError, SyncSender},
-        Arc, Mutex, RwLock,
+        Arc,
     },
     thread::{self, JoinHandle},
     time::Duration,
 };
+
+use num_traits as num;
+use parking_lot::{Mutex, RwLock};
 
 /// Handles the callback onces the timer reaches zero.
 pub trait TimerCallback: Send + 'static {
@@ -46,10 +49,7 @@ impl TimerCallback for NoCallback {
 
 /// The clonable value holder of the timer.
 #[derive(Clone)]
-pub struct TimerValue<V>
-where
-    V: num::Unsigned,
-{
+pub struct TimerValue<V> {
     /// will store the value of the timer.
     value: Arc<RwLock<V>>,
 }
@@ -64,20 +64,14 @@ impl<V: num::Unsigned + Copy> TimerValue<V> {
 
     /// Setter for the internal value.
     pub fn set_value(&mut self, value: V) {
-        let mut val = self
-            .value
-            .write()
-            .expect("something went wrong with the read write lock, while setting the value");
+        let mut val = self.value.write();
 
         *val = value;
     }
 
     /// Getter for the internal value.
     pub fn get_value(&self) -> V {
-        *self
-            .value
-            .read()
-            .expect("something went wrong, while returning from the RW-Lock.")
+        *self.value.read()
     }
 }
 
@@ -127,7 +121,7 @@ where
         let ccb = cb.clone();
 
         let func = move || {
-            let mut cvalue = rw_value.write().expect("We have a poisoned lock");
+            let mut cvalue = rw_value.write();
 
             let value = *cvalue;
 
@@ -135,7 +129,7 @@ where
             if value == V::one() {
                 // This is safe as this block will only ever once be called from a single
                 // other thread.
-                let mut lock = ccb.lock().unwrap();
+                let mut lock = ccb.lock();
 
                 if let Some(callback_handler) = lock.as_mut() {
                     callback_handler.handle();
@@ -164,10 +158,7 @@ where
         // using internal scope to remove uneeded borrow and to return value from
         // function
         {
-            let mut lock = timer
-                .callback
-                .lock()
-                .expect("Poisoned lock after initialization.");
+            let mut lock = timer.callback.lock();
             *lock = Some(sound_handler);
         }
         (timer, value)
@@ -175,20 +166,14 @@ where
 
     /// The setter for the timer value.
     pub fn set_value(&mut self, value: V) {
-        let mut val = self
-            .value
-            .write()
-            .expect("something went wrong with the read write lock, while setting the value");
+        let mut val = self.value.write();
 
         *val = value;
     }
 
     /// The getter fo the timer value at this current moment.
     pub fn get_value(&self) -> V {
-        *self
-            .value
-            .read()
-            .expect("something went wrong, while returning from the RW-Lock.")
+        *self.value.read()
     }
 }
 

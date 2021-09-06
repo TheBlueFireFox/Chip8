@@ -1,7 +1,14 @@
 //! The main interface out of the crate.
 //!
 //! Handles part of the execution and interaction with the display, keyboard and sound system.
-use crate::{ProcessError, chip8::ChipSet, devices::{DisplayCommands, KeyboardCommands}, opcode::Operation, resources::Rom, timer::{TimedWorker, TimerCallback}};
+use crate::{
+    chip8::ChipSet,
+    devices::{DisplayCommands, KeyboardCommands},
+    opcode::Operation,
+    resources::Rom,
+    timer::{TimedWorker, TimerCallback},
+    ProcessError,
+};
 
 /// A collection of all the important interfaces.
 /// Is primarily used to simplify the crate api.
@@ -127,7 +134,8 @@ where
 #[cfg(test)]
 mod tests {
 
-    use std::sync::{Arc, RwLock};
+    use parking_lot::RwLock;
+    use std::sync::Arc;
 
     use super::*;
     use crate::{

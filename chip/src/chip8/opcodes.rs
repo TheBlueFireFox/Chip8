@@ -2,7 +2,11 @@
 //! This implementation was split up into this file for smaller file sizes and higher
 //! cohesion.
 
-use crate::{ProcessError, definitions::{cpu, display}, opcode::*};
+use crate::{
+    definitions::{cpu, display},
+    opcode::*,
+    ProcessError,
+};
 
 use super::InternalChipSet;
 

@@ -18,11 +18,10 @@ pub enum ProcessError {
 pub enum OpcodeError {
     #[error("An unsupported opcode was used {0:#06X?}.")]
     InvalidOpcode(Opcode),
-    #[error("Pointer location invalid there can not be an opcode at {pointer}, if data len is {len}")]
-    MemoryInvalid{
-        pointer: usize, 
-        len: usize
-    }
+    #[error(
+        "Pointer location invalid there can not be an opcode at {pointer}, if data len is {len}"
+    )]
+    MemoryInvalid { pointer: usize, len: usize },
 }
 
 #[derive(Error, Debug, PartialEq, Clone, Copy)]

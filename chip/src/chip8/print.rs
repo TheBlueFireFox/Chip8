@@ -233,7 +233,7 @@ mod opcode_print {
 /// handles printting of any and all of intergers.
 mod integer_print {
     use super::{pointer_print, HEX_PRINT_STEP};
-    use num;
+    use num_traits as num;
     use std::fmt::{self, Write};
 
     /// will format all integer types

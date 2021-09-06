@@ -1,8 +1,8 @@
 //! Abstractions over the keyboard and display.
 
-use std::sync::{Arc, RwLock};
-
 use crate::definitions::keyboard;
+use parking_lot::RwLock;
+use std::sync::Arc;
 
 /// The traits responsible for the display based code
 pub trait DisplayCommands {
