@@ -11,6 +11,7 @@ use crate::{
     timer::{TimedWorker, Timer, TimerValue},
     OpcodeError, ProcessError, StackError,
 };
+use tinyvec::ArrayVec;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use rand::RngCore;
 use std::{convert::TryInto, sync::Arc, time::Duration};
@@ -130,7 +131,7 @@ pub(super) struct InternalChipSet {
     /// `12` levels of nesting; modern implementations usually have more.
     /// (here we are using `16`)
     /// Addition: We are using the stack capability of the std::vec::Vec.
-    pub(super) stack: Vec<usize>,
+    pub(super) stack: ArrayVec<[usize; cpu::stack::SIZE]>,
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
     /// Counts down at 60 hertz, until it reaches 0.
@@ -187,7 +188,7 @@ impl InternalChipSet {
             registers: [0; cpu::register::SIZE],
             index_register: 0,
             program_counter: cpu::PROGRAM_COUNTER,
-            stack: Vec::with_capacity(cpu::stack::SIZE),
+            stack: ArrayVec::new(),
             delay_timer,
             sound_timer,
             display: vec![vec![false; display::HEIGHT]; display::WIDTH],
@@ -199,6 +200,7 @@ impl InternalChipSet {
 
     /// Will get the next opcode from memory
     pub fn get_opcode(&mut self) -> Result<Opcodes, OpcodeError> {
+        // Sadly we have to use copy here, given the borrow mut later on
         let iops = match self.opcode_memory.get(&self.program_counter) {
             None => {
                 let iops = opcode::build_opcode(&self.memory, self.program_counter)?.try_into()?;
