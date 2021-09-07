@@ -2,12 +2,10 @@ use thiserror::Error;
 
 use crate::opcode::Opcode;
 
-#[derive(Error, Debug, PartialEq, Clone)]
+#[derive(Error, Debug, PartialEq, Clone, Copy)]
 pub enum ProcessError {
     #[error("Invalid opcode state '{0}'.")]
     Opcode(#[from] OpcodeError),
-    #[error("Invalid calculation '{0}'")]
-    Calculation(String),
     #[error("Invalid stack state '{0}'.")]
     Stack(#[from] StackError),
     #[error("There is no valid chipset initialized.")]
@@ -30,4 +28,6 @@ pub enum StackError {
     Full,
     #[error("Stack is empty!")]
     Empty,
+    #[error("Unexpected error during stack execution")]
+    Unexpected,
 }

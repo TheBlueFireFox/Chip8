@@ -313,7 +313,6 @@ macro_rules! implTryIntoEnum {
     };
 }
 
-
 macro_rules! implTryIntoXNN {
     ($type_name:ident) => {
         implTryIntoInner!(

@@ -275,10 +275,7 @@ impl InternalChipSet {
         if self.stack.is_empty() {
             Err(StackError::Empty)
         } else {
-            let pointer = self
-                .stack
-                .pop()
-                .expect("During poping of the stack an unusual error occured.");
+            let pointer = self.stack.pop().ok_or_else(|| StackError::Unexpected)?;
             Ok(pointer)
         }
     }
