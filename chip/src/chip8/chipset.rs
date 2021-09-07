@@ -5,16 +5,18 @@
 use crate::{
     definitions::{cpu, display, keyboard, memory, timer},
     devices::Keyboard,
-    opcode::{self, ChipOpcodePreProcessHandler, Opcode, ProgramCounter, ProgramCounterStep},
+    opcode::{self, ChipOpcodePreProcessHandler, Opcodes, ProgramCounter, ProgramCounterStep},
     resources::Rom,
     timer::{NoCallback, TimerCallback},
     timer::{TimedWorker, Timer, TimerValue},
+    OpcodeError, ProcessError, StackError,
 };
+use tinyvec::ArrayVec;
+use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use rand::RngCore;
-use std::{
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
-    time::Duration,
-};
+use std::{convert::TryInto, sync::Arc, time::Duration};
+
+use hashbrown::HashMap;
 
 /// The chipset struct containing the internal implementation of the chipset
 /// and the timers.
@@ -64,7 +66,7 @@ where
 
     /// Will execute the next operation.
     /// Returns the operation that has to be run by the caller.
-    pub fn next(&mut self) -> Result<opcode::Operation, String> {
+    pub fn next(&mut self) -> Result<opcode::Operation, ProcessError> {
         self.chipset.next()
     }
 
@@ -105,12 +107,14 @@ where
 pub(super) struct InternalChipSet {
     /// name of the loaded rom
     pub(super) name: String,
-    /// all two bytes long and stored big-endian
-    pub(super) opcode: Opcode,
     /// - `0x000-0x1FF` - Chip 8 interpreter (contains font set in emu)
     /// - `0x050-0x0A0` - Used for the built in `4x5` pixel font set (`0-F`)
     /// - `0x200-0xFFF` - Program ROM and work RAM
     pub(super) memory: Vec<u8>,
+    /// Contains the precalculated opcode data, this vector is significatly smaller then the
+    /// actuall memory portion, as it will ever only use as much memory as required
+    /// for the emulation.
+    pub(super) opcode_memory: HashMap<usize, Opcodes>,
     /// `8-bit` data registers named `V0` to `VF`. The `VF` register doubles as a flag for some
     /// instructions; thus, it should be avoided. In an addition operation, `VF` is the carry flag,
     /// while in subtraction, it is the "no borrow" flag. In the draw instruction `VF` is set upon
@@ -127,7 +131,7 @@ pub(super) struct InternalChipSet {
     /// `12` levels of nesting; modern implementations usually have more.
     /// (here we are using `16`)
     /// Addition: We are using the stack capability of the std::vec::Vec.
-    pub(super) stack: Vec<usize>,
+    pub(super) stack: ArrayVec<[usize; cpu::stack::SIZE]>,
     /// Delay timer: This timer is intended to be used for timing the events of games. Its value
     /// can be set and read.
     /// Counts down at 60 hertz, until it reaches 0.
@@ -173,17 +177,18 @@ impl InternalChipSet {
             .copy_from_slice(&display::fontset::FONTSET);
 
         // write the rom data into memory
+        let data = rom.get_data();
         ram[cpu::PROGRAM_COUNTER..(cpu::PROGRAM_COUNTER + rom.get_data().len())]
-            .copy_from_slice(&rom.get_data());
+            .copy_from_slice(data);
 
         Self {
             name: rom.get_name().to_string(),
-            opcode: 0,
             memory: ram,
+            opcode_memory: HashMap::new(),
             registers: [0; cpu::register::SIZE],
             index_register: 0,
             program_counter: cpu::PROGRAM_COUNTER,
-            stack: Vec::with_capacity(cpu::stack::SIZE),
+            stack: ArrayVec::new(),
             delay_timer,
             sound_timer,
             display: vec![vec![false; display::HEIGHT]; display::WIDTH],
@@ -193,29 +198,37 @@ impl InternalChipSet {
         }
     }
 
-    /// will get the next opcode from memory
-    pub fn set_opcode(&mut self) -> Result<(), String> {
-        // will build the opcode given from the pointer
-        self.opcode = opcode::build_opcode(&self.memory, self.program_counter)?;
-        Ok(())
+    /// Will get the next opcode from memory
+    pub fn get_opcode(&mut self) -> Result<Opcodes, OpcodeError> {
+        // Sadly we have to use copy here, given the borrow mut later on
+        let iops = match self.opcode_memory.get(&self.program_counter) {
+            None => {
+                let iops = opcode::build_opcode(&self.memory, self.program_counter)?.try_into()?;
+                self.opcode_memory.insert(self.program_counter, iops);
+                iops
+            }
+            Some(value) => *value,
+        };
+
+        Ok(iops)
     }
 
     /// will advance the program by a single step
-    pub fn next(&mut self) -> Result<opcode::Operation, String> {
+    pub fn next(&mut self) -> Result<opcode::Operation, ProcessError> {
         // import here as to not bloat the namespace
         use crate::opcode::ChipOpcodes;
         // get next opcode
-        self.set_opcode()?;
+        let opcode = self.get_opcode()?;
         // run the opcode
-        self.calc(self.opcode)
+        self.calc(&opcode)
     }
 
     pub(super) fn get_keyboard_write(&mut self) -> RwLockWriteGuard<Keyboard> {
-        self.keyboard.write().expect("Keyboard lock is poisoned.")
+        self.keyboard.write()
     }
 
     pub(super) fn get_keyboard_read(&self) -> RwLockReadGuard<Keyboard> {
-        self.keyboard.read().expect("Keyboard lock is poisoned.")
+        self.keyboard.read()
     }
 
     /// Will write keyboard data into interncal keyboard representation.
@@ -247,9 +260,9 @@ impl InternalChipSet {
     /// Will push the current pointer to the stack
     /// stack_counter is always one bigger then the
     /// entry it points to
-    pub fn push_stack(&mut self, pointer: usize) -> Result<(), &'static str> {
+    pub fn push_stack(&mut self, pointer: usize) -> Result<(), StackError> {
         if self.stack.len() == self.stack.capacity() {
-            Err("Stack is full!")
+            Err(StackError::Full)
         } else {
             // push to stack
             self.stack.push(pointer);
@@ -260,14 +273,11 @@ impl InternalChipSet {
     /// Will pop from the counter
     /// stack_counter is always one bigger then the entry
     /// it points to
-    pub fn pop_stack(&mut self) -> Result<usize, &'static str> {
+    pub fn pop_stack(&mut self) -> Result<usize, StackError> {
         if self.stack.is_empty() {
-            Err("Stack is empty!")
+            Err(StackError::Empty)
         } else {
-            let pointer = self
-                .stack
-                .pop()
-                .expect("During poping of the stack an unusual error occured.");
+            let pointer = self.stack.pop().ok_or_else(|| StackError::Unexpected)?;
             Ok(pointer)
         }
     }

@@ -7,6 +7,7 @@ use crate::{
     opcode::Operation,
     resources::Rom,
     timer::{TimedWorker, TimerCallback},
+    ProcessError,
 };
 
 /// A collection of all the important interfaces.
@@ -100,7 +101,7 @@ pub fn run<D, K, W, S>(
         chipset,
         operation,
     }: &mut Controller<D, K, W, S>,
-) -> Result<(), String>
+) -> Result<(), ProcessError>
 where
     D: DisplayCommands,
     K: KeyboardCommands,
@@ -116,7 +117,7 @@ where
     // Extract the chip from the chipset option
     let chip = chipset
         .as_mut()
-        .ok_or_else(|| "There is no valid chipset initialized.".to_string())?;
+        .ok_or_else(|| ProcessError::UninitializedChipset)?;
 
     // run chip
     *operation = chip.next()?;
@@ -133,7 +134,8 @@ where
 #[cfg(test)]
 mod tests {
 
-    use std::sync::{Arc, RwLock};
+    use parking_lot::RwLock;
+    use std::sync::Arc;
 
     use super::*;
     use crate::{
@@ -211,7 +213,7 @@ mod tests {
         let mut controller: Controller<_, _, Worker, NoCallback> = Controller::new(da, ka);
 
         assert_eq!(
-            Err("There is no valid chipset initialized.".to_string()),
+            Err(ProcessError::UninitializedChipset),
             run(&mut controller)
         );
 

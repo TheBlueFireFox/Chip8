@@ -4,127 +4,112 @@
 
 use crate::{
     definitions::{cpu, display},
-    opcode::{ChipOpcodes, Opcode, OpcodeTrait, Operation, ProgramCounter, ProgramCounterStep},
+    opcode::*,
+    ProcessError,
 };
 
 use super::InternalChipSet;
 
 impl ChipOpcodes for InternalChipSet {
-    fn zero(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
-        log::trace!("opcode {:#X}", opcode);
+    fn zero(&mut self, opcode: &Zero) -> Result<(ProgramCounterStep, Operation), ProcessError> {
         match opcode {
-            0x00E0 => {
+            Zero::Clear => {
                 // 00E0
                 // clear display
                 for row in self.display.iter_mut() {
-                    for coloumn in row.iter_mut() {
-                        *coloumn = false;
-                    }
+                    row.fill(false);
                 }
                 Ok((ProgramCounterStep::Next, Operation::Draw))
             }
-            0x00EE => {
+            Zero::Return => {
                 // 00EE
                 // Return from sub routine => pop from stack
                 let pc = self.pop_stack()?;
-                log::trace!("pc {:#X}", pc);
                 Ok((ProgramCounterStep::Jump(pc), Operation::None))
             }
-            _ => Err(format!(
-                "An unsupported opcode was used {:#06X?}",
-                self.opcode
-            )),
         }
     }
 
-    fn one(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn one(&self, &One { nnn }: &One) -> Result<ProgramCounterStep, ProcessError> {
         // 1NNN
         // Jumps to address NNN.
-        Ok(ProgramCounterStep::Jump(opcode.nnn()))
+        Ok(ProgramCounterStep::Jump(nnn))
     }
 
-    fn two(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn two(&mut self, &Two { nnn }: &Two) -> Result<ProgramCounterStep, ProcessError> {
         // 2NNN
         // Calls subroutine at NNN
         // and set's the program counter to the next opcode after the given stack push
 
-        match self.push_stack(self.program_counter + ProgramCounterStep::Next.step()) {
-            Ok(_) => Ok(ProgramCounterStep::Jump(opcode.nnn())),
-            Err(err) => Err(err.to_string()),
-        }
+        self.push_stack(self.program_counter + ProgramCounterStep::Next.step())?;
+
+        // moving the counter jump value to the start
+        Ok(ProgramCounterStep::Jump(nnn))
     }
 
-    fn three(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn three(&self, &Three { x, nn }: &Three) -> Result<ProgramCounterStep, ProcessError> {
         // 3XNN
         // Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to
         // skip a code block)
-        let (x, nn) = opcode.xnn();
         Ok(ProgramCounterStep::cond(self.registers[x] == nn))
     }
 
-    fn four(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn four(&self, &Four { x, nn }: &Four) -> Result<ProgramCounterStep, ProcessError> {
         // 4XNN
         // Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a
         // jump to skip a code block)
-        let (x, nn) = opcode.xnn();
         Ok(ProgramCounterStep::cond(self.registers[x] != nn))
     }
 
-    fn five(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn five(&self, &Five { x, y }: &Five) -> Result<ProgramCounterStep, ProcessError> {
         // 5XY0
         // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to
         // skip a code block)
-        match opcode.xyn() {
-            (x, y, 0) => Ok(ProgramCounterStep::cond(
-                self.registers[x] == self.registers[y],
-            )),
-            _ => Err(format!("An unsupported opcode was used {:#06X?}", opcode)),
-        }
+        Ok(ProgramCounterStep::cond(
+            self.registers[x] == self.registers[y],
+        ))
     }
 
-    fn six(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn six(&mut self, &Six { x, nn }: &Six) -> Result<ProgramCounterStep, ProcessError> {
         // 6XNN
         // Sets VX to NN.
-        let (x, nn) = opcode.xnn();
         self.registers[x] = nn;
         Ok(ProgramCounterStep::Next)
     }
 
-    fn seven(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn seven(&mut self, &Seven { x, nn }: &Seven) -> Result<ProgramCounterStep, ProcessError> {
         // 7XNN
         // Adds NN to VX. (Carry flag is not changed)
-        let (x, nn) = opcode.xnn();
         // let VX overflow, but ignore carry
         let res = self.registers[x].wrapping_add(nn);
         self.registers[x] = res;
         Ok(ProgramCounterStep::Next)
     }
 
-    fn eight(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn eight(&mut self, &Eight { ops, x, y }: &Eight) -> Result<ProgramCounterStep, ProcessError> {
         // remove the middle 8 bits for calculations
-        let (x, y, n) = opcode.xyn();
-        match n {
-            0x0 => {
+        match ops {
+            EightOpcode::Zero => {
                 // 8XY0
                 // Sets VX to the value of VY.
                 self.registers[x] = self.registers[y];
             }
-            0x1 => {
+            EightOpcode::One => {
                 // 8XY1
                 // Sets VX to VX or VY. (Bitwise OR operation)
                 self.registers[x] = self.registers[x] | self.registers[y];
             }
-            0x2 => {
+            EightOpcode::Two => {
                 // 8XY2
                 // Sets VX to VX and VY. (Bitwise AND operation)
                 self.registers[x] = self.registers[x] & self.registers[y];
             }
-            0x3 => {
+            EightOpcode::Three => {
                 // 8XY3
                 // Sets VX to VX xor VY.
                 self.registers[x] = self.registers[x] ^ self.registers[y];
             }
-            0x4 => {
+            EightOpcode::Four => {
                 // 8XY4
                 // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
                 let left = self.registers[x] as u16;
@@ -134,7 +119,7 @@ impl ChipOpcodes for InternalChipSet {
                 self.registers[x] = res as u8;
                 self.registers[cpu::register::LAST] = if carry { 1 } else { 0 };
             }
-            0x5 => {
+            EightOpcode::Five => {
                 // 8XY5
                 // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there
                 // isn't.
@@ -145,14 +130,14 @@ impl ChipOpcodes for InternalChipSet {
                 self.registers[x] = res as u8;
                 self.registers[cpu::register::LAST] = if carry { 1 } else { 0 };
             }
-            0x6 => {
+            EightOpcode::Six => {
                 // 8XY6
                 // Stores the least significant bit of VX in VF and then shifts VX to the right
                 // by 1.
                 self.registers[cpu::register::LAST] = self.registers[x] & 1;
                 self.registers[x] = self.registers[x] >> 1;
             }
-            0x7 => {
+            EightOpcode::Seven => {
                 // 8XY7
                 // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there
                 // isn't.
@@ -163,7 +148,7 @@ impl ChipOpcodes for InternalChipSet {
                 self.registers[x] = res as u8;
                 self.registers[cpu::register::LAST] = if carry { 1 } else { 0 };
             }
-            0xE => {
+            EightOpcode::E => {
                 // 8XYE
                 // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.
                 const SHIFT_SIGNIFICANT: u8 = 7;
@@ -172,50 +157,40 @@ impl ChipOpcodes for InternalChipSet {
                     (self.registers[x] & AND_SIGNIFICANT) >> SHIFT_SIGNIFICANT;
                 self.registers[x] = self.registers[x] << 1;
             }
-            _ => {
-                return Err(format!(
-                    "An unsupported opcode was used {:#06X?}",
-                    self.opcode
-                ));
-            }
         }
+
         // increment the program counter by one
         Ok(ProgramCounterStep::Next)
     }
 
-    fn nine(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn nine(&self, &Nine { x, y }: &Nine) -> Result<ProgramCounterStep, ProcessError> {
         // 9XY0
         // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is
         // a jump to skip a code block)
-        match opcode.xyn() {
-            (x, y, 0) => Ok(ProgramCounterStep::cond(
-                self.registers[x] != self.registers[y],
-            )),
-            _ => Err(format!("An unsupported opcode was used {:#06X?}", opcode)),
-        }
+        Ok(ProgramCounterStep::cond(
+            self.registers[x] != self.registers[y],
+        ))
     }
 
-    fn a(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn a(&mut self, &Ten { nnn }: &Ten) -> Result<ProgramCounterStep, ProcessError> {
         // ANNN
         // Sets I to the address NNN.
-        self.index_register = opcode.nnn() as usize;
+        self.index_register = nnn;
         Ok(ProgramCounterStep::Next)
     }
 
-    fn b(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn b(&self, &Eleven { nnn }: &Eleven) -> Result<ProgramCounterStep, ProcessError> {
         // BNNN
         // Jumps to the address NNN plus V0.
-        let nnn = opcode.nnn();
         let v0 = self.registers[0] as usize;
         Ok(ProgramCounterStep::Jump(v0 + nnn))
     }
 
-    fn c(&mut self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
+    fn c(&mut self, &Twelve { x, nn }: &Twelve) -> Result<ProgramCounterStep, ProcessError> {
         // CXNN
         // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255)
         // and NN.
 
-        let (x, nn) = opcode.xnn();
         // using a fill bytes call here, as the trait RngCore does not
         // support random u8.
         let mut rand: [u8; 1] = [0];
@@ -224,7 +199,10 @@ impl ChipOpcodes for InternalChipSet {
         Ok(ProgramCounterStep::Next)
     }
 
-    fn d(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
+    fn d(
+        &mut self,
+        &Thirteen { x, y, n }: &Thirteen,
+    ) -> Result<(ProgramCounterStep, Operation), ProcessError> {
         // DXYN
         // Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N
         // pixels. Each row of 8 pixels is read as bit-coded starting from memory location I; I
@@ -233,7 +211,7 @@ impl ChipOpcodes for InternalChipSet {
         // to 0 if that doesn’t happen
         // see https://tobiasvl.github.io/blog/write-a-chip-8-emulator/
 
-        let (reg_x, reg_y, n) = opcode.xyn();
+        let (reg_x, reg_y, n) = (x, y, n);
 
         let index = self.index_register;
         let coorx = self.registers[reg_x] as usize;
@@ -289,47 +267,48 @@ impl ChipOpcodes for InternalChipSet {
         Ok((ProgramCounterStep::Next, Operation::Draw))
     }
 
-    fn e(&self, opcode: Opcode) -> Result<ProgramCounterStep, String> {
-        let (x, nn) = opcode.xnn();
-        let step = match nn {
-            0x9E => {
+    fn e(&self, &Fourteen { ops, x }: &Fourteen) -> Result<ProgramCounterStep, ProcessError> {
+        let is_pressed = self.get_keyboard_read().get_keys()[self.registers[x] as usize];
+        let step = match ops {
+            FourteenOpcode::Pressed => {
                 // EX9E
                 // Skips the next instruction if the key stored in VX is pressed. (Usually the next
                 // instruction is a jump to skip a code block)
-                ProgramCounterStep::cond(
-                    self.get_keyboard_read().get_keys()[self.registers[x] as usize],
-                )
+                is_pressed
             }
-            0xA1 => {
+            FourteenOpcode::NotPressed => {
                 // EXA1
                 // Skips the next instruction if the key stored in VX isn't pressed. (Usually the
                 // next instruction is a jump to skip a code block)
-                ProgramCounterStep::cond(
-                    !self.get_keyboard_read().get_keys()[self.registers[x] as usize],
-                )
-            }
-            _ => {
-                // directly return with the given error
-                return Err(format!(
-                    "An unsupported opcode was used {:#06X?}",
-                    self.opcode
-                ));
+                !is_pressed
             }
         };
-        Ok(step)
+        Ok(ProgramCounterStep::cond(step))
     }
 
-    fn f(&mut self, opcode: Opcode) -> Result<(ProgramCounterStep, Operation), String> {
-        let (x, nn) = opcode.xnn();
+    fn f(
+        &mut self,
+        &Fifteen { ops, x }: &Fifteen,
+    ) -> Result<(ProgramCounterStep, Operation), ProcessError> {
         let mut op = Operation::None;
         let mut pcs = ProgramCounterStep::Next;
-        match nn {
-            0x07 => {
+        match ops {
+            FifteenOpcode::SetDelayTimer => {
+                // FX15
+                // Sets the delay timer to VX.
+                self.delay_timer.set_value(self.registers[x]);
+            }
+            FifteenOpcode::SetSoundTimer => {
+                // FX18
+                // Sets the sound timer to VX.
+                self.sound_timer.set_value(self.registers[x]);
+            }
+            FifteenOpcode::GetDelayTimer => {
                 // FX07
                 // Sets VX to the value of the delay timer.
                 self.registers[x] = self.get_delay_timer();
             }
-            0x0A => {
+            FifteenOpcode::AwaitKeyPress => {
                 // FX0A
                 // A key press is awaited, and then stored in VX. (Blocking Operation. All
                 // instruction halted until next key event)
@@ -348,17 +327,7 @@ impl ChipOpcodes for InternalChipSet {
 
                 self.preprocessor = Some(Box::new(callback_after_keypress));
             }
-            0x15 => {
-                // FX15
-                // Sets the delay timer to VX.
-                self.delay_timer.set_value(self.registers[x]);
-            }
-            0x18 => {
-                // FX18
-                // Sets the sound timer to VX.
-                self.sound_timer.set_value(self.registers[x]);
-            }
-            0x1E => {
+            FifteenOpcode::AddVxToI => {
                 // FX1E
                 // Adds VX to I. VF is set to 1 when there is a range overflow (I+VX>0xFFF), and to
                 // 0 when there isn't. (not used in this system)
@@ -367,7 +336,7 @@ impl ChipOpcodes for InternalChipSet {
                 let xi = self.registers[x] as usize;
                 self.index_register = self.index_register.wrapping_add(xi);
             }
-            0x29 => {
+            FifteenOpcode::SetIToSprite => {
                 // FX29
                 // Sets I to the location of the sprite for the character in VX. Characters 0-F (in
                 // hexadecimal) are represented by a 4x5 font.
@@ -379,7 +348,7 @@ impl ChipOpcodes for InternalChipSet {
                 );
                 self.index_register = display::fontset::LOCATION + 5 * val;
             }
-            0x33 => {
+            FifteenOpcode::StoreBCD => {
                 // FX33
                 // Stores the binary-coded decimal representation of VX, with the most significant
                 // of three digits at the address in I, the middle digit at I plus 1, and the least
@@ -393,26 +362,20 @@ impl ChipOpcodes for InternalChipSet {
                 self.memory[i + 1] = r / 10 % 10; // 246u8 / 10 => 24 % 10 => 4
                 self.memory[i + 2] = r % 10; // 246u8 % 10 => 6
             }
-            0x55 => {
+            FifteenOpcode::StoreV0ToVx => {
                 // FX55
                 // Stores V0 to VX (including VX) in memory starting at address I. The offset from I
                 // is increased by 1 for each value written, but I itself is left unmodified.
                 let index = self.index_register;
                 self.memory[index..=(index + x)].copy_from_slice(&self.registers[..=x]);
             }
-            0x65 => {
+            FifteenOpcode::FillV0ToVx => {
                 // FX65
                 // Fills V0 to VX (including VX) with values from memory starting at address I. The
                 // offset from I is increased by 1 for each value written, but I itself is left
                 // unmodified.
                 let index = self.index_register;
                 self.registers[..=x].copy_from_slice(&self.memory[index..=(index + x)]);
-            }
-            _ => {
-                return Err(format!(
-                    "An unsupported opcode was used {:#06X?}",
-                    self.opcode
-                ))
             }
         }
         Ok((pcs, op))

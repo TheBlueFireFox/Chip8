@@ -50,11 +50,14 @@ console_error_panic_hook = {version = "0.1", optional = true}
 # Unfortunately, `wee_alloc` requires nightly Rust when targeting wasm for now.
 wee_alloc = {version = "0.4", optional = true}
 
-chip8 = {path = "../chip", default-features = false, features = ["js"]}
 
 console_log = {version = "0.2", features = ["color"]}
 lazy_static = "1.4"
 log = {version = "0.4", features = ["max_level_debug", "release_max_level_warn"]}
+anyhow = "1.0.43"
+parking_lot = { version = "0.11", features = ["wasm-bindgen"] }
+
+chip8 = {path = "../chip", default-features = false, features = ["js"]}
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

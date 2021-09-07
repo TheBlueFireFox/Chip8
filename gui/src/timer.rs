@@ -96,7 +96,7 @@ impl ProcessWorker {
         interval: Duration,
     ) -> Result<(), JsValue>
     where
-        M: FnMut() -> Result<(), String> + 'static,
+        M: FnMut() -> anyhow::Result<()> + 'static,
         S: FnOnce() + 'static,
     {
         {
@@ -116,7 +116,7 @@ impl ProcessWorker {
     /// Will start the timed worker every the interval
     pub fn start<T>(&mut self, mut callback: T, interval: Duration) -> Result<(), JsValue>
     where
-        T: FnMut() -> Result<(), String> + 'static,
+        T: FnMut() -> anyhow::Result<()> + 'static,
     {
         let istate = self.state.clone();
         let ishutdown = self.shutdown.clone();

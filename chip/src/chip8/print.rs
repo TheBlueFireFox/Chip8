@@ -36,23 +36,17 @@ fn indent_helper(text: &mut String, indent: usize) {
     }
 }
 
-macro_rules! intsize {
-    () => {
-        6
-    };
-}
-
 #[doc(hidden)]
 #[macro_export]
 macro_rules! intformat {
     () => {
         // The formatted string will be 2 sysbols for the prefix (0x)
         // and 4 for the rest long.
-        concat!("{:#0", intsize!(), "X}")
+        concat!("{:#0", 6, "X}")
     };
 }
 
-const INTSIZE: usize = intsize!();
+const INTSIZE: usize = 6;
 
 lazy_static::lazy_static! {
     static ref POINTER_LEN : usize = {
@@ -220,7 +214,7 @@ mod opcode_print {
             super::indent_helper(&mut string, indent);
 
             if let Err(err) = write!(string, "{}{}", row, super::END_OF_LINE) {
-                panic!(err);
+                panic!("{}", err);
             }
         }
         if let Some(index) = string.rfind("\n") {
@@ -233,7 +227,7 @@ mod opcode_print {
 /// handles printting of any and all of intergers.
 mod integer_print {
     use super::{pointer_print, HEX_PRINT_STEP};
-    use num;
+    use num_traits as num;
     use std::fmt::{self, Write};
 
     /// will format all integer types
@@ -357,7 +351,7 @@ impl fmt::Display for InternalChipSet {
 
         let mut opc = String::with_capacity(INTSIZE + INDENT_SIZE);
         indent_helper(&mut opc, INDENT_SIZE);
-        integer_print::formatter(&mut opc, self.opcode)?;
+        integer_print::formatter(&mut opc, self.memory[self.program_counter])?;
 
         let mut prc = String::with_capacity(INTSIZE + INDENT_SIZE);
         indent_helper(&mut prc, INDENT_SIZE);

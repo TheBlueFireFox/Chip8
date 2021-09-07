@@ -1,4 +1,3 @@
-import * as wasm from "chip-eight";
+import * as wasm from "../gui/pkg";
 
-// start application
-let data = wasm.init()
+const data = wasm.init();
