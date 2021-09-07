@@ -267,20 +267,124 @@ impl ProgramCounterStep {
 #[repr(transparent)]
 struct TryIntoHandler<T>(T);
 
+#[inline]
+fn err<T>(value: Opcode) -> Result<T, OpcodeError> {
+    Err(OpcodeError::InvalidOpcode(value))
+}
+
+#[inline]
+fn try_into<To, From>(val: From, value: Opcode) -> Result<To, OpcodeError>
+where
+    From: TryInto<TryIntoHandler<To>>,
+{
+    let inner: TryIntoHandler<To>;
+    inner = val.try_into().or_else(|_| err(value))?;
+    Ok(inner.0)
+}
+
 /// implTryInto is a macro responsible for creating the boilerplate code
 /// needed for the opcode convertions.
-macro_rules! implTryInto {
-    ($type_name:ty : $type_from:ty : $( $key:literal => $val:expr ),+ $(,)? ) => {
+macro_rules! implTryIntoInner {
+    ( $type_name:ty : $type_from:ty : $inner:expr) => {
         impl TryFrom<$type_from> for TryIntoHandler<$type_name> {
             type Error = ();
 
             fn try_from(value: $type_from) -> Result<Self, Self::Error> {
+                let inner = $inner(value)?;
+                Ok(Self(inner))
+            }
+        }
+    };
+}
+
+macro_rules! implTryIntoEnum {
+    ($type_name:ty : $type_from:ty : $( $key:literal => $val:expr ),+ $(,)? ) => {
+        implTryIntoInner!(
+            $type_name : $type_from :
+            |value: $type_from| {
                 match value {
                     $(
-                        $key => Ok(Self($val)),
+                        $key => Ok($val),
                     )+
                     _ => Err(()),
                 }
+            }
+        );
+    };
+}
+
+
+macro_rules! implTryIntoXNN {
+    ($type_name:ident) => {
+        implTryIntoInner!(
+            $type_name : Opcode :
+            |value: Opcode| {
+                let (x, nn) = value.xnn();
+                Ok($type_name { x, nn })
+            }
+        );
+    };
+}
+
+macro_rules! implTryIntoNNN {
+    ($type_name:ident) => {
+        implTryIntoInner! {
+            $type_name: Opcode :
+            |value: Opcode| {
+                let nnn = value.nnn();
+                Ok($type_name { nnn })
+            }
+        }
+    };
+}
+
+macro_rules! implTryIntoXY0 {
+    ($type_name:ident) => {
+        implTryIntoInner! {
+            $type_name: Opcode :
+            |value: Opcode| {
+                match value.xyn() {
+                    (x, y, 0) => Ok($type_name { x, y }),
+                    _ => Err(()),
+                }
+            }
+        }
+    };
+}
+
+macro_rules! implTryIntoXNNE {
+    ($type_name:ident) => {
+        implTryIntoInner! {
+            $type_name: Opcode :
+            |value: Opcode| {
+                let (x, nn) = value.xnn();
+                let ops = try_into(nn, value).map_err(|_| ())?;
+                Ok($type_name { ops, x })
+            }
+        }
+    };
+}
+
+macro_rules! implTryIntoXYN {
+    ($type_name:ident) => {
+        implTryIntoInner! {
+            $type_name: Opcode :
+            |value: Opcode| {
+                let (x, y, n) = value.xyn();
+                Ok($type_name { x, y, n })
+            }
+        }
+    };
+}
+
+macro_rules! implTryIntoXYNE {
+    ($type_name:ident) => {
+        implTryIntoInner! {
+            $type_name: Opcode :
+            |value: Opcode| {
+                let (x, y, n) = value.xyn();
+                let ops = try_into(n, value).map_err(|_| ())?;
+                Ok($type_name { ops, x, y })
             }
         }
     };
@@ -294,7 +398,7 @@ pub enum Zero {
     Return,
 }
 
-implTryInto!(Zero : Opcode :
+implTryIntoEnum!(Zero : Opcode :
     // 00E0
     // clear display
     0x00E0 => Zero::Clear,
@@ -308,10 +412,14 @@ pub struct One {
     pub nnn: usize,
 }
 
+implTryIntoNNN!(One);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Two {
     pub nnn: usize,
 }
+
+implTryIntoNNN!(Two);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Three {
@@ -319,11 +427,15 @@ pub struct Three {
     pub nn: u8,
 }
 
+implTryIntoXNN!(Three);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Four {
     pub x: usize,
     pub nn: u8,
 }
+
+implTryIntoXNN!(Four);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Five {
@@ -331,17 +443,23 @@ pub struct Five {
     pub y: usize,
 }
 
+implTryIntoXY0!(Five);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Six {
     pub x: usize,
     pub nn: u8,
 }
 
+implTryIntoXNN!(Six);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Seven {
     pub x: usize,
     pub nn: u8,
 }
+
+implTryIntoXNN!(Seven);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EightOpcode {
@@ -356,7 +474,7 @@ pub enum EightOpcode {
     E,
 }
 
-implTryInto!(EightOpcode : usize :
+implTryIntoEnum!(EightOpcode : usize :
     // 8XY0
     // Sets VX to the value of VY.
     0x0 => EightOpcode::Zero,
@@ -396,27 +514,37 @@ pub struct Eight {
     pub y: usize,
 }
 
+implTryIntoXYNE!(Eight);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Nine {
     pub x: usize,
     pub y: usize,
 }
 
+implTryIntoXY0!(Nine);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Ten {
     pub nnn: usize,
 }
+
+implTryIntoNNN!(Ten);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Eleven {
     pub nnn: usize,
 }
 
+implTryIntoNNN!(Eleven);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Twelve {
     pub x: usize,
     pub nn: u8,
 }
+
+implTryIntoXNN!(Twelve);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Thirteen {
@@ -425,13 +553,15 @@ pub struct Thirteen {
     pub n: usize,
 }
 
+implTryIntoXYN!(Thirteen);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FourteenOpcode {
     Pressed,
     NotPressed,
 }
 
-implTryInto!(FourteenOpcode : u8 :
+implTryIntoEnum!(FourteenOpcode : u8 :
     // EX9E
     // Skips the next instruction if the key stored in VX is pressed. (Usually the next
     // instruction is a jump to skip a code block)
@@ -448,6 +578,8 @@ pub struct Fourteen {
     pub x: usize,
 }
 
+implTryIntoXNNE!(Fourteen);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FifteenOpcode {
     SetDelayTimer,
@@ -461,7 +593,7 @@ pub enum FifteenOpcode {
     FillV0ToVx,
 }
 
-implTryInto!(FifteenOpcode : u8 :
+implTryIntoEnum!(FifteenOpcode : u8 :
     // FX07
     // Sets VX to the value of the delay timer.
     0x07 => FifteenOpcode::GetDelayTimer,
@@ -509,6 +641,8 @@ pub struct Fifteen {
     pub x: usize,
 }
 
+implTryIntoXNNE!(Fifteen);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Opcodes {
     Zero(Zero),
@@ -533,75 +667,26 @@ impl TryFrom<Opcode> for Opcodes {
     type Error = OpcodeError;
 
     fn try_from(value: Opcode) -> Result<Self, Self::Error> {
-        fn err<T>(value: Opcode) -> Result<T, OpcodeError> {
-            Err(OpcodeError::InvalidOpcode(value))
-        }
-
-        fn try_into<To, From>(val: From, value: Opcode) -> Result<To, OpcodeError>
-        where
-            From: TryInto<TryIntoHandler<To>>,
-        {
-            let inner: TryIntoHandler<To>;
-            inner = val.try_into().or_else(|_| err(value))?;
-            Ok(inner.0)
-        }
-
         // Outer convert
-        // Shifing t here so that match can use a loopuptable instead of a 'if else' - blocks
+        // Shiffing t here so that match can use a loopuptable instead of a 'if else' - blocks
         let t = value.t() >> 4 * 3;
         let res = match t {
             0x0 => Opcodes::Zero(try_into(value, value)?),
-            0x1 => Opcodes::One(One { nnn: value.nnn() }),
-            0x2 => Opcodes::Two(Two { nnn: value.nnn() }),
-            0x3 => {
-                let (x, nn) = value.xnn();
-                Opcodes::Three(Three { x, nn })
-            }
-            0x4 => {
-                let (x, nn) = value.xnn();
-                Opcodes::Four(Four { x, nn })
-            }
-            0x5 => match value.xyn() {
-                (x, y, 0) => Opcodes::Five(Five { x, y }),
-                _ => return err(value),
-            },
-            0x6 => {
-                let (x, nn) = value.xnn();
-                Opcodes::Six(Six { x, nn })
-            }
-            0x7 => {
-                let (x, nn) = value.xnn();
-                Opcodes::Seven(Seven { x, nn })
-            }
-            0x8 => {
-                let (x, y, n) = value.xyn();
-                let ops = try_into(n, value)?;
-                Opcodes::Eight(Eight { ops, x, y })
-            }
-            0x9 => match value.xyn() {
-                (x, y, 0) => Opcodes::Nine(Nine { x, y }),
-                _ => return err(value),
-            },
-            0xA => Opcodes::A(Ten { nnn: value.nnn() }),
-            0xB => Opcodes::B(Eleven { nnn: value.nnn() }),
-            0xC => {
-                let (x, nn) = value.xnn();
-                Opcodes::C(Twelve { x, nn })
-            }
-            0xD => {
-                let (x, y, n) = value.xyn();
-                Opcodes::D(Thirteen { x, y, n })
-            }
-            0xE => {
-                let (x, nn) = value.xnn();
-                let ops = try_into(nn, value)?;
-                Opcodes::E(Fourteen { ops, x })
-            }
-            0xF => {
-                let (x, nn) = value.xnn();
-                let ops = try_into(nn, value)?;
-                Opcodes::F(Fifteen { ops, x })
-            }
+            0x1 => Opcodes::One(try_into(value, value)?),
+            0x2 => Opcodes::Two(try_into(value, value)?),
+            0x3 => Opcodes::Three(try_into(value, value)?),
+            0x4 => Opcodes::Four(try_into(value, value)?),
+            0x5 => Opcodes::Five(try_into(value, value)?),
+            0x6 => Opcodes::Six(try_into(value, value)?),
+            0x7 => Opcodes::Seven(try_into(value, value)?),
+            0x8 => Opcodes::Eight(try_into(value, value)?),
+            0x9 => Opcodes::Nine(try_into(value, value)?),
+            0xA => Opcodes::A(try_into(value, value)?),
+            0xB => Opcodes::B(try_into(value, value)?),
+            0xC => Opcodes::C(try_into(value, value)?),
+            0xD => Opcodes::D(try_into(value, value)?),
+            0xE => Opcodes::E(try_into(value, value)?),
+            0xF => Opcodes::F(try_into(value, value)?),
             _ => return err(value),
         };
         Ok(res)

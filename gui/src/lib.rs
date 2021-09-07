@@ -1,4 +1,3 @@
-
 /// Is the global allocator used for, when the chip is used
 /// inside of wasm.
 /// This is locked behind a feature gate for the ability to
