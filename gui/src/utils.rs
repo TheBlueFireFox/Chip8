@@ -3,12 +3,20 @@ use js_sys::Function;
 use wasm_bindgen::JsValue;
 use web_sys::{Document, Element, HtmlElement, Node, Window};
 
-pub(crate) fn print_info(message: &str) -> Result<(), JsValue> {
+pub(crate) fn print_info(message: &str, id: &str) -> Result<(), JsValue> {
     let bw = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
-    let pre = bw.create_element("pre")?;
-    pre.set_text_content(Some(message));
+    // check if the pre-tag with the given ID (id) exists
+    let pre = match bw.get_element_by_id(id) {
+        Some(elem) => elem,
+        None => {
+            let pre = bw.create_element("pre")?;
+            pre.set_id(id);
+            bw.append_child(&pre)?;
+            pre
+        }
+    };
 
-    bw.append_child(&pre)?;
+    pre.set_text_content(Some(message));
     Ok(())
 }
 /// An abstraction to the browser window, makes using the `wasm_bindgen` api simpler.

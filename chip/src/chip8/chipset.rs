@@ -11,10 +11,10 @@ use crate::{
     timer::{TimedWorker, Timer, TimerValue},
     OpcodeError, ProcessError, StackError,
 };
-use tinyvec::ArrayVec;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use rand::RngCore;
 use std::{convert::TryInto, sync::Arc, time::Duration};
+use tinyvec::ArrayVec;
 
 use hashbrown::HashMap;
 

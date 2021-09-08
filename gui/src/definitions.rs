@@ -24,6 +24,12 @@ pub mod field {
     pub const ACTIVE: &str = "alive";
 }
 
+/// The pre in which the notifications are written into
+pub mod info {
+    /// Represents the id used for logging chip information to.
+    pub const ID: &str = "info";
+}
+
 /// The keyboard constants.
 pub mod keyboard {
     use std::collections::HashMap;

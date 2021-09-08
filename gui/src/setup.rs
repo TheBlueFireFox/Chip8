@@ -47,35 +47,43 @@ impl Data {
 
         self.controller.borrow_mut().set_rom(rom);
 
-        utils::print_info(&format!(
-            "{}",
-            self.controller
-                .borrow()
-                .chipset()
-                .as_ref()
-                .ok_or_else(|| JsValue::from("printing went terribly wrong"))?
-        ))?;
+        utils::print_info(
+            &format!(
+                "{}",
+                self.controller
+                    .borrow()
+                    .chipset()
+                    .as_ref()
+                    .ok_or_else(|| JsValue::from("printing went terribly wrong"))?,
+            ),
+            definitions::info::ID,
+        )?;
 
         // Will setup the worker
-        let ccontroller = self.controller.clone();
-        let scontroller = self.controller.clone();
-        let cworker = self.worker.clone();
+        let shutdown_callback = {
+            let scontroller = self.controller.clone();
+            let cworker = self.worker.clone();
 
-        let shutdown_callback = move || {
-            stop(cworker, scontroller);
+            move || {
+                stop(cworker, scontroller);
+            }
         };
 
         // Will convert the Data type into a mutable controller, so that
         // it can be used by the chip, this will run a single opcode of the
         // chip.
-        let callback = move || {
-            // moving the ccontroller into this closure
-            let mut controller = ccontroller.borrow_mut();
+        let callback = {
+            let ccontroller = self.controller.clone();
 
-            // running the chip step
-            // using anhow::result magic to convert this here
-            chip::run(&mut controller)?;
-            Ok(())
+            move || {
+                // moving the ccontroller into this closure
+                let mut controller = ccontroller.borrow_mut();
+
+                // running the chip step
+                // using anhow::result magic to convert this here
+                chip::run(&mut controller)?;
+                Ok(())
+            }
         };
 
         self.worker.borrow_mut().start_with_shutdown(
@@ -248,10 +256,17 @@ pub(crate) fn setup_dropdown(
         .ok_or_else(|| JsValue::from("No such element found."))?;
 
     let callback = move |event: web_sys::Event| {
-        // this is safe given the context in which the function is called.
-        let target: web_sys::HtmlSelectElement = event.target().unwrap().dyn_into().unwrap();
+        // SAFETY: These expect unwraps are safe given the context in which
+        // the function will be called from.
+        let target: web_sys::HtmlSelectElement = event
+            .target()
+            .expect("Unable to extract the event target from the event handler.")
+            .dyn_into()
+            .expect("Unable to convert the event target to the selected HTML element.");
+
         let rom = target.value();
         log::trace!("loaded {}", rom);
+
         if let Err(err) = data.start(&rom) {
             data.stop();
             panic!("{:?}", err)
@@ -280,7 +295,7 @@ fn set_panic_hook() {
 pub(crate) fn crate_dropdown(window: &BrowserWindow, files: &[&str]) -> Result<Element, JsValue> {
     let dropdown = window.create_element(definitions::selector::TYPE)?;
     dropdown.set_id(definitions::selector::ID);
-    for file in files.into_iter() {
+    for file in files {
         let option = window.create_element("option")?;
         option.set_attribute("value", *file)?;
         option.set_text_content(Some(*file));
