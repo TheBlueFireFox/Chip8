@@ -1,5 +1,48 @@
 //! The constant definitions needed to run the application.
 
+pub mod styling {
+    use std::borrow::Cow;
+
+    use lazy_static;
+    use urlencoding;
+
+    /// Is the tag with which the styling can be applied to
+    pub const TYPE: &str = "link";
+    /// Is the styling that shall be applied to the website
+    pub const CSS: &str = "
+        table {
+          margin: auto;
+          border-collapse: collapse;
+        }
+        
+        .alive {
+          background: black;
+        }
+        
+        td, th {
+          border: black solid 1px;
+          padding: 0px;
+          height: 19px;
+          width: 19px;
+        }
+        
+        pre {
+          margin: auto;
+          width: 50%;
+          padding: 50px;
+        }
+    ";
+
+    lazy_static::lazy_static! {
+        static ref CSS_URI_ENCODED: Cow<'static, str> = urlencoding::encode(CSS);
+        pub static ref CSS_ATTRIBUTES : [(&'static str, String); 3] = [
+            ("rel", "stylesheet".into()),
+            ("type", "text/css".into()),
+            ("href", format!("data:text/css;charset=UTF-8,{}", CSS_URI_ENCODED.to_string()))
+        ];
+    }
+}
+
 /// The selector with the overview of the supported roms.
 pub mod selector {
     /// Represents the id used inside of the html, so that the selector element can be found by id.

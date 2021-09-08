@@ -27,6 +27,13 @@ pub(crate) struct BrowserWindow {
     body: HtmlElement,
 }
 
+#[allow(unused)]
+pub enum Tag<'elem> {
+    Body,
+    Head,
+    Element(&'elem str),
+}
+
 impl BrowserWindow {
     /// Create a new browser window
     pub fn new() -> Result<Self, &'static str> {
@@ -42,7 +49,24 @@ impl BrowserWindow {
     }
 
     pub fn append_child(&self, element: &Element) -> Result<(), JsValue> {
-        self.body.append_child(element).and_then(|_| Ok(()))
+        self.append_child_to(element, Tag::Body)
+    }
+
+    pub fn append_child_to<'tag>(&self, element: &Element, to: Tag<'tag>) -> Result<(), JsValue> {
+        match to {
+            Tag::Body => self.body.append_with_node_1(element),
+            Tag::Head => self
+                .document
+                .head()
+                .ok_or_else(|| JsValue::from("unable to find the element called head"))?
+                .append_with_node_1(element),
+            Tag::Element(to) => {
+                let elem = self.get_element_by_id(to).ok_or_else(|| {
+                    JsValue::from(format!("unable to find the element called {}", to))
+                })?;
+                elem.append_with_node_1(element)
+            }
+        }
     }
 
     pub fn replace_child(&self, old: &Node, new: &Node) -> Result<(), JsValue> {

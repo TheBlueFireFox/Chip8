@@ -11,7 +11,7 @@ use crate::{
     utils::{self, BrowserWindow},
 };
 
-/// Will make sure that given unique call setup function can only be calles a single time.
+/// Will make sure that given unique call setup function can only be called a single time.
 static START: Once = Once::new();
 
 /// As the Controller has multiple long parameters, this
@@ -115,8 +115,7 @@ pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<Data, JsValue> {
     log::debug!("Setting up the system");
 
     setup_systems()?;
-
-    // let browser_window = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
+    setup_css(browser_window)?;
 
     // create elements
     let val = browser_window.create_element("p")?;
@@ -241,6 +240,17 @@ pub(crate) fn setup_keyboard(
         _keydown: register("keydown", true)?,
         _keyup: register("keyup", false)?,
     })
+}
+
+pub(crate) fn setup_css(bw: &BrowserWindow) -> Result<(), JsValue> {
+    // This function will always create the CSS tag
+    let link_element = bw.create_element(definitions::styling::TYPE)?;
+
+    for (attr, val) in definitions::styling::CSS_ATTRIBUTES.iter() {
+        link_element.set_attribute(attr, val)?;
+    }
+
+    bw.append_child_to(&link_element, utils::Tag::Head)
 }
 
 pub(crate) struct DropDownClosure {
