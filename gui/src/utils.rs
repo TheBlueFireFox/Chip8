@@ -1,7 +1,7 @@
 //! Contains functionality that initializes the console logging as well as the the panic hook.
 use js_sys::Function;
 use wasm_bindgen::JsValue;
-use web_sys::{Document, Element, HtmlElement, Node, Window};
+use web_sys::{Document, Element, HtmlElement, Node, Text, Window};
 
 pub(crate) fn print_info(message: &str, id: &str) -> Result<(), JsValue> {
     let bw = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
@@ -75,6 +75,10 @@ impl BrowserWindow {
 
     pub fn create_element(&self, element_type: &str) -> Result<Element, JsValue> {
         self.document.create_element(element_type)
+    }
+
+    pub fn create_text_node(&self, text: &str) -> Result<Text, JsValue> {
+        Ok(self.document.create_text_node(text))
     }
 
     pub fn get_element_by_id(&self, id: &str) -> Option<Element> {

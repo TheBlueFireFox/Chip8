@@ -116,6 +116,7 @@ pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<Data, JsValue> {
 
     setup_systems()?;
     setup_css(browser_window)?;
+    setup_keyboard_help(browser_window)?;
 
     // create elements
     let val = browser_window.create_element("p")?;
@@ -240,6 +241,45 @@ pub(crate) fn setup_keyboard(
         _keydown: register("keydown", true)?,
         _keyup: register("keyup", false)?,
     })
+}
+
+pub(crate) fn setup_keyboard_help(bw: &BrowserWindow) -> Result<(), JsValue> {
+    // Will create a visual representation of the implemented Chip8 layout
+    let outer = bw.create_element(definitions::keyboard::TYPE)?;
+    outer.set_id(definitions::keyboard::ID);
+
+    let make = |name, layout: &[[char;4]]| -> Result<Element,JsValue>{
+        let inner = bw.create_element(definitions::keyboard::TYPE)?;
+        let header = bw.create_element(definitions::keyboard::TYPE_HEADER)?;
+        let header_text = bw.create_text_node(name)?;
+        header.append_with_node_1(&header_text)?;
+
+        inner.append_with_node_1(&header)?;
+
+        let table = bw.create_element(definitions::keyboard::TYPE_TABLE)?;
+        for row in layout.iter() {
+            let trow = bw.create_element(definitions::keyboard::TYPE_ROW)?;
+            for cell in row {
+                let tcell = bw.create_element(definitions::keyboard::TYPE_CELL)?;
+                
+                let text = bw.create_text_node(&format!("{}", cell))?;
+                tcell.append_with_node_1(&text)?;
+                trow.append_with_node_1(&tcell)?;
+            }
+            table.append_with_node_1(&trow)?;
+        }
+        inner.append_with_node_1(&table)?;
+
+        Ok(inner)
+    };
+
+    // Chip8 keypad
+    let keypad_chip = make(definitions::keyboard::HEADER_CHIP, &definitions::keyboard::CHIP_LAYOUT)?;
+    let keypad_emul = make(definitions::keyboard::HEADER_EMULATOR, &definitions::keyboard::LAYOUT)?;
+
+    outer.append_with_node_1(&keypad_chip)?;
+    outer.append_with_node_1(&keypad_emul)?;
+    bw.append_child(&outer)
 }
 
 pub(crate) fn setup_css(bw: &BrowserWindow) -> Result<(), JsValue> {
