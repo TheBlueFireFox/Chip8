@@ -247,6 +247,8 @@ pub(crate) fn setup_keyboard_help(bw: &BrowserWindow) -> Result<(), JsValue> {
     // Will create a visual representation of the implemented Chip8 layout
     let outer = bw.create_element(definitions::keyboard::TYPE)?;
     outer.set_id(definitions::keyboard::ID);
+    let outer_text = bw.create_text_node(definitions::styling::OUTER_TEXT)?;
+    outer.append_with_node_1(&outer_text)?;
 
     let make = |name, layout: &[[char; 4]]| -> Result<Element, JsValue> {
         let inner = bw.create_element(definitions::keyboard::TYPE)?;

@@ -8,6 +8,9 @@ pub mod styling {
 
     /// Is the tag with which the styling can be applied to
     pub const TYPE: &str = "link";
+    
+    pub const OUTER_TEXT : &str= "⚙";
+
     /// Is the styling that shall be applied to the website
     pub const CSS: &str = "
         table {
@@ -25,11 +28,32 @@ pub mod styling {
           height: 19px;
           width: 19px;
         }
-        
+
         pre {
           margin: auto;
           width: 50%;
           padding: 50px;
+        }
+
+        #keyboard-layout {
+            width: min-content;
+        }
+
+        #keyboard-layout div {
+            display: none;
+            width: min-content;
+        }
+
+        #keyboard-layout:hover div {
+            display: inherit;
+            width: min-content;
+        }
+
+        #keyboard-layout:hover {
+            display: block;
+            border: black solid 1px;
+            border-radius: 25px;
+            padding: 5px;
         }
     ";
 
