@@ -34,11 +34,32 @@ pub mod styling {
     ";
 
     lazy_static::lazy_static! {
-        static ref CSS_URI_ENCODED: Cow<'static, str> = urlencoding::encode(CSS);
-        pub static ref CSS_ATTRIBUTES : [(&'static str, String); 3] = [
-            ("rel", "stylesheet".into()),
-            ("type", "text/css".into()),
-            ("href", format!("data:text/css;charset=UTF-8,{}", CSS_URI_ENCODED.to_string()))
+        static ref CSS_URI_COMPRESSED : String = {
+            let mut res = String::with_capacity(CSS.len());
+            let mut iter = CSS.split_whitespace().filter(|v| !v.is_empty());
+
+            // SAFETY: As we know the string this unwrap here is perfectly safe.
+            let word = iter.next().unwrap();
+            res.push_str(word);
+
+            for word in iter {
+                res.push(' ');
+                res.push_str(word);
+            }
+
+            // remove unneded bytes
+            res.shrink_to_fit();
+            res
+        };
+
+        static ref CSS_URI_ENCODED: Cow<'static, str> = urlencoding::encode(&*CSS_URI_COMPRESSED);
+        static ref CSS_HREF_ATTRIBUTE : String = format!("data:text/css;charset=UTF-8,{}", CSS_URI_ENCODED.as_ref());
+
+        // we can use the &* here to create a static str, as the CSS_HREF_ATTRIBUTE also is 'static
+        pub static ref CSS_ATTRIBUTES : [(&'static str, &'static str); 3] = [
+            ("rel", "stylesheet"),
+            ("type", "text/css"),
+            ("href", &*CSS_HREF_ATTRIBUTE)
         ];
     }
 }
@@ -76,7 +97,7 @@ pub mod info {
 /// The keyboard constants.
 pub mod keyboard {
     use std::collections::HashMap;
-    
+
     pub const TYPE: &str = "div";
     pub const ID: &str = "keyboard-layout";
 
@@ -105,7 +126,7 @@ pub mod keyboard {
         ["KeyY", "KeyX", "KeyC", "KeyV"],
     ];
 
-    pub const CHIP_LAYOUT : [[char; 4]; 4] = [
+    pub const CHIP_LAYOUT: [[char; 4]; 4] = [
         ['1', '2', '3', 'C'],
         ['4', '5', '6', 'D'],
         ['7', '8', '9', 'E'],

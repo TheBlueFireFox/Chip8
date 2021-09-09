@@ -248,7 +248,7 @@ pub(crate) fn setup_keyboard_help(bw: &BrowserWindow) -> Result<(), JsValue> {
     let outer = bw.create_element(definitions::keyboard::TYPE)?;
     outer.set_id(definitions::keyboard::ID);
 
-    let make = |name, layout: &[[char;4]]| -> Result<Element,JsValue>{
+    let make = |name, layout: &[[char; 4]]| -> Result<Element, JsValue> {
         let inner = bw.create_element(definitions::keyboard::TYPE)?;
         let header = bw.create_element(definitions::keyboard::TYPE_HEADER)?;
         let header_text = bw.create_text_node(name)?;
@@ -261,7 +261,7 @@ pub(crate) fn setup_keyboard_help(bw: &BrowserWindow) -> Result<(), JsValue> {
             let trow = bw.create_element(definitions::keyboard::TYPE_ROW)?;
             for cell in row {
                 let tcell = bw.create_element(definitions::keyboard::TYPE_CELL)?;
-                
+
                 let text = bw.create_text_node(&format!("{}", cell))?;
                 tcell.append_with_node_1(&text)?;
                 trow.append_with_node_1(&tcell)?;
@@ -274,8 +274,14 @@ pub(crate) fn setup_keyboard_help(bw: &BrowserWindow) -> Result<(), JsValue> {
     };
 
     // Chip8 keypad
-    let keypad_chip = make(definitions::keyboard::HEADER_CHIP, &definitions::keyboard::CHIP_LAYOUT)?;
-    let keypad_emul = make(definitions::keyboard::HEADER_EMULATOR, &definitions::keyboard::LAYOUT)?;
+    let keypad_chip = make(
+        definitions::keyboard::HEADER_CHIP,
+        &definitions::keyboard::CHIP_LAYOUT,
+    )?;
+    let keypad_emul = make(
+        definitions::keyboard::HEADER_EMULATOR,
+        &definitions::keyboard::LAYOUT,
+    )?;
 
     outer.append_with_node_1(&keypad_chip)?;
     outer.append_with_node_1(&keypad_emul)?;
