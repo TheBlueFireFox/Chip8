@@ -8,8 +8,8 @@ pub mod styling {
 
     /// Is the tag with which the styling can be applied to
     pub const TYPE: &str = "link";
-    
-    pub const OUTER_TEXT : &str= "⚙";
+
+    pub const OUTER_TEXT: &str = "⚙";
 
     /// Is the styling that shall be applied to the website
     pub const CSS: &str = "

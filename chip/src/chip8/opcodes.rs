@@ -97,17 +97,17 @@ impl ChipOpcodes for InternalChipSet {
             EightOpcode::One => {
                 // 8XY1
                 // Sets VX to VX or VY. (Bitwise OR operation)
-                self.registers[x] = self.registers[x] | self.registers[y];
+                self.registers[x] |= self.registers[y];
             }
             EightOpcode::Two => {
                 // 8XY2
                 // Sets VX to VX and VY. (Bitwise AND operation)
-                self.registers[x] = self.registers[x] & self.registers[y];
+                self.registers[x] &= self.registers[y];
             }
             EightOpcode::Three => {
                 // 8XY3
                 // Sets VX to VX xor VY.
-                self.registers[x] = self.registers[x] ^ self.registers[y];
+                self.registers[x] ^= self.registers[y];
             }
             EightOpcode::Four => {
                 // 8XY4
@@ -135,7 +135,7 @@ impl ChipOpcodes for InternalChipSet {
                 // Stores the least significant bit of VX in VF and then shifts VX to the right
                 // by 1.
                 self.registers[cpu::register::LAST] = self.registers[x] & 1;
-                self.registers[x] = self.registers[x] >> 1;
+                self.registers[x] >>= 1;
             }
             EightOpcode::Seven => {
                 // 8XY7
@@ -155,7 +155,7 @@ impl ChipOpcodes for InternalChipSet {
                 const AND_SIGNIFICANT: u8 = 1 << SHIFT_SIGNIFICANT;
                 self.registers[cpu::register::LAST] =
                     (self.registers[x] & AND_SIGNIFICANT) >> SHIFT_SIGNIFICANT;
-                self.registers[x] = self.registers[x] << 1;
+                self.registers[x] <<= 1;
             }
         }
 

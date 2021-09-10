@@ -40,7 +40,7 @@ impl Data {
         let mut ra = RomArchives::new();
 
         let rom = ra
-            .get_file_data(&rom_name)
+            .get_file_data(rom_name)
             .map_err(|err| JsValue::from(format!("{}", err)))?;
 
         log::debug!("Loading {}", rom_name);
@@ -126,13 +126,13 @@ pub(crate) fn setup(browser_window: &BrowserWindow) -> Result<Data, JsValue> {
     // get rom names
     let ra = RomArchives::new();
     let mut files = ra.file_names();
-    files.sort();
+    files.sort_unstable();
 
-    let select = crate_dropdown(&browser_window, &files)?;
+    let select = crate_dropdown(browser_window, &files)?;
 
     browser_window.append_child(&select)?;
 
-    let mut da = DisplayAdapter::new(&browser_window);
+    let mut da = DisplayAdapter::new(browser_window);
     da.create_board()?;
 
     let ka = KeyboardAdapter::new();

@@ -64,6 +64,9 @@ enum ProgrammState {
     Stop,
 }
 
+// CallBack is a type abstraction used to simplify reading the ProcessWorker
+type CallBack = Box<dyn FnOnce() + 'static>;
+
 /// Will take care that assuming, there was a
 /// crash on the worker thread and the
 /// function call get's called anyway
@@ -75,7 +78,7 @@ pub struct ProcessWorker {
     state: Rc<Cell<ProgrammState>>,
     /// A possible clean up function called once the worker
     /// exists processing.
-    shutdown: Rc<RefCell<Option<Box<dyn FnOnce() + 'static>>>>,
+    shutdown: Rc<RefCell<Option<CallBack>>>,
 }
 
 impl ProcessWorker {
@@ -220,7 +223,7 @@ impl WasmWorker {
         Ok(Self {
             interval_id: None,
             function: None,
-            browser: BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?,
+            browser: BrowserWindow::new().map_err(JsValue::from)?,
         })
     }
 

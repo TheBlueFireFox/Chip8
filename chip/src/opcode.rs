@@ -188,7 +188,9 @@ impl OpcodeTrait for Opcode {
     /// ```
     fn xy(&self) -> (usize, usize) {
         let x = self.x();
-        let y = ((self & (OPCODE_MASK_00FF ^ OPCODE_MASK_000F)) >> BYTE_SIZE / 2) as usize;
+        const MASK : u16 = OPCODE_MASK_00FF ^ OPCODE_MASK_000F;
+        const NIBBLE: u16 = BYTE_SIZE / 2;
+        let y = ((self & MASK) >> NIBBLE) as usize;
         (x, y)
     }
 
@@ -668,7 +670,8 @@ impl TryFrom<Opcode> for Opcodes {
     fn try_from(value: Opcode) -> Result<Self, Self::Error> {
         // Outer convert
         // Shiffing t here so that match can use a loopuptable instead of a 'if else' - blocks
-        let t = value.t() >> 4 * 3;
+        const SHIFT : usize = 4 * 3;
+        let t = value.t() >> SHIFT;
         let res = match t {
             0x0 => Opcodes::Zero(try_into(value, value)?),
             0x1 => Opcodes::One(try_into(value, value)?),
@@ -784,7 +787,7 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// Returns any possible error
     fn two(&mut self, opcode: &Two) -> Result<ProgramCounterStep, ProcessError>;
 
-    /// - `3XNN` - Cond 	- `if(Vx==NN)`          - Skips the next instruction if `VX` equals `NN`. (Usually the next instruction is a jump to skip a code block)
+    /// - `3XNN` - Cond    - `if(Vx==NN)`          - Skips the next instruction if `VX` equals `NN`. (Usually the next instruction is a jump to skip a code block)
     ///
     /// Returns any possible error
     fn three(&self, opcode: &Three) -> Result<ProgramCounterStep, ProcessError>;
@@ -829,12 +832,12 @@ pub trait ChipOpcodes: ProgramCounter + ChipOpcodePreProcessHandler {
     /// Returns any possible error
     fn nine(&self, opcode: &Nine) -> Result<ProgramCounterStep, ProcessError>;
 
-    /// - `ANNN` - MEM      - `I = NNN`             - Sets `I` to the address `NNN`.
+    /// - `ANNN` - MEM    - `I = NNN`             - Sets `I` to the address `NNN`.
     ///
     /// Returns any possible error
     fn a(&mut self, opcode: &Ten) -> Result<ProgramCounterStep, ProcessError>;
 
-    /// - `BNNN` - Flow 	- `PC=V0+NNN`           - Jumps to the address `NNN` plus `V0`.
+    /// - `BNNN` - Flow    - `PC=V0+NNN`           - Jumps to the address `NNN` plus `V0`.
     ///
     /// Returns any possible error
     fn b(&self, opcode: &Eleven) -> Result<ProgramCounterStep, ProcessError>;

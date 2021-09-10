@@ -218,28 +218,24 @@ impl TimedWorker for Worker {
             // be used ```_``` is used in front of the name.
             let _alive = alive;
             let mut timeout = interval;
-            loop {
-                match recv.recv_timeout(timeout) {
-                    Err(RecvTimeoutError::Timeout) => {
-                        // set the duration to the correct interval
-                        let start = std::time::SystemTime::now();
 
-                        // run the callback function
-                        callback();
+            while let Err(RecvTimeoutError::Timeout) = recv.recv_timeout(timeout) {
+                // set the duration to the correct interval
+                let start = std::time::SystemTime::now();
 
-                        // make sure there the system will at most wait the interval
-                        let duration = start
-                            .elapsed()
-                            .expect("For unknown reasons time moved back in time...");
+                // run the callback function
+                callback();
 
-                        timeout = if interval <= duration {
-                            Duration::from_secs(0)
-                        } else {
-                            interval - duration
-                        };
-                    }
-                    Ok(_) | Err(_) => break, // shutdown
-                }
+                // make sure there the system will at most wait the interval
+                let duration = start
+                    .elapsed()
+                    .expect("For unknown reasons time moved back in time...");
+
+                timeout = if interval <= duration {
+                    Duration::from_secs(0)
+                } else {
+                    interval - duration
+                };
             }
         });
 

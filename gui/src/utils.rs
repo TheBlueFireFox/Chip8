@@ -4,7 +4,7 @@ use wasm_bindgen::JsValue;
 use web_sys::{Document, Element, HtmlElement, Node, Text, Window};
 
 pub(crate) fn print_info(message: &str, id: &str) -> Result<(), JsValue> {
-    let bw = BrowserWindow::new().or_else(|err| Err(JsValue::from(err)))?;
+    let bw = BrowserWindow::new().map_err(JsValue::from)?;
     // check if the pre-tag with the given ID (id) exists
     let pre = match bw.get_element_by_id(id) {
         Some(elem) => elem,
@@ -70,7 +70,7 @@ impl BrowserWindow {
     }
 
     pub fn replace_child(&self, old: &Node, new: &Node) -> Result<(), JsValue> {
-        self.body.replace_child(new, old).and_then(|_| Ok(()))
+        self.body.replace_child(new, old).map(|_| ())
     }
 
     pub fn create_element(&self, element_type: &str) -> Result<Element, JsValue> {
