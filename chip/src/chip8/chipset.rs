@@ -50,7 +50,7 @@ where
         let (delay_timer, delay_value) = Timer::new(0, Duration::from_millis(timer::INTERVAL));
         let (sound_timer, sound_value) =
             Timer::with_callback(0, Duration::from_millis(timer::INTERVAL), S::new());
-        let chipset = InternalChipSet::new(rom, delay_value.clone(), sound_value.clone(), keyboard);
+        let chipset = InternalChipSet::new(rom, delay_value, sound_value, keyboard);
 
         Self {
             chipset,
@@ -66,7 +66,7 @@ where
 
     /// Will execute the next operation.
     /// Returns the operation that has to be run by the caller.
-    pub fn next(&mut self) -> Result<opcode::Operation, ProcessError> {
+    pub fn step(&mut self) -> Result<opcode::Operation, ProcessError> {
         self.chipset.next()
     }
 
@@ -277,7 +277,7 @@ impl InternalChipSet {
         if self.stack.is_empty() {
             Err(StackError::Empty)
         } else {
-            let pointer = self.stack.pop().ok_or_else(|| StackError::Unexpected)?;
+            let pointer = self.stack.pop().ok_or(StackError::Unexpected)?;
             Ok(pointer)
         }
     }

@@ -117,10 +117,10 @@ where
     // Extract the chip from the chipset option
     let chip = chipset
         .as_mut()
-        .ok_or_else(|| ProcessError::UninitializedChipset)?;
+        .ok_or(ProcessError::UninitializedChipset)?;
 
     // run chip
-    *operation = chip.next()?;
+    *operation = chip.step()?;
 
     // Checks if we can redraw the screen after this or not.
     if *operation == Operation::Draw {

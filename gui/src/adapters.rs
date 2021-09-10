@@ -100,7 +100,7 @@ impl SoundCallback {
         let callback = Closure::once_into_js(stop);
 
         let window = BrowserWindow::new()?;
-        let id = window.set_timeout(&callback.as_ref().unchecked_ref(), timeout)?;
+        let id = window.set_timeout(callback.as_ref().unchecked_ref(), timeout)?;
 
         *timeout_id = Some(id);
 

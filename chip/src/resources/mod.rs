@@ -11,7 +11,7 @@ use zip::{read::ZipArchive, result::ZipResult};
 
 /// Contains all the available roms needed for running the games
 /// in a ZIP archive.
-const ROM_ARCHIVE: &'static [u8] = std::include_bytes!("c8games.zip");
+const ROM_ARCHIVE: &[u8] = std::include_bytes!("c8games.zip");
 
 /// Represents an archive of roms
 /// it contains all kind of information about the information of the archives
@@ -19,13 +19,19 @@ pub struct RomArchives<'a> {
     archive: ZipArchive<Cursor<&'a [u8]>>,
 }
 
-impl RomArchives<'_> {
-    /// Will generate a new rom archive object based of the given rom archive
-    pub fn new() -> Self {
-        RomArchives {
+impl Default for RomArchives<'_> {
+    fn default() -> Self {
+        Self {
             // can be directly unwrapped, as the rom archive has already been manually checked
             archive: ZipArchive::new(Cursor::new(ROM_ARCHIVE)).unwrap(),
         }
+    }
+}
+
+impl RomArchives<'_> {
+    /// Will generate a new rom archive object based of the given rom archive
+    pub fn new() -> Self {
+        Default::default()
     }
 
     /// Will return all the rom names available to be chosen
@@ -42,7 +48,7 @@ impl RomArchives<'_> {
         let mut data = vec![0; size];
         // this result can be ignored as the included archive
         // will definitely contain data for if the file is included
-        file.read(&mut data)?;
+        file.read_exact(&mut data)?;
         Ok(Rom::new(name, data))
     }
 }

@@ -173,20 +173,21 @@ mod opcode_print {
             let to = (from + POINTER_INCREMENT - 1).min(data_last_index);
 
             let mut data = [0; HEX_PRINT_STEP];
-            let mut data_index = 0;
             let mut only_null = true;
 
             // loop over all the opcodes u8 pairs
-            for index in (from..=to).step_by(memory::opcodes::SIZE) {
+            for (index, into) in (from..=to)
+                .step_by(memory::opcodes::SIZE)
+                .zip(data.iter_mut())
+            {
                 // set the opcode
-                data[data_index] = opcode::build_opcode(memory, index)
+                *into = opcode::build_opcode(memory, index)
                     .expect("Please check if memory is valid in the given Rom.");
 
                 // check if opcode is above 0, if so toggle the is null flag
-                if data[data_index] > 0 {
+                if *into > 0 {
                     only_null = false;
                 }
-                data_index += 1;
             }
 
             // create the row that shall be used later on
@@ -217,7 +218,7 @@ mod opcode_print {
                 panic!("{}", err);
             }
         }
-        if let Some(index) = string.rfind("\n") {
+        if let Some(index) = string.rfind('\n') {
             string.truncate(index);
         }
         string
@@ -347,7 +348,7 @@ impl fmt::Display for InternalChipSet {
         stack[0..self.stack.len()].copy_from_slice(&self.stack);
 
         let sta = integer_print::printer(&stack, INDENT_SIZE)?;
-        let key = bool_print::printer(&self.get_keyboard_read().get_keys(), INDENT_SIZE)?;
+        let key = bool_print::printer(self.get_keyboard_read().get_keys(), INDENT_SIZE)?;
 
         let mut opc = String::with_capacity(INTSIZE + INDENT_SIZE);
         indent_helper(&mut opc, INDENT_SIZE);
