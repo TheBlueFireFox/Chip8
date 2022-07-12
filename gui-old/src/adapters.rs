@@ -86,7 +86,7 @@ impl SoundCallback {
         osci.start()?;
 
         // moving the osci into this closure keeps it alive
-        let stop = move || {
+        let stop = move || -> Result<(), JsValue> {
             let mut timeout_id = ctimeout_id.lock();
 
             osci.stop()?;

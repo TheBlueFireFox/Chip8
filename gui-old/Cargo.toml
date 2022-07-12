@@ -1,0 +1,70 @@
+[package]
+authors = ["TheBlueFireFox <adrian.hornung@yahoo.de>"]
+description = "A chip8 backend written in rust"
+edition = "2018"
+license = "GPL-3.0-only"
+name = "chip8-web"
+repository = "https://github.com/TheBlueFireFox/Chip8"
+version = "0.2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook", "wee_alloc"]
+
+[dependencies]
+js-sys = "0.3"
+wasm-bindgen = "0.2.70"
+web-sys = {version = "0.3", default-features = false, features = [
+  'Document',
+  'Element',
+  'KeyboardEvent',
+  'Event',
+  'Text',
+  'HtmlElement',
+  'HtmlHeadElement',
+  'HtmlSelectElement',
+  'DomTokenList',
+  'Node',
+  'Window',
+  'console',
+  'AudioContext',
+  'AudioDestinationNode',
+  'AudioParam',
+  'GainNode',
+  'OscillatorNode',
+  'OscillatorType',
+]}
+
+# The `console_error_panic_hook` crate provides better debugging of panics by
+# logging them with `console.error`. This is great for development, but requires
+# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
+# code size when deploying.
+console_error_panic_hook = {version = "0.1", optional = true}
+
+# `wee_alloc` is a tiny allocator for wasm that is only ~1K in code size
+# compared to the default allocator's ~10K. It is slower than the default
+# allocator, however.
+#
+# Unfortunately, `wee_alloc` requires nightly Rust when targeting wasm for now.
+wee_alloc = {version = "0.4", optional = true}
+
+
+console_log = {version = "0.2", features = ["color"]}
+lazy_static = "1.4"
+log = {version = "0.4", features = ["max_level_debug", "release_max_level_warn"]}
+anyhow = "1.0"
+parking_lot = { version = "0.11", features = ["wasm-bindgen"] }
+
+chip8 = {path = "../chip", default-features = false, features = ["js"]}
+urlencoding = "2.1.0"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Os", "--enable-mutable-globals"]
+

@@ -19,7 +19,7 @@ pub struct RomArchives<'a> {
     archive: ZipArchive<Cursor<&'a [u8]>>,
 }
 
-impl Default for RomArchives<'_> {
+impl Default for RomArchives<'static> {
     fn default() -> Self {
         Self {
             // can be directly unwrapped, as the rom archive has already been manually checked
@@ -35,7 +35,7 @@ impl RomArchives<'_> {
     }
 
     /// Will return all the rom names available to be chosen
-    pub fn file_names(&self) -> Vec<&'_ str> {
+    pub fn file_names(&self) -> Vec<&str> {
         self.archive.file_names().collect()
     }
 
