@@ -1,7 +1,9 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use chip::resources::RomArchives;
-use yew::prelude::*;
+use yew::{
+    classes, function_component, html, Callback, Component, Context, Html, Properties, TargetCast,
+};
 
 #[function_component(App)]
 pub fn app() -> Html {
@@ -18,7 +20,7 @@ enum Msg {
 }
 
 struct State {
-    display: Vec<Vec<bool>>,
+    display: Rc<RefCell<Vec<Vec<bool>>>>,
     rom_props: RomProp,
 }
 
@@ -34,8 +36,15 @@ impl Component for State {
             callback,
             roms: Default::default(),
         };
+
+        use chip::definitions::display;
+
+        let map = (0..display::WIDTH)
+            .map(|y| (0..display::HEIGHT).map(|x| (y + x) % 2 == 0).collect())
+            .collect();
+
         Self {
-            display: Default::default(),
+            display: Rc::new(RefCell::new(map)),
             rom_props: props,
         }
     }
@@ -51,12 +60,17 @@ impl Component for State {
     }
 
     fn view(&self, _ctx: &Context<Self>) -> Html {
-        let props = self.rom_props.clone();
+        let props_rom = self.rom_props.clone();
+        let props_field = FieldProp {
+            display: self.display.clone(),
+        };
+
         html! {
             <>
-                <RomDropdown ..props />
+                <RomDropdown ..props_rom />
                 <p>{format!("Value is <{}>", self.rom_props.roms.chosen)}</p>
-            </> 
+                <Field ..props_field />
+            </>
         }
     }
 }
@@ -87,62 +101,91 @@ struct RomProp {
     roms: Roms,
 }
 
-#[derive(Debug)]
-struct RomDropdown;
+#[function_component(RomDropdown)]
+fn draw_dropdown(props: &RomProp) -> Html {
+    const BASE_CASE: &str = "--";
 
-impl Component for RomDropdown {
-    type Message = ();
+    let base_case = std::iter::once(BASE_CASE);
+    let files = props.roms.files.iter().map(|a| &a[..]);
 
-    type Properties = RomProp;
+    let items = Iterator::chain(base_case, files);
 
-    fn create(_ctx: &Context<Self>) -> Self {
-        Self {}
+    let items = items.enumerate().map(|(i, v)| {
+        let selected = i == props.roms.chosen;
+
+        html! {
+            <option selected = {selected} > { v } </option>
+        }
+    });
+
+    let callback = props.callback.clone();
+
+    let callback = move |event: yew::Event| {
+        if let Some(input) = event.target_dyn_into::<web_sys::HtmlSelectElement>() {
+            let val = input.selected_index();
+
+            log::debug!("the selected input value is <{val}>");
+
+            // ignore no value -1 and base case '--'
+            if val <= 0 {
+                return;
+            }
+
+            // remove base case
+            callback.emit((val - 1) as _);
+        } else {
+            log::warn!("Unable to cast");
+        }
+    };
+
+    let callback = Callback::from(callback);
+
+    html! {
+        <select name = { "files" } onchange = { callback }>
+            { for items }
+        </select>
     }
+}
 
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        const BASE_CASE: &str = "--";
+#[derive(Debug, PartialEq, Properties)]
+struct FieldProp {
+    display: Rc<RefCell<Vec<Vec<bool>>>>,
+}
 
-        let props = ctx.props();
+#[function_component(Field)]
+fn draw_field(prop: &FieldProp) -> Html {
+    let display = prop.display.borrow();
 
-        let base_case = std::iter::once(BASE_CASE);
-        let files = props.roms.files.iter().map(|a| &a[..]);
-
-        let items = Iterator::chain(base_case, files);
-
-        let items = items.enumerate().map(|(i, v)| {
-            let selected = i == props.roms.chosen;
+    let rows = display.iter().map(|row| {
+        let columns = row.iter().map(|&state| {
+            let state = state.then_some(field::ACTIVE);
 
             html! {
-                <option selected = {selected} > { v } </option>
+                <th class={classes!(state)}></th>
             }
         });
 
-        let callback = props.callback.clone();
-
-        let callback = move |event: Event| {
-            if let Some(input) = event.target_dyn_into::<web_sys::HtmlSelectElement>() {
-                let val = input.selected_index();
-
-                log::debug!("the selected input value is <{val}>");
-
-                // ignore no value -1 and base case '--'
-                if val <= 0 {
-                    return;
-                }
-                
-                // remove base case
-                callback.emit((val - 1) as _);
-            } else {
-                log::warn!("Unable to cast");
-            }
-        };
-
-        let callback = Callback::from(callback);
-
         html! {
-            <select name = { "files" } onchange = { callback }>
-                { for items }
-            </select>
+            <tr>
+                { for columns }
+            </tr>
         }
+    });
+
+    html! {
+        <table id = {field::ID}>
+            { for rows }
+        </table>
     }
+}
+
+/// The board in which the chip implementation runs.
+pub mod field {
+    /// The upper most id.
+    pub const ID: &str = "board";
+
+    /// The state of which the values exist on.
+    /// Attention the implemtnation is in reverse, so a not `active` cell is per this definition
+    /// `alive`.
+    pub const ACTIVE: &str = "alive";
 }
