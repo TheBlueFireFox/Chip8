@@ -5,7 +5,7 @@ use yew::{
     classes, function_component, html, Callback, Component, Context, Html, Properties, TargetCast,
 };
 
-use crate::adapter;
+use crate::{adapter::{self, SoundCallback}, timer::TimingWorker};
 
 #[function_component(App)]
 pub fn app() -> Html {
@@ -24,7 +24,7 @@ enum Msg {
     Display,
 }
 
-// type ChipController = chip::Controller<adapter::DisplayAdapter, /* Keyboard */, /* SoundTimer */, /*  */>;
+// type ChipController = chip::Controller<adapter::DisplayAdapter, /* Keyboard */, SoundCallback, TimingWorker>;
 
 
 #[derive(Debug)]

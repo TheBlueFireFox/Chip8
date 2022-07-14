@@ -100,3 +100,16 @@ impl KeyboardCommands for KeyboardAdapter {
         self.get_keyboard_write().set_key(key, to);
     }
 }
+
+pub(crate) struct SoundCallback;
+
+impl TimerCallback for SoundCallback {
+    fn new() -> Self {
+        Self {}
+    }
+
+    fn handle(&mut self) {
+        // TODO: implement the sound callback
+        todo!()
+    }
+}
