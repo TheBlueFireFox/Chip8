@@ -5,15 +5,15 @@ use yew::{
     classes, function_component, html, Callback, Component, Context, Html, Properties, TargetCast,
 };
 
-use crate::{adapter::{self, SoundCallback}, timer::TimingWorker};
+use crate::{
+    adapter::{DisplayAdapter, KeyboardAdapter, SoundCallback},
+    timer::TimingWorker,
+};
 
 #[function_component(App)]
 pub fn app() -> Html {
     html! {
-        <>
-            <h1>{ "Chip8 Emulator" }</h1>
-            <State/>
-        </>
+        <State />
     }
 }
 
@@ -24,14 +24,14 @@ enum Msg {
     Display,
 }
 
-// type ChipController = chip::Controller<adapter::DisplayAdapter, /* Keyboard */, SoundCallback, TimingWorker>;
-
-
-#[derive(Debug)]
+#[derive(custom_debug::Debug)]
 struct State {
     field_prop: FieldProp,
     rom_props: RomProp,
-    // chip: Option<ChipController>
+    ka: KeyboardAdapter,
+    da: DisplayAdapter,
+    #[debug(skip)]
+    chip: Option<chip::Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>>,
 }
 
 impl Component for State {
@@ -64,6 +64,9 @@ impl Component for State {
         Self {
             field_prop,
             rom_props,
+            chip: None,
+            ka: todo!(),
+            da: todo!(),
         }
     }
 
@@ -89,15 +92,23 @@ impl Component for State {
     fn view(&self, _ctx: &Context<Self>) -> Html {
         let props_rom = self.rom_props.clone();
         let props_field = self.field_prop.clone();
+        let ka = self.ka.clone();
+        let onkeydown = yew::Callback::from(move |event| handle_keypress(event, &ka));
 
         html! {
-            <>
-                <RomDropdown ..props_rom />
-                <p>{format!("Value is <{}>", self.rom_props.roms.chosen)}</p>
-                <Field ..props_field />
-            </>
+            <body onkeydown = {onkeydown}>
+                <h1>{ "Chip8 Emulator" }</h1>
+                <State/>
+                    <RomDropdown ..props_rom />
+                    <p>{format!("Value is <{}>", self.rom_props.roms.chosen)}</p>
+                    <Field ..props_field />
+            </ body>
         }
     }
+}
+
+fn handle_keypress(_event: yew::KeyboardEvent, ka: &KeyboardAdapter) {
+    todo!()
 }
 
 #[derive(Debug, PartialEq, Clone)]

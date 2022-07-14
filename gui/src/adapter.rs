@@ -1,14 +1,16 @@
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use chip::devices::{DisplayCommands, Keyboard, KeyboardCommands};
+use chip::{devices::{DisplayCommands, Keyboard, KeyboardCommands}, timer::TimerCallback};
 
+#[derive(Debug)]
 pub(crate) struct DisplayState {
     state: Vec<Vec<bool>>,
     changes: Vec<Vec<bool>>,
 }
 
 /// Translates the internal commands into the external ones.
+#[derive(Debug)]
 pub(crate) struct DisplayAdapter {
     display_state: Rc<RefCell<DisplayState>>,
     callback: yew::Callback<()>,
@@ -65,6 +67,7 @@ impl DisplayCommands for DisplayAdapter {
 }
 
 /// Abstracts away the awkward js keyboard interface
+#[derive(Debug, Clone)]
 pub(crate) struct KeyboardAdapter {
     /// Stores the keyboard into to which the values are changed.
     keyboard: Arc<RwLock<Keyboard>>,
