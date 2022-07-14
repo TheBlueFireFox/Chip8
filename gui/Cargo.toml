@@ -10,4 +10,8 @@ yew = "0.19.3"
 chip8 = { path = "../chip", default-features = false, features = ["js"] }
 web-sys = {version = "0.3.58", default-features = false, features = ["HtmlSelectElement"]}
 wasm-logger = "0.2.0"
+thiserror = "1.0"
 log = "0.4.17"
+gloo = "0.8.0"
+parking_lot = "0.11.2"
+itertools = "0.10.3"

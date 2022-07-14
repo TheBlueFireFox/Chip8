@@ -5,6 +5,8 @@ use yew::{
     classes, function_component, html, Callback, Component, Context, Html, Properties, TargetCast,
 };
 
+use crate::adapter;
+
 #[function_component(App)]
 pub fn app() -> Html {
     html! {
@@ -15,13 +17,21 @@ pub fn app() -> Html {
     }
 }
 
+#[derive(Debug)]
 enum Msg {
     Roms(usize),
+    Keyboard,
+    Display,
 }
 
+// type ChipController = chip::Controller<adapter::DisplayAdapter, /* Keyboard */, /* SoundTimer */, /*  */>;
+
+
+#[derive(Debug)]
 struct State {
-    display: Rc<RefCell<Vec<Vec<bool>>>>,
+    field_prop: FieldProp,
     rom_props: RomProp,
+    // chip: Option<ChipController>
 }
 
 impl Component for State {
@@ -30,22 +40,30 @@ impl Component for State {
     type Properties = ();
 
     fn create(ctx: &Context<Self>) -> Self {
-        let callback = ctx.link().callback(|index: usize| Msg::Roms(index));
-
-        let props = RomProp {
-            callback,
-            roms: Default::default(),
-        };
-
         use chip::definitions::display;
 
-        let map = (0..display::WIDTH)
-            .map(|y| (0..display::HEIGHT).map(|x| (y + x) % 2 == 0).collect())
-            .collect();
+        let rom_props = {
+            let callback = ctx.link().callback(|index: usize| Msg::Roms(index));
+
+            RomProp {
+                callback,
+                roms: Default::default(),
+            }
+        };
+
+        let field_prop = {
+            // add default pattern
+            let map = (0..display::WIDTH)
+                .map(|y| (0..display::HEIGHT).map(|x| (y + x) % 2 == 0).collect())
+                .collect();
+
+            let display = Rc::new(RefCell::new(map));
+            FieldProp { display }
+        };
 
         Self {
-            display: Rc::new(RefCell::new(map)),
-            rom_props: props,
+            field_prop,
+            rom_props,
         }
     }
 
@@ -53,7 +71,16 @@ impl Component for State {
         match msg {
             Msg::Roms(new) => {
                 /* update state */
+                // TODO: update active chip
                 self.rom_props.roms.chosen = new;
+                true
+            }
+            Msg::Keyboard => {
+                // TODO: implement setting of keyboard
+                false
+            }
+            Msg::Display => {
+                // TODO: update display state, with changes
                 true
             }
         }
@@ -61,9 +88,7 @@ impl Component for State {
 
     fn view(&self, _ctx: &Context<Self>) -> Html {
         let props_rom = self.rom_props.clone();
-        let props_field = FieldProp {
-            display: self.display.clone(),
-        };
+        let props_field = self.field_prop.clone();
 
         html! {
             <>
@@ -147,7 +172,7 @@ fn draw_dropdown(props: &RomProp) -> Html {
     }
 }
 
-#[derive(Debug, PartialEq, Properties)]
+#[derive(Debug, PartialEq, Properties, Clone)]
 struct FieldProp {
     display: Rc<RefCell<Vec<Vec<bool>>>>,
 }
