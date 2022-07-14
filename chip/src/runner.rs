@@ -108,6 +108,8 @@ where
     S: TimerCallback,
     W: TimedWorker,
 {
+    log::debug!("running opperation");
+
     // Checks if the last operation was a wait and if
     // processing can continue.
     if *operation == Operation::Wait && !keyboard.was_pressed() {

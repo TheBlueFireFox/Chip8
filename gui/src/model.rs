@@ -1,12 +1,22 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{atomic::AtomicUsize, Arc},
+    time::Duration,
+};
 
-use chip::resources::RomArchives;
+use chip::{
+    devices::KeyboardCommands,
+    resources::RomArchives,
+    timer::{TimedWorker, Timer},
+};
+use parking_lot::Mutex;
 use yew::{
     classes, function_component, html, Callback, Component, Context, Html, Properties, TargetCast,
 };
 
 use crate::{
-    adapter::{DisplayAdapter, KeyboardAdapter, SoundCallback},
+    adapter::{DisplayAdapter, DisplayState, KeyboardAdapter, SoundCallback},
     timer::TimingWorker,
 };
 
@@ -20,18 +30,25 @@ pub fn app() -> Html {
 #[derive(Debug)]
 enum Msg {
     Roms(usize),
-    Keyboard,
+    Keyboard(yew::KeyboardEvent, bool),
     Display,
+}
+
+#[derive(Debug)]
+struct KeyboardCallbacks {
+    key_up: Callback<yew::KeyboardEvent>,
+    key_down: Callback<yew::KeyboardEvent>,
 }
 
 #[derive(custom_debug::Debug)]
 struct State {
-    field_prop: FieldProp,
-    rom_props: RomProp,
-    ka: KeyboardAdapter,
-    da: DisplayAdapter,
+    props: Props,
+    keyboard_callbacks: KeyboardCallbacks,
     #[debug(skip)]
-    chip: Option<chip::Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>>,
+    tick_timer: Rc<RefCell<Option<gloo::timers::callback::Interval>>>,
+    #[debug(skip)]
+    controller:
+        Arc<Mutex<chip::Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>>>,
 }
 
 impl Component for State {
@@ -43,7 +60,7 @@ impl Component for State {
         use chip::definitions::display;
 
         let rom_props = {
-            let callback = ctx.link().callback(|index: usize| Msg::Roms(index));
+            let callback = ctx.link().callback(Msg::Roms);
 
             RomProp {
                 callback,
@@ -51,22 +68,46 @@ impl Component for State {
             }
         };
 
-        let field_prop = {
+        let (da, display_state) = {
+            let display_callback = ctx.link().callback(|_| Msg::Display);
             // add default pattern
-            let map = (0..display::WIDTH)
+            let state = (0..display::WIDTH)
                 .map(|y| (0..display::HEIGHT).map(|x| (y + x) % 2 == 0).collect())
                 .collect();
 
-            let display = Rc::new(RefCell::new(map));
-            FieldProp { display }
+            DisplayAdapter::new(state, display_callback)
+        };
+
+        let field_prop = FieldProp {
+            display: display_state,
+        };
+
+        let ka = KeyboardAdapter::new();
+        let keyboard_callbacks = {
+            let callback = ctx
+                .link()
+                .callback(|(event, state)| Msg::Keyboard(event, state));
+
+            let callback_up = callback.clone();
+
+            let key_up = yew::Callback::from(move |event| callback_up.emit((event, true)));
+            let key_down = yew::Callback::from(move |event| callback.emit((event, false)));
+
+            KeyboardCallbacks { key_up, key_down }
+        };
+
+        let controller = Arc::new(Mutex::new(chip::Controller::new(da, ka)));
+
+        let props = Props {
+            field: field_prop,
+            rom: rom_props,
         };
 
         Self {
-            field_prop,
-            rom_props,
-            chip: None,
-            ka: todo!(),
-            da: todo!(),
+            props,
+            controller,
+            keyboard_callbacks,
+            tick_timer: Default::default(),
         }
     }
 
@@ -75,11 +116,50 @@ impl Component for State {
             Msg::Roms(new) => {
                 /* update state */
                 // TODO: update active chip
-                self.rom_props.roms.chosen = new;
+                self.props.rom.roms.chosen = new;
+                let name = &self.props.rom.roms.files[new];
+                log::debug!("name is <{}>", name);
+
+                // setup correct rom
+                let mut ra = RomArchives::new();
+                let rom = ra.get_file_data(name);
+                let rom = rom.expect("Able to correctly unwrap this rom file");
+
+                self.controller.lock().set_rom(rom);
+
+                // setup ticker
+                if let Some(interval) = self.tick_timer.take() {
+                    let interval = interval.cancel();
+                    // explicit drop and cancel just to make sure
+                    drop(interval);
+                }
+
+                let tt = self.tick_timer.clone();
+
+                let controller = self.controller.clone();
+                let callback = move || {
+                    log::debug!("timer tick");
+
+                    static STATE: AtomicUsize = AtomicUsize::new(1);
+
+                    if STATE.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+                        if let Err(err) = chip::run(&mut controller.lock()) {
+                            log::error!("Unable to execute the tick <{}>", err);
+                            STATE.store(0, std::sync::atomic::Ordering::SeqCst);
+                            // clean up given the error state
+                            tt.borrow_mut().take();
+                        }
+                    }
+                };
+
+                let mut tt = self.tick_timer.borrow_mut();
+                *tt = Some(gloo::timers::callback::Interval::new(2, callback));
+
                 true
             }
-            Msg::Keyboard => {
+            Msg::Keyboard(event, pressed) => {
                 // TODO: implement setting of keyboard
+                handle_keypress(event, self.controller.lock().keyboard(), pressed);
                 false
             }
             Msg::Display => {
@@ -90,25 +170,44 @@ impl Component for State {
     }
 
     fn view(&self, _ctx: &Context<Self>) -> Html {
-        let props_rom = self.rom_props.clone();
-        let props_field = self.field_prop.clone();
-        let ka = self.ka.clone();
-        let onkeydown = yew::Callback::from(move |event| handle_keypress(event, &ka));
+        let props_rom = self.props.rom.clone();
+        let props_field = self.props.field.clone();
+        let onkeyup = self.keyboard_callbacks.key_up.clone();
+        let onkeydown = self.keyboard_callbacks.key_down.clone();
 
+        // tabindex='0' is need to make the div selectable
+        // => so that the key event will fire
         html! {
-            <body onkeydown = {onkeydown}>
+            <div tabindex ="0" onkeyup = {onkeyup} onkeydown = {onkeydown}>
                 <h1>{ "Chip8 Emulator" }</h1>
-                <State/>
-                    <RomDropdown ..props_rom />
-                    <p>{format!("Value is <{}>", self.rom_props.roms.chosen)}</p>
-                    <Field ..props_field />
-            </ body>
+                <RomDropdown ..props_rom />
+                <Field ..props_field />
+            </ div>
         }
     }
 }
 
-fn handle_keypress(_event: yew::KeyboardEvent, ka: &KeyboardAdapter) {
-    todo!()
+fn handle_keypress(event: yew::KeyboardEvent, ka: &mut KeyboardAdapter, pressed: bool) {
+    if event.repeat() {
+        return;
+    }
+
+    let key = event.code();
+    log::debug!("keypress registered <{}>", key);
+    if let Some(key) = KeyboardAdapter::map_key(&key) {
+        log::debug!(
+            "valid keypress registered <{}> - is pressed <{}>",
+            key,
+            pressed
+        );
+        ka.set_key(key, pressed);
+    }
+}
+
+#[derive(Debug)]
+struct Props {
+    field: FieldProp,
+    rom: RomProp,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -183,16 +282,27 @@ fn draw_dropdown(props: &RomProp) -> Html {
     }
 }
 
-#[derive(Debug, PartialEq, Properties, Clone)]
+#[derive(Debug, Properties, Clone)]
 struct FieldProp {
-    display: Rc<RefCell<Vec<Vec<bool>>>>,
+    display: Arc<Mutex<DisplayState>>,
+}
+
+impl PartialEq for FieldProp {
+    fn eq(&self, other: &Self) -> bool {
+        // dirty hack to compare the pointer location
+        let me = &*self.display as *const _ as *const usize;
+        let other = &*other.display as *const _ as *const usize;
+        me == other
+    }
 }
 
 #[function_component(Field)]
 fn draw_field(prop: &FieldProp) -> Html {
-    let display = prop.display.borrow();
+    use crate::definitions::field;
 
-    let rows = display.iter().map(|row| {
+    let display = prop.display.lock();
+
+    let rows = display.state().iter().map(|row| {
         let columns = row.iter().map(|&state| {
             let state = state.then_some(field::ACTIVE);
 
@@ -213,15 +323,4 @@ fn draw_field(prop: &FieldProp) -> Html {
             { for rows }
         </table>
     }
-}
-
-/// The board in which the chip implementation runs.
-pub mod field {
-    /// The upper most id.
-    pub const ID: &str = "board";
-
-    /// The state of which the values exist on.
-    /// Attention the implemtnation is in reverse, so a not `active` cell is per this definition
-    /// `alive`.
-    pub const ACTIVE: &str = "alive";
 }
