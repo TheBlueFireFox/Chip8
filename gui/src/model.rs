@@ -1,16 +1,6 @@
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{atomic::AtomicUsize, Arc},
-    time::Duration,
-};
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
-use chip::{
-    devices::KeyboardCommands,
-    resources::RomArchives,
-    timer::{TimedWorker, Timer},
-};
-use parking_lot::Mutex;
+use chip::{devices::KeyboardCommands, resources::RomArchives};
 use yew::{
     classes, function_component, html, Callback, Component, Context, Html, Properties, TargetCast,
 };
@@ -48,7 +38,7 @@ struct State {
     tick_timer: Rc<RefCell<Option<gloo::timers::callback::Interval>>>,
     #[debug(skip)]
     controller:
-        Arc<Mutex<chip::Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>>>,
+        Rc<RefCell<chip::Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>>>,
 }
 
 impl Component for State {
@@ -96,7 +86,7 @@ impl Component for State {
             KeyboardCallbacks { key_up, key_down }
         };
 
-        let controller = Arc::new(Mutex::new(chip::Controller::new(da, ka)));
+        let controller = Rc::new(RefCell::new(chip::Controller::new(da, ka)));
 
         let props = Props {
             field: field_prop,
@@ -116,7 +106,7 @@ impl Component for State {
             Msg::Roms(new) => {
                 /* update state */
                 // TODO: update active chip
-                self.props.rom.roms.chosen = new;
+                self.props.rom.roms.chosen = Some(new);
                 let name = &self.props.rom.roms.files[new];
                 log::debug!("name is <{}>", name);
 
@@ -125,45 +115,58 @@ impl Component for State {
                 let rom = ra.get_file_data(name);
                 let rom = rom.expect("Able to correctly unwrap this rom file");
 
-                self.controller.lock().set_rom(rom);
-
-                // setup ticker
-                if let Some(interval) = self.tick_timer.take() {
-                    let interval = interval.cancel();
-                    // explicit drop and cancel just to make sure
-                    drop(interval);
+                {
+                    let mut ct = self.controller.borrow_mut();
+                    ct.set_rom(rom);
+                    drop(ct);
                 }
 
+                // setup ticker
                 let tt = self.tick_timer.clone();
+                {
+                    let mut tt = tt.borrow_mut();
+                    if let Some(interval) = tt.take() {
+                        // implicit drop to cancel
+                        let _ = interval.cancel();
+                    }
+                }
 
                 let controller = self.controller.clone();
+
+                let dur = 16;
+
                 let callback = move || {
-                    log::debug!("timer tick");
+                    // 1000 / 60 ~16ms
+                    // 1000 / 50 ~2ms
+                    //
+                    // ~8x iterations
+                    log::debug!("screen tick");
 
-                    static STATE: AtomicUsize = AtomicUsize::new(1);
-
-                    if STATE.load(std::sync::atomic::Ordering::SeqCst) > 0 {
-                        if let Err(err) = chip::run(&mut controller.lock()) {
+                    for _ in 0..8 {
+                        if let Err(err) = chip::run(&mut controller.borrow_mut()) {
                             log::error!("Unable to execute the tick <{}>", err);
-                            STATE.store(0, std::sync::atomic::Ordering::SeqCst);
-                            // clean up given the error state
+                            // stop the tick
                             tt.borrow_mut().take();
                         }
                     }
                 };
 
-                let mut tt = self.tick_timer.borrow_mut();
-                *tt = Some(gloo::timers::callback::Interval::new(2, callback));
+                {
+                    let mut tt = self.tick_timer.borrow_mut();
+                    *tt = Some(gloo::timers::callback::Interval::new(dur, callback));
+                }
 
                 true
             }
             Msg::Keyboard(event, pressed) => {
                 // TODO: implement setting of keyboard
-                handle_keypress(event, self.controller.lock().keyboard(), pressed);
+                let mut ct = self.controller.borrow_mut();
+                handle_keypress(event, ct.keyboard(), pressed);
                 false
             }
             Msg::Display => {
                 // TODO: update display state, with changes
+                log::debug!("Update Display");
                 true
             }
         }
@@ -181,7 +184,7 @@ impl Component for State {
             <div tabindex ="0" onkeyup = {onkeyup} onkeydown = {onkeydown}>
                 <h1>{ "Chip8 Emulator" }</h1>
                 <RomDropdown ..props_rom />
-                <Field ..props_field />
+                { draw_field(&props_field) }
             </ div>
         }
     }
@@ -213,7 +216,7 @@ struct Props {
 #[derive(Debug, PartialEq, Clone)]
 struct Roms {
     files: Rc<[String]>,
-    chosen: usize,
+    chosen: Option<usize>,
 }
 
 impl Default for Roms {
@@ -224,7 +227,7 @@ impl Default for Roms {
         files.sort_unstable();
 
         let files = files.into();
-        let chosen = 0;
+        let chosen = None;
 
         Self { files, chosen }
     }
@@ -246,7 +249,13 @@ fn draw_dropdown(props: &RomProp) -> Html {
     let items = Iterator::chain(base_case, files);
 
     let items = items.enumerate().map(|(i, v)| {
-        let selected = i == props.roms.chosen;
+        let val = if let Some(val) = props.roms.chosen {
+            val + 1
+        } else {
+            0
+        };
+
+        let selected = i == val;
 
         html! {
             <option selected = {selected} > { v } </option>
@@ -282,29 +291,20 @@ fn draw_dropdown(props: &RomProp) -> Html {
     }
 }
 
-#[derive(Debug, Properties, Clone)]
+#[derive(Debug, Clone, PartialEq, Properties)]
 struct FieldProp {
-    display: Arc<Mutex<DisplayState>>,
+    display: Rc<RefCell<DisplayState>>,
 }
 
-impl PartialEq for FieldProp {
-    fn eq(&self, other: &Self) -> bool {
-        // dirty hack to compare the pointer location
-        let me = &*self.display as *const _ as *const usize;
-        let other = &*other.display as *const _ as *const usize;
-        me == other
-    }
-}
-
-#[function_component(Field)]
 fn draw_field(prop: &FieldProp) -> Html {
     use crate::definitions::field;
 
-    let display = prop.display.lock();
+    let display = prop.display.borrow();
 
     let rows = display.state().iter().map(|row| {
         let columns = row.iter().map(|&state| {
-            let state = state.then_some(field::ACTIVE);
+            // reverse the state so that it fits with the active display cells
+            let state = (!state).then_some(field::ACTIVE);
 
             html! {
                 <th class={classes!(state)}></th>

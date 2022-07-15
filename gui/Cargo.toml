@@ -8,7 +8,16 @@ edition = "2021"
 [dependencies]
 yew = "0.19.3"
 chip8 = { path = "../chip", default-features = false, features = ["js"] }
-web-sys = {version = "0.3.58", default-features = false, features = ["HtmlSelectElement"]}
+web-sys = {version = "0.3.58", default-features = false, features = [
+  "HtmlSelectElement", 
+  "AudioContext",
+  "AudioDestinationNode",
+  "AudioParam",
+  "GainNode",
+  "OscillatorNode",
+  "OscillatorType",
+]}
+wasm-bindgen = "0.2.81"
 wasm-logger = "0.2.0"
 thiserror = "1.0"
 log = "0.4.17"

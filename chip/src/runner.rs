@@ -60,6 +60,7 @@ where
     pub fn set_rom(&mut self, rom: Rom) {
         let chipset = ChipSet::with_keyboard(rom, self.keyboard.get_keyboard());
         self.chipset = Some(chipset);
+        self.operation = Operation::None;
     }
 
     /// Remove the rom and resets the internal state of the chip to the new state.
@@ -123,6 +124,8 @@ where
 
     // run chip
     *operation = chip.step()?;
+
+    log::debug!("operation ran successfully");
 
     // Checks if we can redraw the screen after this or not.
     if *operation == Operation::Draw {

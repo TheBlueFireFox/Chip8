@@ -1,5 +1,5 @@
-use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::sync::Arc;
+use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use chip::{
     devices::{DisplayCommands, Keyboard, KeyboardCommands},
@@ -30,7 +30,7 @@ impl DisplayState {
 /// Translates the internal commands into the external ones.
 #[derive(Debug, Clone)]
 pub(crate) struct DisplayAdapter {
-    display_state: Arc<Mutex<DisplayState>>,
+    display_state: Rc<RefCell<DisplayState>>,
     callback: yew::Callback<()>,
 }
 
@@ -38,9 +38,9 @@ impl DisplayAdapter {
     pub fn new(
         state: Vec<Vec<bool>>,
         callback: yew::Callback<()>,
-    ) -> (Self, Arc<Mutex<DisplayState>>) {
+    ) -> (Self, Rc<RefCell<DisplayState>>) {
         let display_state = DisplayState::new(state);
-        let display_state = Arc::new(Mutex::new(display_state));
+        let display_state = Rc::new(RefCell::new(display_state));
 
         (
             Self {
@@ -60,45 +60,43 @@ impl DisplayCommands for DisplayAdapter {
     {
         log::debug!("Drawing the display");
 
-        // TODO: update display cells and then callback to
-        // update parent
-        let mut display_state = self.display_state.lock();
+        {
+            // TODO: update display cells and then callback to
+            // update parent
+            let mut display_state = self.display_state.borrow_mut();
 
-        let DisplayState {
-            state: elements,
-            changes,
-        } = &mut *display_state;
+            let DisplayState {
+                state: elements,
+                changes,
+            } = &mut *display_state;
 
-        let mut has_changes = false;
-
-        for (back_row, front_row, changes_row) in itertools::izip!(
-            pixels.as_ref().iter(),
-            elements.iter_mut(),
-            changes.iter_mut()
-        ) {
-            for (&back_cell, front_cell, changes_cell) in itertools::izip!(
-                back_row.as_ref().iter(),
-                front_row.iter_mut(),
-                changes_row.iter_mut()
+            for (back_row, front_row, changes_row) in itertools::izip!(
+                pixels.as_ref().iter(),
+                elements.iter_mut(),
+                changes.iter_mut()
             ) {
-                // if there is a difference then we know that
-                // that given cell has updated
-                let state = back_cell != *front_cell;
+                for (&back_cell, front_cell, changes_cell) in itertools::izip!(
+                    back_row.as_ref().iter(),
+                    front_row.iter_mut(),
+                    changes_row.iter_mut()
+                ) {
+                    // if there is a difference then we know that
+                    // that given cell has updated
+                    let state = back_cell != *front_cell;
 
-                // update the state if needed
-                if state {
-                    *front_cell = back_cell;
-                    has_changes = true;
+                    // update the state if needed
+                    if state {
+                        *front_cell = back_cell;
+                    }
+
+                    // make sure that we flag the needed cell
+                    *changes_cell = state;
                 }
-
-                // make sure that we flag the needed cell
-                *changes_cell = state;
             }
         }
 
-        if has_changes {
-            self.callback.emit(());
-        }
+        self.callback.emit(());
+        log::debug!("draw display");
     }
 }
 
@@ -171,6 +169,6 @@ impl TimerCallback for SoundCallback {
 
     fn handle(&mut self) {
         // TODO: implement the sound callback
-        todo!()
+        log::debug!("There should be a sound played here... but that is too much work");
     }
 }

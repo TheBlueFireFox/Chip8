@@ -44,7 +44,8 @@ impl RomArchives<'_> {
         let mut file = self.archive.by_name(name)?;
         // there might be a case where there is an uneven amount of
         // data entries adding one for simplicty.
-        let size = (file.size() + file.size() % 2) as usize;
+        let size = (file.size() + file.size() % 2) as _;
+
         let mut data = vec![0; size];
         // this result can be ignored as the included archive
         // will definitely contain data for if the file is included
