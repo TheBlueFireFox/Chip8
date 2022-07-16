@@ -4,6 +4,10 @@ members = [
     "chip"
 ]
 
+exclude =[
+    "gui-old"
+]
+
 [profile.release]
 debug = true
 lto = true

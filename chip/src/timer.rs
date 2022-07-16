@@ -33,7 +33,7 @@ pub trait TimedWorker {
         T: Send + FnMut() + 'static;
     /// Will stop the timed worker
     fn stop(&mut self);
-    /// Will check if the worker is currntly working
+    /// Will check if the worker is currently working
     fn is_alive(&self) -> bool;
 }
 

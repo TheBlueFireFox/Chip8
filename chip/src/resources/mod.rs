@@ -19,7 +19,7 @@ pub struct RomArchives<'a> {
     archive: ZipArchive<Cursor<&'a [u8]>>,
 }
 
-impl Default for RomArchives<'_> {
+impl Default for RomArchives<'static> {
     fn default() -> Self {
         Self {
             // can be directly unwrapped, as the rom archive has already been manually checked
@@ -35,7 +35,7 @@ impl RomArchives<'_> {
     }
 
     /// Will return all the rom names available to be chosen
-    pub fn file_names(&self) -> Vec<&'_ str> {
+    pub fn file_names(&self) -> Vec<&str> {
         self.archive.file_names().collect()
     }
 
@@ -44,7 +44,8 @@ impl RomArchives<'_> {
         let mut file = self.archive.by_name(name)?;
         // there might be a case where there is an uneven amount of
         // data entries adding one for simplicty.
-        let size = (file.size() + file.size() % 2) as usize;
+        let size = (file.size() + file.size() % 2) as _;
+
         let mut data = vec![0; size];
         // this result can be ignored as the included archive
         // will definitely contain data for if the file is included

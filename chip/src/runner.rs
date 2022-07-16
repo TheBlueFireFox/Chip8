@@ -60,6 +60,7 @@ where
     pub fn set_rom(&mut self, rom: Rom) {
         let chipset = ChipSet::with_keyboard(rom, self.keyboard.get_keyboard());
         self.chipset = Some(chipset);
+        self.operation = Operation::None;
     }
 
     /// Remove the rom and resets the internal state of the chip to the new state.
@@ -108,6 +109,8 @@ where
     S: TimerCallback,
     W: TimedWorker,
 {
+    log::debug!("running opperation");
+
     // Checks if the last operation was a wait and if
     // processing can continue.
     if *operation == Operation::Wait && !keyboard.was_pressed() {
@@ -115,12 +118,12 @@ where
     }
 
     // Extract the chip from the chipset option
-    let chip = chipset
-        .as_mut()
-        .ok_or(ProcessError::UninitializedChipset)?;
+    let chip = chipset.as_mut().ok_or(ProcessError::UninitializedChipset)?;
 
     // run chip
     *operation = chip.step()?;
+
+    log::debug!("operation ran successfully");
 
     // Checks if we can redraw the screen after this or not.
     if *operation == Operation::Draw {

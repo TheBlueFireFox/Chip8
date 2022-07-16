@@ -73,3 +73,7 @@ Here is the CHIP-8 instructions. [see here](https://massung.github.io/CHIP-8/)
 | CXNN 	|RND VX, NN    |  VX = RND() AND NN                                                                     |
 | DXYN 	|DRW VX, VY, N |  Draw 8xN sprite at I to VX, VY; VF = 1 if collision else 0                            |
 
+## Build
+This project is build with [trunk](https://trunkrs.dev/) and the stable rust version `1.62`.
+Go into the _gui_ folder and run `trunk build` or if requested
+`trunk serve`.
