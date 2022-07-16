@@ -142,7 +142,7 @@ impl KeyboardAdapter {
                 map
             });
 
-        LAYOUT_MAP.get(key).map(|a| *a)
+        LAYOUT_MAP.get(key).copied()
     }
 }
 

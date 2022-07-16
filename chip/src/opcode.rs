@@ -252,7 +252,7 @@ impl ProgramCounterStep {
             ProgramCounterStep::None => 0,
             ProgramCounterStep::Jump(pointer) => {
                 assert!(
-                    cpu::PROGRAM_COUNTER <= pointer && pointer < memory::SIZE,
+                    (cpu::PROGRAM_COUNTER..memory::SIZE).contains(&pointer),
                     "Memory pointer '{:#06X}' is out of bounds error!",
                     pointer
                 );
@@ -279,8 +279,7 @@ fn try_into<To, From>(val: From, value: Opcode) -> Result<To, OpcodeError>
 where
     From: TryInto<TryIntoHandler<To>>,
 {
-    let inner: TryIntoHandler<To>;
-    inner = val.try_into().or_else(|_| err(value))?;
+    let inner: TryIntoHandler<To> = val.try_into().or_else(|_| err(value))?;
     Ok(inner.0)
 }
 

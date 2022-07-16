@@ -94,32 +94,6 @@ impl ProcessWorker {
         }
     }
 
-    /// Will start the timed worker at every interval
-    pub fn start_with_shutdown<M, S, E>(
-        &mut self,
-        callback: M,
-        shutdown: S,
-        interval: Duration,
-    ) -> Result<(), error::WasmWorkerError>
-    where
-        M: FnMut() -> Result<(), E> + 'static,
-        S: FnOnce() + 'static,
-        E: std::fmt::Display,
-    {
-        {
-            let state = self.state.get();
-            if let ProgrammState::Running = state {
-                // Worker is already running
-                return Err(error::WasmWorkerError::AlreadyActive);
-            }
-        }
-        {
-            let mut s = self.shutdown.borrow_mut();
-            *s = Some(Box::new(shutdown));
-        }
-        self.start(callback, interval)
-    }
-
     /// Will start the timed worker every the interval
     pub fn start<T, E>(
         &mut self,
