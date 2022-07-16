@@ -7,7 +7,8 @@ table {
   background: black;
 }
 
-td, th {
+td,
+th {
   border: black solid 1px;
   padding: 0px;
   height: 19px;
@@ -21,23 +22,26 @@ pre {
 }
 
 #keyboard-layout {
-    width: min-content;
-}
+  width: min-content;
 
-#keyboard-layout div {
+  div {
     display: none;
     width: min-content;
-}
+  }
 
-#keyboard-layout:hover div {
-    display: inherit;
-    width: min-content;
-}
-
-#keyboard-layout:hover {
+  &:hover {
     display: block;
     border: black solid 1px;
     border-radius: 25px;
     padding: 5px;
-}
 
+    div {
+      display: inherit;
+      width: 100%;
+
+      table {
+        text-align: center;
+      }
+    }
+  }
+}

@@ -182,6 +182,7 @@ impl Component for State {
         // => so that the key event will fire
         html! {
             <div tabindex ="0" onkeyup = {onkeyup} onkeydown = {onkeydown}>
+                <keyboard_helper::KeyboardHelp />
                 <h1>{ "Chip8 Emulator" }</h1>
                 <RomDropdown ..props_rom />
                 { draw_field(&props_field) }
@@ -322,5 +323,64 @@ fn draw_field(prop: &FieldProp) -> Html {
         <table id = {field::ID}>
             { for rows }
         </table>
+    }
+}
+
+mod keyboard_helper {
+    use crate::definitions::keyboard;
+    use yew::{function_component, html, Properties};
+
+    #[derive(Debug, PartialEq, Properties)]
+    struct Props {
+        name: &'static str,
+        layout: &'static [[char; 4]; 4],
+    }
+
+    #[function_component(Layout)]
+    fn layout(props: &Props) -> Html {
+        let rows = props.layout.iter().map(|row| {
+            let cells = row.iter().map(|cell| {
+                let mut data = [0u8; 4];
+                let cell = cell.encode_utf8(&mut data);
+
+                html! {
+                    <td>
+                        { cell }
+                    </td>
+                }
+            });
+
+            html! {
+                <tr>
+                    { for cells }
+                </tr>
+            }
+        });
+        html! {
+            <div>
+                <h2>{props.name}</h2>
+                <table>
+                    { for rows }     
+                </table>
+            </div>
+        }
+    }
+
+    #[function_component(KeyboardHelp)]
+    pub fn setup() -> Html {
+        let chip = Props {
+            name: keyboard::HEADER_CHIP,
+            layout: &keyboard::CHIP_LAYOUT,
+        };
+        let emulator = Props {
+            name: keyboard::HEADER_EMULATOR,
+            layout: &keyboard::LAYOUT,
+        };
+        html! {
+            <div id = {keyboard::ID}> { keyboard::OUTER_TEXT }
+                <Layout ..chip />
+                <Layout ..emulator/>
+            </div>
+        }
     }
 }

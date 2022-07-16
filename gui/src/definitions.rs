@@ -1,17 +1,12 @@
 /// The keyboard constants.
 pub mod keyboard {
 
-    pub const TYPE: &str = "div";
+    pub const OUTER_TEXT: &str = "⚙";
+
     pub const ID: &str = "keyboard-layout";
 
-    pub const TYPE_HEADER: &str = "h2";
-
-    pub const TYPE_TABLE: &str = "table";
-    pub const TYPE_ROW: &str = "tr";
-    pub const TYPE_CELL: &str = "th";
-
-    pub const HEADER_CHIP: &str = "Chip8 Keypad";
-    pub const HEADER_EMULATOR: &str = "Emulator Keyboard Mapping";
+     pub const HEADER_CHIP: &str = "Chip8 Keypad";
+     pub const HEADER_EMULATOR: &str = "Emulator Keyboard Mapping";
 
     /// represents the external layout and how it translates
     /// to the internal
