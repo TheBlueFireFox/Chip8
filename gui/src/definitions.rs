@@ -5,8 +5,8 @@ pub mod keyboard {
 
     pub const ID: &str = "keyboard-layout";
 
-     pub const HEADER_CHIP: &str = "Chip8 Keypad";
-     pub const HEADER_EMULATOR: &str = "Emulator Keyboard Mapping";
+    pub const HEADER_CHIP: &str = "Chip8 Keypad";
+    pub const HEADER_EMULATOR: &str = "Emulator Keyboard Mapping";
 
     /// represents the external layout and how it translates
     /// to the internal

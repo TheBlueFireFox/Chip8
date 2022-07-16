@@ -118,9 +118,7 @@ where
     }
 
     // Extract the chip from the chipset option
-    let chip = chipset
-        .as_mut()
-        .ok_or(ProcessError::UninitializedChipset)?;
+    let chip = chipset.as_mut().ok_or(ProcessError::UninitializedChipset)?;
 
     // run chip
     *operation = chip.step()?;

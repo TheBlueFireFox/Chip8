@@ -360,7 +360,7 @@ mod keyboard_helper {
             <div>
                 <h2>{props.name}</h2>
                 <table>
-                    { for rows }     
+                    { for rows }
                 </table>
             </div>
         }

@@ -188,7 +188,7 @@ impl OpcodeTrait for Opcode {
     /// ```
     fn xy(&self) -> (usize, usize) {
         let x = self.x();
-        const MASK : u16 = OPCODE_MASK_00FF ^ OPCODE_MASK_000F;
+        const MASK: u16 = OPCODE_MASK_00FF ^ OPCODE_MASK_000F;
         const NIBBLE: u16 = BYTE_SIZE / 2;
         let y = ((self & MASK) >> NIBBLE) as usize;
         (x, y)
@@ -670,7 +670,7 @@ impl TryFrom<Opcode> for Opcodes {
     fn try_from(value: Opcode) -> Result<Self, Self::Error> {
         // Outer convert
         // Shiffing t here so that match can use a loopuptable instead of a 'if else' - blocks
-        const SHIFT : usize = 4 * 3;
+        const SHIFT: usize = 4 * 3;
         let t = value.t() >> SHIFT;
         let res = match t {
             0x0 => Opcodes::Zero(try_into(value, value)?),
