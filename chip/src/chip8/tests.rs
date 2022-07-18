@@ -14,10 +14,9 @@ use super::InternalChipSet;
 
 const ROM_NAME: &'static str = "15PUZZLE";
 
-lazy_static::lazy_static! {
-    /// preloading this as it get's called multiple times per unit
-    static ref BASE_ROM : Rom = get_rom(ROM_NAME);
-}
+static BASE_ROM: once_cell::sync::Lazy<Rom> = once_cell::sync::Lazy::new(|| {
+    get_rom(ROM_NAME)
+});
 
 fn get_rom(s: &str) -> Rom {
     RomArchives::new()
