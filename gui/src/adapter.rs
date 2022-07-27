@@ -61,7 +61,6 @@ impl DisplayCommands for DisplayAdapter {
         log::debug!("Drawing the display");
 
         {
-            // TODO: update display cells and then callback to
             // update parent
             let mut display_state = self.display_state.borrow_mut();
 
