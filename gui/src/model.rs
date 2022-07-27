@@ -1,14 +1,12 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::{RefCell, Cell}, rc::Rc};
 
 use chip::{devices::KeyboardCommands, resources::RomArchives};
 use yew::{
     classes, function_component, html, Callback, Component, Context, Html, Properties, TargetCast,
 };
-use yew_agent::{Bridge, Bridged, Dispatched, Dispatcher};
 
 use crate::{
     adapter::{DisplayAdapter, DisplayState, KeyboardAdapter, SoundCallback},
-    event_bus::EventBus,
     timer::TimingWorker,
 };
 
@@ -41,8 +39,6 @@ struct State {
     #[debug(skip)]
     controller:
         Rc<RefCell<chip::Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>>>,
-    #[debug(skip)]
-    event_bus: Dispatcher<EventBus>,
 }
 
 impl Component for State {
@@ -102,7 +98,6 @@ impl Component for State {
             controller,
             keyboard_callbacks,
             tick_timer: Default::default(),
-            event_bus: EventBus::dispatcher(),
         }
     }
 
@@ -170,10 +165,8 @@ impl Component for State {
                 false
             }
             Msg::Display => {
-                // TODO: update display state, with changes
                 log::debug!("Update Display");
-                self.event_bus.send(Msg::Display);
-                false 
+                true
             }
         }
     }
@@ -301,55 +294,6 @@ fn draw_dropdown(props: &RomProp) -> Html {
 #[derive(Debug, Clone, PartialEq, Properties)]
 struct FieldProp {
     display: Rc<RefCell<DisplayState>>,
-}
-
-struct Field {
-    _event_bus: Box<dyn Bridge<EventBus>>,
-}
-
-impl Component for Field {
-    type Message = Msg;
-
-    type Properties = FieldProp;
-
-    fn create(ctx: &Context<Self>) -> Self {
-        Self {
-            _event_bus: EventBus::bridge(ctx.link().callback(|a| a)),
-        }
-    }
-
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        use crate::definitions::field;
-
-        let display = ctx.props().display.borrow();
-
-        let rows = display.state().iter().map(|row| {
-            let columns = row.iter().map(|&state| {
-                // reverse the state so that it fits with the active display cells
-                let state = (!state).then_some(field::ACTIVE);
-
-                html! {
-                    <th class={classes!(state)}></th>
-                }
-            });
-
-            html! {
-                <tr>
-                    { for columns }
-                </tr>
-            }
-        });
-
-        html! {
-            <table id = {field::ID}>
-                { for rows }
-            </table>
-        }
-    }
-
-    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
-        matches!(msg, Msg::Display)
-    }
 }
 
 fn draw_field(prop: &FieldProp) -> Html {

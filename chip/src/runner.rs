@@ -109,8 +109,6 @@ where
     S: TimerCallback,
     W: TimedWorker,
 {
-    log::debug!("running opperation");
-
     // Checks if the last operation was a wait and if
     // processing can continue.
     if *operation == Operation::Wait && !keyboard.was_pressed() {
@@ -122,8 +120,6 @@ where
 
     // run chip
     *operation = chip.step()?;
-
-    log::debug!("operation ran successfully");
 
     // Checks if we can redraw the screen after this or not.
     if *operation == Operation::Draw {
