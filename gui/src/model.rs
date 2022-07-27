@@ -1,4 +1,7 @@
-use std::{cell::{RefCell, Cell}, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 use chip::{devices::KeyboardCommands, resources::RomArchives};
 use yew::{
