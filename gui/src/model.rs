@@ -22,7 +22,27 @@ pub enum Msg {
     Roms(usize),
     Keyboard(yew::KeyboardEvent, bool),
     Display,
+    Tick,
 }
+
+/// 1S in millis
+const HZ_SEC: u64 = 1000;
+
+/// HZ of chip8 screen
+const CHIP_DRAWS: u64 = 60;
+
+/// HZ of chip8 processor
+const CHIP_HZ: u64 = chip::definitions::cpu::HERTZ;
+
+/// A how fast the timer should be
+/// 1000 / 60 ~16ms
+/// 1000 / 50 ~2ms
+///
+/// ~8x iterations
+const CHIP_DUR: u64 = HZ_SEC / CHIP_DRAWS;
+
+// how often the chip runs per drawing interval
+const CHIP_ITERS: u64 = CHIP_DUR / (HZ_SEC / CHIP_HZ);
 
 #[derive(Debug)]
 struct KeyboardCallbacks {
@@ -30,15 +50,16 @@ struct KeyboardCallbacks {
     key_down: Callback<yew::KeyboardEvent>,
 }
 
+type Controller = chip::Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>;
+
 #[derive(custom_debug::Debug)]
 struct State {
     props: Props,
     keyboard_callbacks: KeyboardCallbacks,
     #[debug(skip)]
-    tick_timer: Rc<RefCell<Option<gloo::timers::callback::Interval>>>,
+    tick_timer: Option<gloo::timers::callback::Interval>,
     #[debug(skip)]
-    controller:
-        Rc<RefCell<chip::Controller<DisplayAdapter, KeyboardAdapter, TimingWorker, SoundCallback>>>,
+    controller: Controller,
 }
 
 impl Component for State {
@@ -86,7 +107,7 @@ impl Component for State {
             KeyboardCallbacks { key_up, key_down }
         };
 
-        let controller = Rc::new(RefCell::new(chip::Controller::new(da, ka)));
+        let controller = chip::Controller::new(da, ka);
 
         let props = Props {
             field: field_prop,
@@ -101,11 +122,18 @@ impl Component for State {
         }
     }
 
-    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
+            Msg::Display => {
+                log::debug!("Update Display");
+                true
+            }
+            Msg::Keyboard(event, pressed) => {
+                handle_keypress(event, self.controller.keyboard(), pressed);
+                false
+            }
             Msg::Roms(new) => {
-                /* update state */
-                // TODO: update active chip
+                // update rom state
                 self.props.rom.roms.chosen = Some(new);
                 let name = &self.props.rom.roms.files[new];
                 log::debug!("name is <{}>", name);
@@ -114,59 +142,34 @@ impl Component for State {
                 let mut ra = RomArchives::new();
                 let rom = ra.get_file_data(name);
                 let rom = rom.expect("Able to correctly unwrap this rom file");
+                self.controller.set_rom(rom);
 
-                {
-                    let mut ct = self.controller.borrow_mut();
-                    ct.set_rom(rom);
-                    drop(ct);
-                }
-
-                // setup ticker
-                let tt = self.tick_timer.clone();
-                {
-                    let mut tt = tt.borrow_mut();
-                    if let Some(interval) = tt.take() {
-                        // implicit drop to cancel
-                        let _ = interval.cancel();
-                    }
-                }
-
-                let controller = self.controller.clone();
-
-                let dur = 16;
-
-                let callback = move || {
-                    // 1000 / 60 ~16ms
-                    // 1000 / 50 ~2ms
-                    //
-                    // ~8x iterations
-                    log::debug!("screen tick");
-
-                    for _ in 0..8 {
-                        if let Err(err) = chip::run(&mut controller.borrow_mut()) {
-                            log::error!("Unable to execute the tick <{}>", err);
-                            // stop the tick
-                            tt.borrow_mut().take();
-                        }
-                    }
-                };
-
-                {
-                    let mut tt = self.tick_timer.borrow_mut();
-                    *tt = Some(gloo::timers::callback::Interval::new(dur, callback));
-                }
+                // setup timer callback
+                let callback = ctx.link().callback(|_| Msg::Tick);
+                let callback = move || callback.emit(());
+                let tt = &mut self.tick_timer;
+                *tt = Some(gloo::timers::callback::Interval::new(
+                    CHIP_DUR as _,
+                    callback,
+                ));
 
                 true
             }
-            Msg::Keyboard(event, pressed) => {
-                // TODO: implement setting of keyboard
-                let mut ct = self.controller.borrow_mut();
-                handle_keypress(event, ct.keyboard(), pressed);
+            Msg::Tick => {
+                // 1000 / 60 ~16ms
+                // 1000 / 50 ~2ms
+                //
+                // ~8x iterations
+                log::debug!("screen tick");
+
+                for _ in 0..CHIP_ITERS {
+                    if let Err(err) = chip::run(&mut self.controller) {
+                        log::error!("Unable to execute the tick <{}>", err);
+                        // stop the tick
+                        self.tick_timer.take();
+                    }
+                }
                 false
-            }
-            Msg::Display => {
-                log::debug!("Update Display");
-                true
             }
         }
     }
