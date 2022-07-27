@@ -48,27 +48,26 @@ macro_rules! intformat {
 
 const INTSIZE: usize = 6;
 
-lazy_static::lazy_static! {
-    static ref POINTER_LEN : usize = {
-        // create a string that is big enough
-        let mut line = String::with_capacity(20);
-        // If there was an error panicing here is correct,
-        // as some essential component of printing went
-        // wrongly.
-        pointer_print::formatter(&mut line, 0,0).unwrap();
-        line.len()
-    };
-    static ref INTEGER_LEN : usize = {
-        let mut string = String::new();
-        // SAFETY: if something went wrong here panicing is correct.
-        integer_print::formatter(&mut string, 0u8).unwrap();
-        string.len()
-    };
-    // calculate a line lenght (This is a bit bigger then the actual line will be)
-    static ref LENLINE : usize = {
-        INDENT_SIZE + HEX_PRINT_STEP * (*INTEGER_LEN + 1) + 1 + *POINTER_LEN
-    };
-}
+static POINTER_LEN: once_cell::sync::Lazy<usize> = once_cell::sync::Lazy::new(|| {
+    // create a string that is big enough
+    let mut line = String::with_capacity(20);
+    // If there was an error panicing here is correct,
+    // as some essential component of printing went
+    // wrongly.
+    pointer_print::formatter(&mut line, 0, 0).unwrap();
+    line.len()
+});
+
+static INTEGER_LEN: once_cell::sync::Lazy<usize> = once_cell::sync::Lazy::new(|| {
+    let mut string = String::new();
+    // SAFETY: if something went wrong here panicing is correct.
+    integer_print::formatter(&mut string, 0u8).unwrap();
+    string.len()
+});
+
+static LENLINE: once_cell::sync::Lazy<usize> = once_cell::sync::Lazy::new(|| {
+    INDENT_SIZE + HEX_PRINT_STEP * (*INTEGER_LEN + 1) + 1 + *POINTER_LEN
+});
 
 /// Handles all the printing of the pointer values.
 mod pointer_print {
@@ -103,32 +102,30 @@ mod opcode_print {
     /// The values that are used when there are at lease two rows of zeros.
     const FILLER_BASE: &str = "...";
 
-    lazy_static::lazy_static! {
-        /// Prepares the line that will be used, in the case that there is at least two lines of only zeros.
-        static ref ZERO_FILLER : String = {
+    static ZERO_FILLER: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| {
         // preparing for the 0 block fillers
-            let mut formatted = String::new();
-            // SAFTY: If there is an error here panicing is correct
-            integer_print::formatter(&mut formatted, 0u16).unwrap();
-            match HEX_PRINT_STEP {
-                1 => formatted,
-                2 => format!("{} {}", formatted, formatted),
-                _ => {
-                    let lenght = formatted.len() * (HEX_PRINT_STEP - 2) + (HEX_PRINT_STEP - 1)
-                         - FILLER_BASE.len();
-                    let filler = " ".repeat(lenght / 2);
+        let mut formatted = String::new();
+        // SAFTY: If there is an error here panicing is correct
+        integer_print::formatter(&mut formatted, 0u16).unwrap();
+        match HEX_PRINT_STEP {
+            1 => formatted,
+            2 => format!("{} {}", formatted, formatted),
+            _ => {
+                let lenght = formatted.len() * (HEX_PRINT_STEP - 2) + (HEX_PRINT_STEP - 1)
+                    - FILLER_BASE.len();
+                let filler = " ".repeat(lenght / 2);
 
-                    format!("{}{}{}{}{}",
-                        formatted.clone(),
-                        filler.clone(),
-                        FILLER_BASE,
-                        filler,
-                        formatted
-                    )
-                }
+                format!(
+                    "{}{}{}{}{}",
+                    formatted.clone(),
+                    filler.clone(),
+                    FILLER_BASE,
+                    filler,
+                    formatted
+                )
             }
-       };
-    }
+        }
+    });
 
     /// this struct will simulate a single row of opcodes (only in this context)
     struct Row {
@@ -280,12 +277,9 @@ mod integer_print {
 mod bool_print {
     use super::{pointer_print, END_OF_LINE, HEX_PRINT_STEP};
 
-    lazy_static::lazy_static! {
-        /// the prepared true string
-        static ref TRUE : String = formatter("true");
-        /// the prepared false string
-        static ref FALSE: String = formatter("false");
-    }
+    static TRUE: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| formatter("true"));
+
+    static FALSE: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| formatter("false"));
 
     /// a function to keep the correct format length
     fn formatter(message: &str) -> String {

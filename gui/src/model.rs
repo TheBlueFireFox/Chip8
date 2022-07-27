@@ -17,8 +17,8 @@ pub fn app() -> Html {
     }
 }
 
-#[derive(Debug)]
-enum Msg {
+#[derive(Debug, Clone)]
+pub enum Msg {
     Roms(usize),
     Keyboard(yew::KeyboardEvent, bool),
     Display,
@@ -165,7 +165,6 @@ impl Component for State {
                 false
             }
             Msg::Display => {
-                // TODO: update display state, with changes
                 log::debug!("Update Display");
                 true
             }
@@ -174,7 +173,7 @@ impl Component for State {
 
     fn view(&self, _ctx: &Context<Self>) -> Html {
         let props_rom = self.props.rom.clone();
-        let props_field = self.props.field.clone();
+        let props_field = &self.props.field;
         let onkeyup = self.keyboard_callbacks.key_up.clone();
         let onkeydown = self.keyboard_callbacks.key_down.clone();
 
@@ -185,7 +184,7 @@ impl Component for State {
                 <keyboard_helper::KeyboardHelp />
                 <h1>{ "Chip8 Emulator" }</h1>
                 <RomDropdown ..props_rom />
-                { draw_field(&props_field) }
+                { draw_field(props_field) }
             </ div>
         }
     }
